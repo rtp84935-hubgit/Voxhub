@@ -56,7 +56,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 main{padding:24px 0 90px;min-width:0}
 .mtop{display:none}
 
-/* stories */
+/* stories (section removed, styles kept) */
 .stories{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 14px;margin-bottom:8px;scrollbar-width:none}
 .story{flex:0 0 auto;width:68px;text-align:center;font-size:12px;color:var(--muted)}
 .ring{width:66px;height:66px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--accent),var(--pink),var(--accent-2));margin-bottom:6px}
@@ -182,8 +182,51 @@ main{padding-top:4px}
     <div class="mtop"><a class="logo" href="/"><span class="logo-mark">V</span>VoxHub</a><button data-create style="font-size:22px">➕</button></div>
 
     <section id="homeView">
-      <!-- <div class="stories" id="stories"></div> -->
-      <div class="feed" id="feed"></div>
+      <!-- Posts are rendered by Django from the User_posts model -->
+      <div class="feed" id="feed">
+        {% for p in posts %}
+       <article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">
+          <div class="ph">
+            <div class="av"><img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}"></div>
+            <div><b>{{ p.USER.username }}</b></div>
+            <button class="more" aria-label="More">⋯</button>
+          </div>
+          <div class="media">
+            {% if p.is_video %}
+              <video src="{{ p.photo.url }}" controls playsinline></video>
+            {% else %}
+              <img src="{{ p.photo.url }}" alt="Post photo">
+            {% endif %}
+            <span class="pop">♥</span>
+          </div>
+          <div class="pa">
+            <button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button>
+            <button class="cbtn" aria-label="Comment">💬</button>
+            <button class="share" aria-label="Share">➤</button>
+            <button class="save" aria-label="Save">🔖</button>
+          </div>
+          <div class="pb">
+            <input type="hidden" name="postid" value="{{p.id}}"/>
+            <div class="likes">{{ p.like_count }} likes</div>
+            <div class="cap"><b>{{ p.USER.username }}</b>{{ p.caption }}</div>
+            {% with cs=p.comments_set.all %}
+<button class="vc">View all {{ cs|length }} comments</button>
+<div class="cmts hide">
+  {% for c in cs %}<p><b>{{ c.USER.username }}</b>{{ c.comment }}</p>{% endfor %}
+</div>
+{% endwith %}
+<form class="cf" action="{% url 'add_comment' %}" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="postid" value="{{ p.id }}">
+  <input name="comment" maxlength="100" placeholder="Add a comment..." autocomplete="off">
+  <button>Post</button>
+</form>
+          </div>
+        </article>
+        {% empty %}
+        <p id="noPosts" style="text-align:center;color:var(--muted)">No posts yet</p>
+        {% endfor %}
+      </div>
     </section>
 
     <section id="chatView" class="hide">
@@ -232,8 +275,8 @@ main{padding-top:4px}
 
 <div class="modal hide" id="modal"><div class="mbox">
   <h3>Create new post</h3>
-  <label class="drop" id="drop"><span id="dropTxt"><big>📷</big>Choose a photo or video</span><input type="file" id="file" accept="image/*,video/*" hidden></label>
-  <textarea id="capIn" rows="3" placeholder="Write a caption..."></textarea>
+  <label class="drop" id="drop"><span id="dropTxt"><big>📷</big>Choose a photo or video</span><input type="file" id="file" name="photo" accept="image/*,video/*" hidden></label>
+  <textarea id="capIn" name="caption" rows="3" placeholder="Write a caption..."></textarea>
   <div class="mact"><button type="button" id="cancel">Cancel</button><button type="button" class="go" id="share" disabled>Share</button></div>
 </div></div>
 
@@ -243,7 +286,7 @@ main{padding-top:4px}
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-// ---------- sample data (replace with your database) ----------
+// ---------- sample data (chat only; feed comes from the database) ----------
 const USERS = {
   anjali: ["AN", "linear-gradient(135deg,#f472b6,#7c6cff)"],
   arjun:  ["AR", "linear-gradient(135deg,#22d3ee,#34d399)"],
@@ -253,14 +296,8 @@ const USERS = {
   you:    ["You", "linear-gradient(135deg,#7c6cff,#22d3ee)"]
 };
 
-let posts = [
-  { id: 1, user: "anjali", time: "12 minutes ago", type: "photo", bg: "linear-gradient(160deg,#1e3a8a,#7c6cff 60%,#f472b6)", label: "🌧 Monsoon in Thrissur",
-    caption: "Rain, chai and nowhere to be.", likes: 248, comments: [["arjun", "Perfect mood 😍"], ["meera", "Take me there!"]] },
-  { id: 2, user: "arjun", time: "1 hour ago", type: "video", bg: "linear-gradient(160deg,#0f766e,#22d3ee 70%,#34d399)", label: "🎬 Weekend trek", dur: "0:24",
-    caption: "Sunrise at the top was worth the climb.", likes: 96, comments: [["anjali", "Wow, the view!"]] },
-  { id: 3, user: "meera", time: "3 hours ago", type: "photo", bg: "linear-gradient(160deg,#b45309,#fbbf24 55%,#f472b6)", label: "🎨 New canvas",
-    caption: "Finished this one last night. Thoughts?", likes: 512, comments: [["ravi", "Stunning colours"], ["sneha", "Love it 🔥"]] }
-];
+// new posts created in the modal are added here (existing posts are rendered by Django)
+let posts = [];
 
 const CHATS = [
   { u: "anjali", msgs: [["them", "Hey! Did you see my new post?"], ["you", "Yes, loved the rain photo 😍"], ["them", "Thanks! Coffee this weekend?"]] },
@@ -268,9 +305,6 @@ const CHATS = [
   { u: "meera",  msgs: [["them", "Can you share the painting link?"]] },
   { u: "ravi",   msgs: [["you", "Welcome to VoxHub!"], ["them", "Thanks, glad to be here"]] }
 ];
-
-// ---------- stories ----------
-
 
 // ---------- feed ----------
 function mediaHtml(p) {
@@ -285,10 +319,10 @@ function mediaHtml(p) {
 function postHtml(p) {
   const u = USERS[p.user] || USERS.you;
   const cm = p.comments.map(c => '<p><b>' + c[0] + '</b>' + esc(c[1]) + '</p>').join("");
-  return '<article class="post" id="post-' + p.id + '" data-n="' + p.likes + '">' +
+  return '<article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">' +
     '<div class="ph"><div class="av" style="background:' + u[1] + '">' + u[0] + '</div><div><b>' + p.user + '</b><span>' + p.time + '</span></div><button class="more" aria-label="More">⋯</button></div>' +
     '<div class="media" style="' + (p.src ? "" : "background:" + p.bg) + '">' + mediaHtml(p) + '<span class="pop">♥</span></div>' +
-    '<div class="pa"><button class="like" aria-label="Like">♡</button><button class="cbtn" aria-label="Comment">💬</button><button class="share" aria-label="Share">➤</button><button class="save" aria-label="Save">🔖</button></div>' +
+    '<div class="pa"><button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button><button class="cbtn" aria-label="Comment">💬</button><button class="share" aria-label="Share">➤</button><button class="save" aria-label="Save">🔖</button></div>' +
     '<div class="pb"><div class="likes">' + p.likes + ' likes</div>' +
     '<div class="cap"><b>' + p.user + '</b>' + esc(p.caption) + '</div>' +
     '<button class="vc">View all ' + p.comments.length + ' comments</button>' +
@@ -296,19 +330,33 @@ function postHtml(p) {
     '<form class="cf"><input placeholder="Add a comment..." autocomplete="off"><button>Post</button></form></div></article>';
 }
 
-function renderFeed() { $("feed").innerHTML = posts.map(postHtml).join(""); }
-renderFeed();
+function toggleLike(post, onlyLike) {
+  const btn = post.querySelector(".like");
+  if (onlyLike && btn.classList.contains("on")) return;   // double-tap never unlikes
+  const fd = new FormData();
+  fd.append("postid", post.dataset.id);
 
-function setLikes(post, liked) {
-  const base = +post.dataset.n, btn = post.querySelector(".like");
-  btn.classList.toggle("on", liked);
-  btn.textContent = liked ? "♥" : "♡";
-  post.querySelector(".likes").textContent = (base + (liked ? 1 : 0)) + " likes";
+  fetch("{% url 'toggle_like' %}", {
+    method: "POST", body: fd, credentials: "same-origin",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  })
+  .then(async r => {
+    const text = await r.text();
+    console.log("like status:", r.status, "url:", r.url, "body:", text.slice(0, 200));
+    let d = {};
+    try { d = JSON.parse(text); } catch (_) {}
+    if (!d.ok) { toast(d.error || "Like failed (" + r.status + ")"); return; }
+    btn.classList.toggle("on", d.liked);
+    btn.textContent = d.liked ? "♥" : "♡";
+    post.querySelector(".likes").textContent = d.count + " likes";
+  })
+  .catch(err => { console.error(err); toast("Network error"); });
 }
+
 
 $("feed").addEventListener("click", (e) => {
   const post = e.target.closest(".post"); if (!post) return;
-  if (e.target.closest(".like")) setLikes(post, !post.querySelector(".like").classList.contains("on"));
+  if (e.target.closest(".like")) toggleLike(post);
   else if (e.target.closest(".save")) post.querySelector(".save").classList.toggle("on");
   else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
     post.querySelector(".cmts").classList.toggle("hide");
@@ -324,22 +372,32 @@ $("feed").addEventListener("click", (e) => {
 $("feed").addEventListener("dblclick", (e) => {
   const m = e.target.closest(".media"); if (!m || e.target.closest("video")) return;
   const post = m.closest(".post"), pop = m.querySelector(".pop");
-  setLikes(post, true);
+  toggleLike(post, true);
   pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
 });
 
 $("feed").addEventListener("submit", (e) => {
   e.preventDefault();
-  const post = e.target.closest(".post"), input = e.target.querySelector("input"), text = input.value.trim();
-  if (!text) return;
-  const box = post.querySelector(".cmts");
-  box.insertAdjacentHTML("beforeend", '<p><b>you</b>' + esc(text) + '</p>');
-  box.classList.remove("hide");
-  const n = box.children.length;
-  post.querySelector(".vc").textContent = "View all " + n + " comments";
-  input.value = "";
-});
+  const form = e.target, post = form.closest(".post");
+  const input = form.querySelector("input[name=comment]");
+  if (!input.value.trim()) return;
 
+  fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" })
+    .then(async r => {
+      let d = {};
+      try { d = await r.json(); } catch (_) {}
+      if (r.ok && d.ok) {
+        const box = post.querySelector(".cmts");
+        box.insertAdjacentHTML("beforeend", '<p><b>' + esc(d.username) + '</b>' + esc(d.comment) + '</p>');
+        box.classList.remove("hide");
+        post.querySelector(".vc").textContent = "View all " + box.children.length + " comments";
+        input.value = "";
+      } else {
+        toast(d.error || "Comment failed (" + r.status + ")");
+      }
+    })
+    .catch(() => toast("Network error"));
+});
 // ---------- follow ----------
 document.querySelectorAll(".follow").forEach(b => b.addEventListener("click", () => {
   b.classList.toggle("on"); b.textContent = b.classList.contains("on") ? "Following" : "Follow";
@@ -405,11 +463,29 @@ $("file").addEventListener("change", function () {
 });
 
 $("share").addEventListener("click", () => {
-  if (!picked) return;
-  posts.unshift({ id: Date.now(), user: "you", time: "Just now", type: picked.type, src: picked.src, bg: "", label: "",
-                  caption: $("capIn").value.trim(), likes: 0, comments: [] });
-  renderFeed(); showView("home"); closeModal(); toast("Post shared");
-  // To save for real: send picked file + caption to your Django view with FormData + fetch.
+  const f = $("file").files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append("photo", f);
+  fd.append("caption", $("capIn").value.trim());
+  $("share").disabled = true;
+  fetch("{% url 'create_post' %}", {
+    method: "POST",
+    body: fd,
+    headers: { "X-CSRFToken": "{{ csrf_token }}" },
+    credentials: "same-origin"
+  })
+  .then(async r => {
+    let data = {};
+    try { data = await r.json(); } catch (e) {}
+    if (r.ok && data.ok) { location.reload(); }
+    else {
+      console.error("Upload failed", r.status, data);
+      toast(data.error || ("Upload failed (" + r.status + ")"));
+      $("share").disabled = false;
+    }
+  })
+  .catch(err => { console.error(err); toast("Network error"); $("share").disabled = false; });
 });
 
 // ---------- toast ----------

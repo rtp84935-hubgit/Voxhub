@@ -1,3 +1,5 @@
+from datetime import timezone,datetime
+
 from django.db import models
 
 # Create your models here.
@@ -65,3 +67,23 @@ class User_posts(models.Model):
     USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
     photo=models.FileField()
     caption=models.CharField(max_length=100)
+
+class Comments(models.Model):
+    comment=models.CharField(max_length=100)
+    USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
+    POST=models.ForeignKey(User_posts,on_delete=models.CASCADE)
+    date=models.DateTimeField(default=datetime.now)
+
+class Likes(models.Model):
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    POST = models.ForeignKey(User_posts, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('USER', 'POST')
+
+class Follow(models.Model):
+    FOLLOWER = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='following')
+    FOLLOWING = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='followers')
+
+    class Meta:
+        unique_together = ('FOLLOWER', 'FOLLOWING')

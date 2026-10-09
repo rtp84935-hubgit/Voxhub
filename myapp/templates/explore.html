@@ -236,21 +236,21 @@ main{padding-top:4px}
       {% if posts %}
       <div class="grid">
         {% for p in posts %}
-        <button class="tile" type="button"
-                data-type="{{ p.media_type }}" data-src="{{ p.media.url }}"
-                data-author="{{ p.author.username }}" data-caption="{{ p.caption }}"
-                data-likes="{{ p.like_count }}" data-comments="{{ p.comment_count }}"
-                data-like-url="{% url 'toggle_like' p.id %}" data-liked="{% if p.id in liked_ids %}1{% endif %}"
-                aria-label="Open post by {{ p.author.username }}">
-          {% if p.media_type == "video" %}<video src="{{ p.media.url }}#t=0.1" muted preload="metadata"></video><span class="vb">🎬</span>
-          {% else %}<img src="{{ p.media.url }}" alt="" loading="lazy">{% endif %}
-          <span class="ov"><span>♥ {{ p.like_count }}</span><span>💬 {{ p.comment_count }}</span></span>
-        </button>
+       <button class="tile" type="button"
+        data-type="{% if p.is_video %}video{% else %}photo{% endif %}" data-src="{{ p.photo.url }}"
+        data-author="{{ p.USER.username }}" data-caption="{{ p.caption }}"
+        data-post-id="{{ p.id }}"
+        data-likes="{{ p.like_count }}" data-comments="{{ p.comment_count }}"
+        data-liked="{% if p.id in liked_ids %}1{% endif %}"
+        aria-label="Open post by {{ p.USER.username }}">
+  {% if p.is_video %}<video src="{{ p.photo.url }}#t=0.1" muted preload="metadata"></video><span class="vb">🎬</span>
+  {% else %}<img src="{{ p.photo.url }}" alt="" loading="lazy">{% endif %}
+  <span class="ov"><span>♥ {{ p.like_count }}</span><span>💬 {{ p.comment_count }}</span></span>
+</button>
         {% endfor %}
       </div>
       {% else %}
-      <p class="none">{% if q %}No posts found for “{{ q }}”.{% else %}Nothing to explore yet. Be the first to post!{% endif %}</p>
-      {% endif %}
+<p class="none">{% if q %}{% if not people %}No people or posts found for “{{ q }}”.{% else %}No posts found for “{{ q }}”.{% endif %}{% else %}Nothing to explore yet. Be the first to post!{% endif %}</p>      {% endif %}
 
     </div>
   </main>
@@ -280,8 +280,10 @@ main{padding-top:4px}
 const $ = (id) => document.getElementById(id);
 const CSRF = "{{ csrf_token }}";
 
-function postForm(url) {
-  return fetch(url, { method: "POST", body: new FormData(), headers: { "X-CSRFToken": CSRF } }).then(r => r.json());
+function postForm(url, data) {
+  const fd = new FormData();
+  Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
+  return fetch(url, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRFToken": CSRF } }).then(r => r.json());
 }
 
 let toastTimer;
@@ -292,7 +294,7 @@ function toast(msg) {
 
 // ---------- follow buttons (people results) ----------
 document.querySelectorAll(".follow").forEach(b => b.addEventListener("click", async () => {
-  const d = await postForm(b.dataset.url);
+  const d = await postForm("{% url 'toggle_like' %}", { postid: openTile.dataset.postId });
   if (!d.ok) return;
   b.classList.toggle("on", d.following);
   b.textContent = d.following ? "Following" : "Follow";

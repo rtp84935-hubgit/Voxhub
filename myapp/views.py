@@ -11,11 +11,11 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-
-from myapp.models import UserProfile, VoiceProfile
+from django.db.models import Count, Exists, OuterRef
+from myapp.models import *
 from myapp.voice.enrollment import create_voice_profile, verify_voice
 
 logger = logging.getLogger(__name__)
@@ -365,17 +365,126 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def user_home(request):
-
     profile = UserProfile.objects.filter(LOGIN=request.user)
-    other_users=UserProfile.objects.all().exclude(LOGIN=request.user)
 
-    if profile is None:
+    # filter() never returns None, so check for an empty queryset instead
+    if not profile.exists():
         logout(request)
         return redirect("login")
 
-    return render(request, "user_home.html", {"me": profile,"others":other_users})
+    other_users = UserProfile.objects.exclude(LOGIN=request.user)
 
+    posts = (User_posts.objects
+        .select_related('USER')
+        .prefetch_related('comments_set__USER')
+        .annotate(
+            like_count=Count('likes', distinct=True),
+            liked=Exists(Likes.objects.filter(POST=OuterRef('pk'), USER__LOGIN=request.user)),
+        )
+        .order_by('-id'))
+
+    return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts})
+
+import re
+from django.db.models import Count, Q
+from django.shortcuts import render, get_object_or_404
+
+VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
+
+@login_required(login_url="login")
 def explore(request):
-    return render(request,'explore.html')
+    q = request.GET.get('q', '').strip()
+    kind = request.GET.get('type', '')
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-# def create_post(request):
+    posts = (User_posts.objects
+        .select_related('USER')
+        .annotate(
+            like_count=Count('likes', distinct=True),
+            comment_count=Count('comments', distinct=True),
+        )
+        .order_by('-id'))
+
+    people = []
+    if q:
+        # search users by name or username
+        people = (UserProfile.objects
+            .filter(Q(name__icontains=q) | Q(username__icontains=q))
+            .exclude(LOGIN=request.user)[:20])
+        # posts: caption or author's name
+        posts = posts.filter(
+            Q(caption__icontains=q) | Q(USER__name__icontains=q) | Q(USER__username__icontains=q)
+        )
+
+    if kind == 'video':
+        posts = posts.filter(photo__iregex=VIDEO_RE)
+    elif kind == 'photo':
+        posts = posts.exclude(photo__iregex=VIDEO_RE)
+
+    return render(request, 'explore.html', {
+        'q': q,
+        'kind': kind,
+        'people': people,
+        'posts': posts,
+        'liked_ids': set(Likes.objects.filter(USER=me).values_list('POST_id', flat=True)),
+        'following_ids': set(Follow.objects.filter(FOLLOWER=me).values_list('FOLLOWING_id', flat=True)),
+    })
+
+@login_required
+@require_POST
+def create_post(request):
+    photo = request.FILES.get('photo')
+    caption = request.POST.get('caption', '').strip()[:100]
+
+    if not photo:
+        return JsonResponse({'ok': False, 'error': 'No file received'}, status=400)
+
+    try:
+        profile = UserProfile.objects.get(LOGIN=request.user)
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'No UserProfile for this login'}, status=400)
+
+    post = User_posts.objects.create(USER=profile, photo=photo, caption=caption)
+    return JsonResponse({'ok': True, 'id': post.id})
+
+
+def add_comment(request):
+    text = request.POST.get('comment', '').strip()[:100]
+    if not text:
+        return JsonResponse({'ok': False, 'error': 'Empty comment'}, status=400)
+
+    post = get_object_or_404(User_posts, id=request.POST.get('postid'))
+    profile = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    Comments.objects.create(USER=profile, POST=post, comment=text)
+    return JsonResponse({'ok': True, 'username': profile.username, 'comment': text})
+    
+
+
+@login_required
+@require_POST
+def toggle_like(request):
+    post = get_object_or_404(User_posts, id=request.POST.get('postid'))
+    profile = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    like, created = Likes.objects.get_or_create(USER=profile, POST=post)
+    if not created:
+        like.delete()
+
+    return JsonResponse({
+        'ok': True,
+        'liked': created,
+        'count': Likes.objects.filter(POST=post).count(),
+    })
+
+@login_required
+@require_POST
+def toggle_follow(request, uid):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    target = get_object_or_404(UserProfile, id=uid)
+    if target == me:
+        return JsonResponse({'ok': False}, status=400)
+    obj, created = Follow.objects.get_or_create(FOLLOWER=me, FOLLOWING=target)
+    if not created:
+        obj.delete()
+    return JsonResponse({'ok': True, 'following': created})
