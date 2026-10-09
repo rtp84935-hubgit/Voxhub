@@ -1,0 +1,67 @@
+from django.db import models
+
+# Create your models here.
+from django.db import models
+from django.contrib.auth.models import User
+
+
+    
+class UserProfile(models.Model):
+    LOGIN=models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_profile")
+
+    name = models.CharField(max_length=100)
+
+    email = models.EmailField(unique=True)
+
+    phone_number = models.CharField(
+        max_length=15,
+        unique=True
+    )
+
+    username = models.CharField(
+        max_length=50,
+        unique=True
+    )
+
+    password = models.CharField(
+        max_length=128
+    )
+
+    profile_image = models.FileField(upload_to="profile_images/")
+    original_user = models.FileField(upload_to="original_images/")
+
+    # Voice biometric profile
+    voice_embedding = models.JSONField(
+        null=True,
+        blank=True
+    )
+
+    voice_sample_count = models.PositiveIntegerField(
+        default=0
+    )
+
+class VoiceProfile(models.Model):
+    USER=models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+
+    embedding = models.JSONField()
+
+    sample_count = models.PositiveIntegerField(
+        default=10
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    def __str__(self):
+        return self.username
+
+
+class User_posts(models.Model):
+    USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
+    photo=models.FileField()
+    caption=models.CharField(max_length=100)

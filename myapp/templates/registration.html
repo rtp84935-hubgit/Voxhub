@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>VoxHub Registration</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:        #0b0e1a;
+            --bg-glow-1: rgba(124, 108, 255, 0.18);
+            --bg-glow-2: rgba(34, 211, 238, 0.10);
+            --surface:   #131829;
+            --surface-2: #1a2036;
+            --line:      #272e49;
+            --text:      #e8eaf6;
+            --muted:     #8e96b8;
+            --accent:    #7c6cff;
+            --accent-2:  #22d3ee;
+            --ok:        #34d399;
+            --warn:      #fbbf24;
+            --bad:       #f87171;
+            --radius:    14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            color-scheme: dark;
+        }
+
+        body {
+            font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px 60px;
+            min-height: 100vh;
+            background:
+                radial-gradient(900px 500px at 10% -10%, var(--bg-glow-1), transparent 60%),
+                radial-gradient(800px 500px at 100% 0%, var(--bg-glow-2), transparent 60%),
+                var(--bg);
+            background-attachment: fixed;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 40px;
+            border-radius: 22px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0 0 34px;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #ffffff 0%, #b8b0ff 50%, #7ee7f7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        h2 {
+            margin: 40px 0 20px;
+            padding: 0 0 12px 14px;
+            border-bottom: 1px solid var(--line);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            color: var(--muted);
+            margin: 0 0 16px;
+        }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #c5cae6;
+            margin-bottom: 7px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            font: inherit;
+            color: var(--text);
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+
+        input:hover {
+            border-color: #38416a;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.28);
+        }
+
+        input[type="file"] {
+            padding: 9px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        input[type="file"]::file-selector-button {
+            margin-right: 12px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 11px 20px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), #5b8cff);
+            color: #fff;
+            margin-top: 8px;
+            transition: transform .12s ease, box-shadow .15s ease, filter .15s ease, background .15s ease;
+            box-shadow: 0 6px 18px rgba(124, 108, 255, 0.28);
+        }
+
+        button:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:focus-visible,
+        input:focus-visible {
+            outline: 2px solid var(--accent-2);
+            outline-offset: 2px;
+        }
+
+        button:disabled {
+            background: var(--surface-2);
+            color: #5d6590;
+            border-color: var(--line);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* secondary buttons */
+        #retakeBtn,
+        #prevQBtn,
+        #nextQBtn,
+        [id^="stopBtn"] {
+            background: var(--surface-2);
+            border-color: var(--line);
+            color: var(--text);
+            box-shadow: none;
+        }
+
+        #retakeBtn:hover:not(:disabled),
+        #prevQBtn:hover:not(:disabled),
+        #nextQBtn:hover:not(:disabled) {
+            border-color: var(--accent);
+        }
+
+        [id^="stopBtn"]:not(:disabled) {
+            background: rgba(248, 113, 113, 0.14);
+            border-color: rgba(248, 113, 113, 0.5);
+            color: #fecaca;
+        }
+
+        #profilePreview {
+            display: none;
+            max-width: 160px;
+            margin-top: 12px;
+            border-radius: 14px;
+            border: 2px solid var(--line);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ================= CAMERA + FACE GUIDE ================= */
+
+        .camera-container {
+            position: relative;
+            width: 500px;
+            max-width: 100%;
+            margin: auto;
+            overflow: hidden;
+            border-radius: 18px;
+            background: #000;
+            border: 1px solid var(--line);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            aspect-ratio: 4 / 3;            /* JS updates this to the real camera ratio */
+        }
+
+        #camera {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transform: scaleX(-1);          /* mirror preview only; captured image is NOT mirrored */
+        }
+
+        /* Circle = 70% of the video height.
+           The same 0.35 radius ratio is used in JS (CONFIG) and Django (CIRCLE_RADIUS_RATIO). */
+        .face-guide {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            height: 70%;
+            aspect-ratio: 1 / 1;
+            transform: translate(-50%, -50%);
+            border: 5px solid #ef4444;
+            border-radius: 50%;
+            box-shadow: 0 0 0 9999px rgba(5, 7, 15, 0.55);   /* dims everything outside the circle */
+            pointer-events: none;
+            transition: border-color .15s ease;
+        }
+
+        .face-guide.warn    { border-color: #fbbf24; }
+        .face-guide.face-ok { border-color: #34d399; }
+
+        .face-status {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(11, 14, 26, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(6px);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .face-status.success {
+            color: #4ade80;
+            border-color: rgba(74, 222, 128, 0.45);
+        }
+
+        /* ---------- alignment meter ---------- */
+
+        .meter {
+            max-width: 500px;
+            margin: 18px auto 6px;
+            padding: 14px 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+        }
+
+        .meter-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .meter-head strong {
+            color: var(--text);
+        }
+
+        .meter-track {
+            height: 12px;
+            background: #0d1122;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: hsl(0, 80%, 45%);
+            border-radius: 8px;
+            transition: width .12s linear, background .12s linear;
+        }
+
+        .checks {
+            list-style: none;
+            padding: 0;
+            margin: 12px 0 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .checks li::before {
+            content: "\2717  ";
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .checks li.ok {
+            color: var(--text);
+        }
+
+        .checks li.ok::before {
+            content: "\2713  ";
+            color: var(--ok);
+        }
+
+        .camera-buttons {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .camera-buttons button {
+            margin: 8px 4px 0;
+        }
+
+        #faceResult {
+            text-align: center;
+            margin-top: 12px;
+            font-weight: 700;
+        }
+
+        /* JS sets these colours inline for a light page; remap them for dark without touching the JS */
+        #faceResult[style*="black"],
+        #submitMessage[style*="black"] { color: var(--text) !important; }
+        #faceResult[style*="green"],
+        #submitMessage[style*="green"] { color: #4ade80 !important; }
+        #faceResult[style*="red"],
+        #submitMessage[style*="red"]   { color: #f87171 !important; }
+
+        #capturedImage {
+            display: none;
+            max-width: 300px;
+            width: 100%;
+            margin: 14px auto 0;
+            border-radius: 14px;
+            border: 2px solid var(--line);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        /* ================= VOICE ================= */
+
+        .voice-box {
+            border: 1px solid var(--line);
+            background: var(--surface-2);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: var(--radius);
+            transition: border-color .2s ease, background .2s ease;
+        }
+
+        /* one question at a time */
+        .voice-box {
+            display: none;
+        }
+
+        .voice-box.active {
+            display: block;
+        }
+
+        .voice-progress {
+            margin-bottom: 14px;
+        }
+
+        .voice-progress-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .voice-progress-track {
+            height: 8px;
+            background: #0d1122;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .voice-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            border-radius: 6px;
+            transition: width .25s ease;
+        }
+
+        .voice-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .voice-box.done {
+            border-color: rgba(52, 211, 153, 0.6);
+            background: linear-gradient(180deg, rgba(52, 211, 153, 0.10), var(--surface-2));
+        }
+
+        .question {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+        }
+
+        .timer {
+            margin-top: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .voice-box.done .timer {
+            color: var(--ok);
+        }
+
+        #voiceStatus {
+            margin-top: 16px;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            margin-top: 28px;
+            letter-spacing: 0.01em;
+            background: linear-gradient(135deg, var(--accent), #4f8dff 60%, var(--accent-2));
+            box-shadow: 0 10px 30px rgba(94, 120, 255, 0.35);
+        }
+
+        #submitMessage {
+            margin-top: 14px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 16px 12px 40px; }
+            .container { padding: 24px 18px; border-radius: 18px; }
+            h1 { font-size: 1.6rem; }
+            .face-status { font-size: 12px; padding: 6px 12px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>VoxHub Registration</h1>
+
+    <form id="registerForm" enctype="multipart/form-data">
+
+        {% csrf_token %}
+
+        <!-- ================= BASIC INFORMATION ================= -->
+
+        <h2>Basic Information</h2>
+
+        <div class="field">
+            <label>Full Name</label>
+            <input type="text" name="name" required>
+        </div>
+
+        <div class="field">
+            <label>Email</label>
+            <input type="email" name="email" required>
+        </div>
+
+        <div class="field">
+            <label>Phone</label>
+            <input type="tel" name="phone" required>
+        </div>
+
+        <div class="field">
+            <label>Username</label>
+            <input type="text" name="username" required>
+        </div>
+
+        <div class="field">
+            <label>Password</label>
+            <input type="password" name="password" id="password" required>
+        </div>
+
+        <div class="field">
+            <label>Confirm Password</label>
+            <input type="password" id="confirmPassword" required>
+        </div>
+
+
+        <!-- ================= PROFILE PICTURE ================= -->
+
+        <h2>Profile Picture</h2>
+
+        <div class="field">
+
+            <label>Upload Profile Picture</label>
+
+            <input
+                type="file"
+                name="profile_picture"
+                id="profilePicture"
+                accept="image/*"
+                required
+            >
+
+            <img id="profilePreview" alt="Profile Preview">
+
+        </div>
+
+
+        <!-- ================= ORIGINAL USER IMAGE ================= -->
+
+        <h2>Original User Image</h2>
+
+        <div class="camera-container" id="cameraContainer">
+            <video id="camera" autoplay playsinline muted></video>
+            <div id="faceGuide" class="face-guide"></div>
+            <div id="faceStatus" class="face-status">Press Start Camera</div>
+        </div>
+
+        <div class="meter">
+            <div class="meter-head">
+                <span>Face alignment</span>
+                <strong id="meterPct">0%</strong>
+            </div>
+            <div class="meter-track"><div id="meterFill" class="meter-fill"></div></div>
+            <ul class="checks" id="checks">
+                <li data-k="position">Centered</li>
+                <li data-k="size">Distance</li>
+                <li data-k="yaw">Facing forward</li>
+                <li data-k="roll">Head level</li>
+                <li data-k="light">Lighting</li>
+            </ul>
+        </div>
+
+        <div class="camera-buttons">
+            <button type="button" id="startCameraBtn" onclick="startCamera()">Start Camera</button>
+            <button type="button" id="captureBtn" onclick="captureImage()" disabled>Capture Image</button>
+            <button type="button" id="retakeBtn" onclick="retake()" style="display:none;">Retake</button>
+        </div>
+
+        <div id="faceResult"></div>
+
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <img id="capturedImage" alt="Captured Image">
+
+
+        <!-- ================= VOICE SAMPLES ================= -->
+
+        <h2>Voice Samples</h2>
+
+        <p>
+            Record all 10 voice samples. Each recording can be up to
+            5 seconds.
+        </p>
+
+        <div class="voice-progress">
+            <div class="voice-progress-head">
+                <span id="voiceProgressText">Question 1 of 10</span>
+            </div>
+            <div class="voice-progress-track">
+                <div id="voiceProgressFill" class="voice-progress-fill"></div>
+            </div>
+        </div>
+
+        <div id="voiceList"></div>
+
+        <div class="voice-nav">
+            <button type="button" id="prevQBtn" onclick="showQuestion(currentQ - 1)" disabled>
+                &larr; Previous
+            </button>
+            <button type="button" id="nextQBtn" onclick="showQuestion(currentQ + 1)" disabled>
+                Next &rarr;
+            </button>
+        </div>
+
+        <p id="voiceStatus">
+            0 / 10 voice samples recorded
+        </p>
+
+
+        <!-- ================= SUBMIT ================= -->
+
+        <button
+            type="submit"
+            class="submit-btn">
+            Register
+        </button>
+
+        <div id="submitMessage"></div>
+
+    </form>
+
+</div>
+
+
+<!-- MediaPipe (load ONCE) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+
+<script>
+
+const $ = (id) => document.getElementById(id);
+
+
+// =====================================================
+// SETTINGS - tweak these to make it stricter / looser
+// =====================================================
+
+const CONFIG = {
+    circleRadiusRatio: 0.35,     // must match CSS (70% height) and Django CIRCLE_RADIUS_RATIO
+    holdMs: 800,                 // how long 100% must be held before auto-capture
+
+    // how much each check is worth (must add up to 100)
+    weights: { position: 30, size: 20, yaw: 20, roll: 15, light: 15 },
+
+    // full marks inside "perfect"; score falls linearly to 0 at "zero"
+    position: { perfect: 0.12, zero: 0.50 },          // face centre distance / circle radius
+    size:     { perfectLo: 0.55, perfectHi: 0.80,     // face width / circle diameter
+                zeroLo: 0.30,   zeroHi: 1.10 },
+    yaw:      { perfect: 0.12, zero: 0.40 },          // nose offset / eye distance
+    roll:     { perfect: 5, zero: 15 },               // head tilt in degrees
+    light:    { perfectLo: 80, perfectHi: 180,        // face brightness 0-255
+                zeroLo: 30,   zeroHi: 235 }
+};
+
+const REGISTER_URL    = "/myapp/register/";       // <-- change to your register URL
+const DETECT_FACE_URL = "/myapp/detect-face/";
+
+
+// =====================================================
+// FACE CAPTURE STATE
+// =====================================================
+
+let cameraStream = null;
+let faceDetector = null;
+let detectingFace = false;
+let loopRunning = false;
+let capturing = false;
+let lastScore = 0;
+let displayScore = 0;
+let perfectSince = 0;
+let frameCount = 0;
+let lastBrightness = 128;
+let originalImageBlob = null;
+
+const sampleCanvas = document.createElement("canvas");
+sampleCanvas.width = 32;
+sampleCanvas.height = 32;
+const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+
+
+// =====================================================
+// HELPERS
+// =====================================================
+
+// 1 inside [pLo, pHi]; linearly falls to 0 at zLo / zHi
+function band(v, pLo, pHi, zLo, zHi) {
+    if (v >= pLo && v <= pHi) return 1;
+    if (v < pLo) return Math.max(0, (v - zLo) / (pLo - zLo));
+    return Math.max(0, (zHi - v) / (zHi - pHi));
+}
+
+function measureBrightness(video, cx, cy, fw, fh) {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const sx = Math.max(0, cx - fw / 2), sy = Math.max(0, cy - fh / 2);
+    const sw = Math.min(vw - sx, fw),    sh = Math.min(vh - sy, fh);
+    if (sw < 4 || sh < 4) return lastBrightness;
+
+    sampleCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 32, 32);
+    const d = sampleCtx.getImageData(0, 0, 32, 32).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) {
+        sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    }
+    return sum / (d.length / 4);
+}
+
+function getCookie(name) {
+    let value = null;
+    if (document.cookie) {
+        document.cookie.split(";").forEach(c => {
+            c = c.trim();
+            if (c.startsWith(name + "=")) {
+                value = decodeURIComponent(c.substring(name.length + 1));
+            }
+        });
+    }
+    return value;
+}
+
+
+// =====================================================
+// START / STOP CAMERA
+// =====================================================
+
+async function startCamera() {
+    try {
+        const video = $("camera");
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width:  { ideal: 960 },
+                height: { ideal: 720 },
+                facingMode: "user"
+            },
+            audio: false
+        });
+
+        video.srcObject = cameraStream;
+        await video.play();
+
+        // make the container match the real camera ratio so the circle maths is exact
+        $("cameraContainer").style.aspectRatio =
+            video.videoWidth + " / " + video.videoHeight;
+
+        $("startCameraBtn").disabled = true;
+        $("faceResult").innerHTML = "";
+
+        initializeFaceDetection();
+        startLoop();
+    }
+    catch (error) {
+        console.error("Camera error:", error);
+        alert("Unable to access camera. Please allow camera permission (HTTPS or localhost is required).");
+    }
+}
+
+function stopCamera() {
+    detectingFace = false;
+
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+
+    $("camera").srcObject = null;
+    $("captureBtn").disabled = true;
+    $("startCameraBtn").disabled = false;
+    $("faceGuide").className = "face-guide";
+}
+
+function retake() {
+    originalImageBlob = null;
+    $("capturedImage").style.display = "none";
+    $("retakeBtn").style.display = "none";
+    $("faceResult").innerHTML = "";
+    startCamera();
+}
+
+
+// =====================================================
+// MEDIAPIPE
+// =====================================================
+
+function initializeFaceDetection() {
+    if (faceDetector) return;
+
+    faceDetector = new FaceDetection({
+        locateFile: (file) =>
+            "https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/" + file
+    });
+
+    faceDetector.setOptions({
+        model: "short",
+        minDetectionConfidence: 0.6
+    });
+
+    faceDetector.onResults(onResults);
+}
+
+function startLoop() {
+    detectingFace = true;
+    if (loopRunning) return;
+    loopRunning = true;
+    detectLoop();
+}
+
+async function detectLoop() {
+    if (!detectingFace) {
+        loopRunning = false;
+        return;
+    }
+
+    const video = $("camera");
+
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+        try {
+            await faceDetector.send({ image: video });
+        } catch (e) {
+            console.error("Face detection error:", e);
+        }
+    }
+
+    requestAnimationFrame(detectLoop);
+}
+
+
+// =====================================================
+// SCORING
+// =====================================================
+
+function onResults(results) {
+    if (!detectingFace) return;
+
+    const dets = results.detections || [];
+
+    if (dets.length === 0) {
+        return report(0, null, "No face detected");
+    }
+    if (dets.length > 1) {
+        return report(0, null, "Only one face allowed");
+    }
+
+    const video = $("camera");
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const det = dets[0];
+    const b = det.boundingBox;
+
+    // ---- face box in video pixels ----
+    const cx = b.xCenter * vw;
+    const cy = b.yCenter * vh;
+    const fw = b.width * vw;
+    const fh = b.height * vh;
+
+    // ---- guide circle in video pixels ----
+    const R = CONFIG.circleRadiusRatio * vh;
+
+    const distance  = Math.hypot(cx - vw / 2, cy - vh / 2) / R;
+    const sizeRatio = fw / (2 * R);
+
+    // ---- head pose from landmarks (0 = right eye, 1 = left eye, 2 = nose tip) ----
+    let yawOff = 0, rollDeg = 0;
+    const lm = det.landmarks;
+
+    if (lm && lm.length >= 3) {
+        const ax = lm[0].x * vw, ay = lm[0].y * vh;
+        const bx = lm[1].x * vw, by = lm[1].y * vh;
+        const nx = lm[2].x * vw;
+
+        const eyeDist = Math.hypot(bx - ax, by - ay);
+
+        if (eyeDist > 1) {
+            yawOff = Math.abs(nx - (ax + bx) / 2) / eyeDist;
+
+            let ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
+            if (ang > 90)  ang -= 180;
+            if (ang < -90) ang += 180;
+            rollDeg = Math.abs(ang);
+        }
+    } else {
+        console.warn("No landmarks returned - pose checks skipped");
+    }
+
+    // ---- lighting (sampled every 6th frame to stay fast) ----
+    if (frameCount++ % 6 === 0) {
+        lastBrightness = measureBrightness(video, cx, cy, fw, fh);
+    }
+
+    const C = CONFIG;
+
+    const comps = {
+        position: band(distance, 0, C.position.perfect, 0, C.position.zero),
+        size:     band(sizeRatio, C.size.perfectLo, C.size.perfectHi, C.size.zeroLo, C.size.zeroHi),
+        yaw:      band(yawOff, 0, C.yaw.perfect, 0, C.yaw.zero),
+        roll:     band(rollDeg, 0, C.roll.perfect, 0, C.roll.zero),
+        light:    band(lastBrightness, C.light.perfectLo, C.light.perfectHi, C.light.zeroLo, C.light.zeroHi)
+    };
+
+    let total = 0;
+    for (const k in comps) total += comps[k] * C.weights[k];
+
+    // floor => 100 only when EVERY check is perfect
+    const score = Math.floor(total + 1e-9);
+
+    // ---- one clear instruction, most important first ----
+    let hint = "";
+
+    if (comps.size < 1) {
+        hint = sizeRatio < C.size.perfectLo ? "Move closer" : "Move slightly back";
+    }
+    else if (comps.position < 1) {
+        // video is mirrored on screen, so image-right = screen-left
+        const dx = cx - vw / 2, dy = cy - vh / 2;
+        if (Math.abs(dx) >= Math.abs(dy)) hint = dx > 0 ? "Move right" : "Move left";
+        else                              hint = dy > 0 ? "Move up"    : "Move down";
+    }
+    else if (comps.yaw < 1)  hint = "Look straight at the camera";
+    else if (comps.roll < 1) hint = "Keep your head level";
+    else if (comps.light < 1) hint = lastBrightness < C.light.perfectLo
+                                    ? "Need more light on your face"
+                                    : "Too bright - avoid backlight";
+
+    report(score, comps, hint);
+}
+
+
+// =====================================================
+// UI + AUTO CAPTURE
+// =====================================================
+
+function report(score, comps, hint) {
+    lastScore = score;
+
+    // smooth the number shown, but only show 100% when it is truly 100
+    if (score === 100) {
+        displayScore = 100;
+    } else {
+        displayScore = Math.min(99, Math.round(displayScore + (score - displayScore) * 0.4));
+    }
+
+    const pct = displayScore;
+    $("meterPct").textContent = pct + "%";
+    $("meterFill").style.width = pct + "%";
+    $("meterFill").style.background = "hsl(" + (pct * 1.2) + ", 80%, 45%)";
+
+    document.querySelectorAll("#checks li").forEach(li => {
+        li.classList.toggle("ok", !!comps && comps[li.dataset.k] >= 0.999);
+    });
+
+    const guide  = $("faceGuide");
+    const status = $("faceStatus");
+
+    guide.className = "face-guide" + (score === 100 ? " face-ok" : score >= 60 ? " warn" : "");
+    status.classList.toggle("success", score === 100);
+
+    $("captureBtn").disabled = !(score === 100) || capturing;
+
+    if (score === 100) {
+        const now = performance.now();
+        if (!perfectSince) perfectSince = now;
+
+        const left = Math.max(0, CONFIG.holdMs - (now - perfectSince));
+        status.textContent = "\u2713 Perfect - hold still (" + (left / 1000).toFixed(1) + "s)";
+
+        if (left === 0) captureImage();
+    } else {
+        perfectSince = 0;
+        status.textContent = hint || "Position your face inside the circle";
+    }
+}
+
+
+// =====================================================
+// CAPTURE + SERVER VERIFY
+// =====================================================
+
+function captureImage() {
+    if (capturing || lastScore < 100) return;
+
+    const video = $("camera");
+    const canvas = $("canvas");
+    const capturedImage = $("capturedImage");
+    const faceResult = $("faceResult");
+
+    if (!video.videoWidth) return;
+
+    capturing = true;
+    detectingFace = false;          // pause live detection while verifying
+    perfectSince = 0;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    capturedImage.src = canvas.toDataURL("image/jpeg", 0.95);
+    capturedImage.style.display = "block";
+
+    faceResult.innerHTML = "Verifying image...";
+    faceResult.style.color = "black";
+    $("captureBtn").disabled = true;
+
+    canvas.toBlob(function (blob) {
+
+        if (!blob) {
+            return faceFail("Could not create image.");
+        }
+
+        const formData = new FormData();
+        formData.append("original_image", blob, "original_image.jpg");
+
+        fetch(DETECT_FACE_URL, {
+            method: "POST",
+            body: formData,
+            headers: { "X-CSRFToken": getCookie("csrftoken") }
+        })
+        .then(r => {
+            if (!r.ok) throw new Error("Server error " + r.status);
+            return r.json();
+        })
+        .then(data => {
+            if (data.face_detected) {
+                originalImageBlob = blob;
+                faceResult.innerHTML = "\u2705 Face verified. Image accepted.";
+                faceResult.style.color = "green";
+                $("retakeBtn").style.display = "inline-block";
+                capturing = false;
+                stopCamera();
+            } else {
+                faceFail(data.error || "Face not accepted.");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            faceFail("Error sending image to server.");
+        });
+
+    }, "image/jpeg", 0.95);
+}
+
+function faceFail(message) {
+    originalImageBlob = null;
+    capturing = false;
+
+    $("capturedImage").style.display = "none";
+    $("faceResult").innerHTML = "\u274C " + message + " Try again.";
+    $("faceResult").style.color = "red";
+
+    startLoop();                    // resume live detection
+}
+
+
+// =====================================================
+// PROFILE PICTURE PREVIEW
+// =====================================================
+
+$("profilePicture").addEventListener("change", function () {
+    const file = this.files[0];
+    const preview = $("profilePreview");
+
+    if (!file) {
+        preview.style.display = "none";
+        return;
+    }
+
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
+});
+
+
+// =====================================================
+// VOICE SAMPLES
+// =====================================================
+
+const QUESTIONS = [
+    "What is your name?",
+    "Where are you from?",
+    "What are your hobbies?",
+    "What is your favorite food?",
+    "What is your favorite movie?",
+    "What do you do in your free time?",
+    "What is your favorite color?",
+    "Tell me about your favorite sport.",
+    "What is your dream job?",
+    "Why do you want to join VoxHub?"
+];
+
+const MAX_SECONDS = 5;
+const voiceBlobs = {};          // { 1: Blob, 2: Blob, ... }
+
+let recorder = null;
+let recStream = null;
+let recChunks = [];
+let recIndex = null;
+let recTimer = null;
+let recSeconds = 0;
+
+// build the 10 voice boxes (same ids as before: recordBtn1, stopBtn1, timer1)
+(function buildVoiceBoxes() {
+    const list = $("voiceList");
+
+    QUESTIONS.forEach((q, i) => {
+        const n = i + 1;
+        const box = document.createElement("div");
+        box.className = "voice-box";
+        box.id = "voiceBox" + n;
+        box.innerHTML =
+            '<div class="question">' + n + '. ' + q + '</div>' +
+            '<button type="button" id="recordBtn' + n + '" onclick="startRecording(' + n + ')">Record</button> ' +
+            '<button type="button" id="stopBtn' + n + '" onclick="stopRecording()" disabled>Stop</button>' +
+            '<div class="timer" id="timer' + n + '">0 seconds</div>';
+        list.appendChild(box);
+    });
+})();
+
+// ---------- one-by-one navigation (recording functions are untouched) ----------
+
+let currentQ = 1;
+
+function showQuestion(n) {
+    currentQ = Math.max(1, Math.min(10, n));
+
+    for (let i = 1; i <= 10; i++) {
+        $("voiceBox" + i).classList.toggle("active", i === currentQ);
+    }
+
+    updateNav();
+}
+
+function updateNav() {
+    const isRecording = recorder !== null;
+
+    $("voiceProgressText").textContent = "Question " + currentQ + " of 10";
+    $("voiceProgressFill").style.width = (Object.keys(voiceBlobs).length * 10) + "%";
+
+    // can't leave a question while recording; can't go forward until it is recorded
+    $("prevQBtn").disabled = currentQ === 1 || isRecording;
+    $("nextQBtn").disabled = currentQ === 10 || isRecording || !voiceBlobs[currentQ];
+}
+
+function updateVoiceStatus() {
+    $("voiceStatus").textContent =
+        Object.keys(voiceBlobs).length + " / 10 voice samples recorded";
+
+    updateNav();
+}
+
+showQuestion(1);
+
+function setVoiceButtons(activeIndex) {
+    // while recording, lock every other Record button
+    for (let n = 1; n <= 10; n++) {
+        $("recordBtn" + n).disabled = activeIndex !== null;
+        $("stopBtn" + n).disabled = n !== activeIndex;
+    }
+}
+
+async function startRecording(n) {
+    if (recorder) return;
+
+    try {
+        recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+        console.error(e);
+        alert("Unable to access microphone. Please allow microphone permission.");
+        return;
+    }
+
+    recIndex = n;
+    recChunks = [];
+    recSeconds = 0;
+
+    recorder = new MediaRecorder(recStream);
+
+    recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recChunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+        clearInterval(recTimer);
+
+        const blob = new Blob(recChunks, { type: recorder.mimeType || "audio/webm" });
+        const idx = recIndex;
+
+        recStream.getTracks().forEach(t => t.stop());
+        recorder = null;
+        recStream = null;
+        recIndex = null;
+
+        if (blob.size > 0) {
+            voiceBlobs[idx] = blob;
+            $("voiceBox" + idx).classList.add("done");
+            $("timer" + idx).textContent = "Recorded (" + Math.min(recSeconds, MAX_SECONDS) + " seconds)";
+        } else {
+            $("timer" + idx).textContent = "Recording failed, try again";
+        }
+
+        setVoiceButtons(null);
+        updateVoiceStatus();
+    };
+
+    $("voiceBox" + n).classList.remove("done");
+    delete voiceBlobs[n];
+    updateVoiceStatus();
+
+    setVoiceButtons(n);
+    recorder.start();
+
+    $("timer" + n).textContent = "Recording... 0 seconds";
+
+    recTimer = setInterval(() => {
+        recSeconds++;
+        $("timer" + n).textContent = "Recording... " + recSeconds + " seconds";
+
+        if (recSeconds >= MAX_SECONDS) stopRecording();
+    }, 1000);
+}
+
+function stopRecording() {
+    if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+    }
+}
+
+
+// =====================================================
+// SUBMIT
+// =====================================================
+
+$("registerForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const msg = $("submitMessage");
+    msg.style.color = "red";
+
+    if ($("password").value !== $("confirmPassword").value) {
+        msg.textContent = "Passwords do not match.";
+        return;
+    }
+
+    if (!originalImageBlob) {
+        msg.textContent = "Please capture and verify your face image.";
+        return;
+    }
+
+    if (Object.keys(voiceBlobs).length < 10) {
+        msg.textContent = "Please record all 10 voice samples.";
+        return;
+    }
+
+    // form fields + profile_picture (+ csrf token)
+    const formData = new FormData(this);
+
+    formData.append("original_image", originalImageBlob, "original_image.jpg");
+
+    for (let n = 1; n <= 10; n++) {
+        formData.append("voice" + n, voiceBlobs[n], "voice" + n + ".webm");
+    }
+
+    msg.style.color = "black";
+    msg.textContent = "Submitting...";
+
+    try {
+        const response = await fetch(REGISTER_URL, {
+            method: "POST",
+            body: formData,
+            headers: { "X-CSRFToken": getCookie("csrftoken") }
+        });
+
+        const data = await response.json();
+
+        msg.style.color = data.success ? "green" : "red";
+        msg.textContent = data.message || (data.success ? "Registered." : "Registration failed.");
+    }
+    catch (err) {
+        console.error(err);
+        msg.style.color = "red";
+        msg.textContent = "Error sending data to server.";
+    }
+});
+
+</script>
+
+</body>
+</html>

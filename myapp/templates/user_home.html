@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoxHub - Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.av {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #7c6cff, #22d3ee);
+}
+
+.av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+:root{--bg:#0b0e1a;--surface:#131829;--surface-2:#1a2036;--line:#272e49;--text:#e8eaf6;--muted:#8e96b8;--accent:#7c6cff;--accent-2:#22d3ee;--ok:#34d399;--pink:#f472b6}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--text);line-height:1.5;min-height:100vh;
+background:radial-gradient(900px 500px at 5% -10%,rgba(124,108,255,.16),transparent 60%),radial-gradient(800px 500px at 100% 0,rgba(34,211,238,.09),transparent 60%),var(--bg);background-attachment:fixed}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input,textarea{font:inherit;color:var(--text)}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
+.hide{display:none!important}
+
+/* layout */
+.app{max-width:1180px;margin:auto;display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:28px;padding:0 20px}
+.side{position:sticky;top:0;height:100vh;padding:24px 0;display:flex;flex-direction:column}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.35rem;letter-spacing:-.02em;margin:0 12px 22px}
+.logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;font-size:17px}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button,.nav a{display:flex;align-items:center;gap:14px;padding:12px;border-radius:12px;font-weight:600;font-size:15px;color:var(--muted);text-align:left;transition:background .15s,color .15s}
+.nav button:hover,.nav a:hover{background:var(--surface-2);color:var(--text)}
+.nav .on{color:#fff;background:rgba(124,108,255,.16)}
+.ico{width:24px;text-align:center;font-size:19px}
+.badge{margin-left:auto;background:var(--pink);color:#1a0612;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px}
+.me{margin-top:auto}
+main{padding:24px 0 90px;min-width:0}
+.mtop{display:none}
+
+/* stories */
+.stories{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 14px;margin-bottom:8px;scrollbar-width:none}
+.story{flex:0 0 auto;width:68px;text-align:center;font-size:12px;color:var(--muted)}
+.ring{width:66px;height:66px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--accent),var(--pink),var(--accent-2));margin-bottom:6px}
+.ring .av{width:100%;height:100%;border:3px solid var(--bg);font-size:17px}
+.story.seen .ring{background:var(--line)}
+.av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 auto}
+
+/* posts */
+.feed{max-width:480px;margin:auto}
+.post{background:var(--surface);border:1px solid var(--line);border-radius:18px;margin-bottom:22px;overflow:hidden}
+.ph{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.ph .av{width:38px;height:38px;font-size:14px}
+.ph b{display:block;line-height:1.2;font-size:14px}.ph span{font-size:12px;color:var(--muted)}
+.ph .more{margin-left:auto;color:var(--muted);font-size:20px;padding:0 6px}
+.media{position:relative;aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;user-select:none}
+.media img,.media video{width:100%;height:100%;object-fit:cover;display:block}
+.media .ph-label{font-size:13px;font-weight:700;color:rgba(255,255,255,.75);text-align:center}
+.media .ph-label big{display:block;font-size:46px;margin-bottom:4px}
+.vplay{position:absolute;inset:auto auto 14px 14px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
+.pop{position:absolute;font-size:90px;pointer-events:none;opacity:0;transform:scale(.4);filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
+.pop.go{animation:pop .7s ease-out}
+@keyframes pop{20%{opacity:1;transform:scale(1.1)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
+.pa{display:flex;align-items:center;gap:4px;padding:8px 10px 0}
+.pa button{font-size:23px;padding:6px 9px;border-radius:10px;line-height:1;transition:transform .12s,background .15s}
+.pa button:hover{background:var(--surface-2)}
+.pa .like.on{color:var(--pink);transform:scale(1.08)}
+.pa .save{margin-left:auto}.pa .save.on{color:var(--accent-2)}
+.pb{padding:4px 16px 14px;font-size:14px}
+.pb .likes{font-weight:800;margin-bottom:4px}
+.pb .cap b{margin-right:6px}
+.vc{color:var(--muted);font-size:13px;margin-top:6px;padding:0}
+.vc:hover{color:var(--text)}
+.cmts{margin-top:8px}.cmts p{margin:0 0 6px}.cmts b{margin-right:6px}
+.cf{display:flex;gap:10px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.cf input{flex:1;background:none;border:0;font-size:14px}
+.cf input:focus{outline:none}.cf input::placeholder{color:#5d6590}
+.cf button{color:var(--accent);font-weight:800;font-size:14px;opacity:.5}
+.cf input:not(:placeholder-shown)+button{opacity:1}
+
+/* right column */
+.right{padding:28px 0;position:sticky;top:0;height:100vh;overflow:auto}
+.row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.row .av{width:42px;height:42px;font-size:14px}
+.row b{display:block;font-size:14px;line-height:1.2}.row span{font-size:12px;color:var(--muted)}
+.follow{margin-left:auto;font-weight:800;font-size:13px;color:var(--accent)}
+.follow.on{color:var(--muted)}
+.right h4{margin:22px 0 14px;font-size:14px;color:var(--muted)}
+
+/* chat */
+.chat{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 48px);min-height:480px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.clist{border-right:1px solid var(--line);overflow:auto}
+.clist h3{margin:0;padding:18px 18px 10px;font-size:1.1rem}
+.ci{display:flex;align-items:center;gap:12px;padding:12px 18px;width:100%;text-align:left}
+.ci:hover,.ci.on{background:var(--surface-2)}
+.ci .av{width:46px;height:46px;font-size:15px}
+.ci b{display:block;font-size:14px;line-height:1.2}
+.ci span{font-size:13px;color:var(--muted);display:block;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thread{display:flex;flex-direction:column;min-width:0}
+.th{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.th .av{width:38px;height:38px;font-size:14px}
+.th b{display:block;line-height:1.2}.th span{font-size:12px;color:var(--ok)}
+.back{display:none;font-size:20px;padding:0 6px}
+.msgs{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:72%;padding:10px 14px;border-radius:18px;font-size:14px;word-wrap:break-word}
+.m.them{background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:6px;align-self:flex-start}
+.m.you{background:linear-gradient(135deg,var(--accent),#4f8dff);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
+.mf{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
+.mf input{flex:1;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:14px}
+.mf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
+.send{padding:0 20px;border-radius:999px;font-weight:800;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
+.empty{margin:auto;color:var(--muted);text-align:center}
+
+/* modal + toast */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(5,7,15,.75);backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}
+.mbox{width:460px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.mbox h3{margin:0 0 14px;text-align:center}
+.drop{display:grid;place-items:center;aspect-ratio:4/3;border:2px dashed var(--line);border-radius:14px;background:var(--surface-2);color:var(--muted);text-align:center;cursor:pointer;overflow:hidden;font-weight:600}
+.drop:hover{border-color:var(--accent)}
+.drop img,.drop video{width:100%;height:100%;object-fit:cover}
+.drop big{display:block;font-size:40px}
+.mbox textarea{width:100%;margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);resize:none;font-size:14px}
+.mbox textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
+.mact{display:flex;gap:10px;margin-top:14px}
+.mact button{flex:1;padding:12px;border-radius:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-2)}
+.mact .go{border:0;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
+.mact .go:disabled{opacity:.45;cursor:not-allowed}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-weight:700;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.bar{display:none}
+
+@media(max-width:1060px){.app{grid-template-columns:76px minmax(0,1fr)}.right{display:none}.nav span.t,.logo span.t,.badge{display:none}.logo{margin:0 0 22px 8px}.nav button,.nav a{justify-content:center}}
+@media(max-width:760px){
+.app{grid-template-columns:1fr;gap:0;padding:0 12px}.side{display:none}
+.mtop{display:flex;align-items:center;justify-content:space-between;padding:14px 4px;position:sticky;top:0;z-index:20;background:var(--bg)}
+.mtop .logo{margin:0}
+main{padding-top:4px}
+.chat{grid-template-columns:1fr;height:calc(100vh - 150px)}
+.chat .thread{display:none}.chat.open .clist{display:none}.chat.open .thread{display:flex}.back{display:block}
+.bar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(19,24,41,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);justify-content:space-around;padding:8px 0 10px}
+.bar button{font-size:22px;padding:6px 14px;border-radius:10px;color:var(--muted)}.bar .on{color:#fff}
+.toast{bottom:80px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="side">
+    <a class="logo" href="/"><span class="logo-mark">V</span><span class="t">VoxHub</span></a>
+    <nav class="nav" aria-label="Main">
+      <button class="on" data-view="home"><span class="ico">🏠</span><span class="t">Home</span></button>
+      <a href="/myapp/explore/" data-view="home"><span class="ico">🔎</span><span class="t">Explore</span></a>
+      <button data-view="chat"><span class="ico">💬</span><span class="t">Messages</span><span class="badge">2</span></button>
+      <button><span class="ico">🔔</span><span class="t">Notifications</span></button>
+      <button data-create><span class="ico">➕</span><span class="t">Create</span></button>
+      <button><span class="ico">👤</span><span class="t">Profile</span></button>
+    </nav>
+    <div class="nav me"><a href="/myapp/logout_view/"><span class="ico">⎋</span><span class="t">Log out</span></a></div>
+  </aside>
+
+  <main>
+    <div class="mtop"><a class="logo" href="/"><span class="logo-mark">V</span>VoxHub</a><button data-create style="font-size:22px">➕</button></div>
+
+    <section id="homeView">
+      <!-- <div class="stories" id="stories"></div> -->
+      <div class="feed" id="feed"></div>
+    </section>
+
+    <section id="chatView" class="hide">
+      <div class="chat" id="chat">
+        <div class="clist"><h3>Messages</h3><div id="clist"></div></div>
+        <div class="thread">
+          <div class="empty" id="noThread">Pick a conversation to start chatting</div>
+          <div class="th hide" id="th"><button class="back" id="back" aria-label="Back">←</button><div class="av" id="thAv"></div><div><b id="thName"></b><span>Active now</span></div></div>
+          <div class="msgs hide" id="msgs"></div>
+          <form class="mf hide" id="mf"><input id="mi" placeholder="Message..." autocomplete="off"><button class="send">Send</button></form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="right">
+    {% for i in me %}
+<div class="row">
+    <div class="av">
+        <img src="{{ i.profile_image.url }}" alt="{{ i.name }}">
+    </div>
+
+    <div>
+        <b>{{ i.name }}</b>
+        <span>{{ i.username }}</span>
+    </div>
+</div>    {% endfor %}
+    <h4>Suggested for you</h4>
+    {% for i in others %}
+    <div class="row"><div class="av" style="background:linear-gradient(135deg,#7c6cff,#f472b6)">{{i.name}}</div><div><b></b><span> </span></div><button class="follow">Follow</button></div>
+    {% endfor %}
+    <!-- <div class="row"><div class="av" style="background:linear-gradient(135deg,#22d3ee,#7c6cff)">SP</div><div><b>sneha.p</b><span>New to VoxHub</span></div><button class="follow">Follow</button></div>
+    <div class="row"><div class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)">DJ</div><div><b>dj.anand</b><span>Suggested for you</span></div><button class="follow">Follow</button></div>
+    <div class="row"><div class="av" style="background:linear-gradient(135deg,#fbbf24,#f472b6)">MS</div><div><b>meera.s</b><span>Followed by arjun</span></div><button class="follow">Follow</button></div> -->
+  </aside>
+
+</div>
+
+<nav class="bar" aria-label="Mobile">
+  <button class="on" data-view="home" aria-label="Home">🏠</button>
+  <a href="/myapp/explore/" data-view="home" aria-label="Explore">🔎</a>
+  <button data-create aria-label="Create">➕</button>
+  <button data-view="chat" aria-label="Messages">💬</button>
+  <button aria-label="Profile">👤</button>
+</nav>
+
+<div class="modal hide" id="modal"><div class="mbox">
+  <h3>Create new post</h3>
+  <label class="drop" id="drop"><span id="dropTxt"><big>📷</big>Choose a photo or video</span><input type="file" id="file" accept="image/*,video/*" hidden></label>
+  <textarea id="capIn" rows="3" placeholder="Write a caption..."></textarea>
+  <div class="mact"><button type="button" id="cancel">Cancel</button><button type="button" class="go" id="share" disabled>Share</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---------- sample data (replace with your database) ----------
+const USERS = {
+  anjali: ["AN", "linear-gradient(135deg,#f472b6,#7c6cff)"],
+  arjun:  ["AR", "linear-gradient(135deg,#22d3ee,#34d399)"],
+  meera:  ["MS", "linear-gradient(135deg,#fbbf24,#f472b6)"],
+  ravi:   ["RK", "linear-gradient(135deg,#7c6cff,#f472b6)"],
+  sneha:  ["SP", "linear-gradient(135deg,#22d3ee,#7c6cff)"],
+  you:    ["You", "linear-gradient(135deg,#7c6cff,#22d3ee)"]
+};
+
+let posts = [
+  { id: 1, user: "anjali", time: "12 minutes ago", type: "photo", bg: "linear-gradient(160deg,#1e3a8a,#7c6cff 60%,#f472b6)", label: "🌧 Monsoon in Thrissur",
+    caption: "Rain, chai and nowhere to be.", likes: 248, comments: [["arjun", "Perfect mood 😍"], ["meera", "Take me there!"]] },
+  { id: 2, user: "arjun", time: "1 hour ago", type: "video", bg: "linear-gradient(160deg,#0f766e,#22d3ee 70%,#34d399)", label: "🎬 Weekend trek", dur: "0:24",
+    caption: "Sunrise at the top was worth the climb.", likes: 96, comments: [["anjali", "Wow, the view!"]] },
+  { id: 3, user: "meera", time: "3 hours ago", type: "photo", bg: "linear-gradient(160deg,#b45309,#fbbf24 55%,#f472b6)", label: "🎨 New canvas",
+    caption: "Finished this one last night. Thoughts?", likes: 512, comments: [["ravi", "Stunning colours"], ["sneha", "Love it 🔥"]] }
+];
+
+const CHATS = [
+  { u: "anjali", msgs: [["them", "Hey! Did you see my new post?"], ["you", "Yes, loved the rain photo 😍"], ["them", "Thanks! Coffee this weekend?"]] },
+  { u: "arjun",  msgs: [["them", "Trek photos are up"], ["you", "Checking them out now"]] },
+  { u: "meera",  msgs: [["them", "Can you share the painting link?"]] },
+  { u: "ravi",   msgs: [["you", "Welcome to VoxHub!"], ["them", "Thanks, glad to be here"]] }
+];
+
+// ---------- stories ----------
+
+
+// ---------- feed ----------
+function mediaHtml(p) {
+  if (p.src) return p.type === "video"
+    ? '<video src="' + p.src + '" controls playsinline></video>'
+    : '<img src="' + p.src + '" alt="Post photo">';
+  // placeholder media: swap for your real image or video URL (post.image.url / post.video.url)
+  return '<div class="ph-label"><big>' + p.label.split(" ")[0] + '</big>' + p.label.split(" ").slice(1).join(" ") + '</div>' +
+    (p.type === "video" ? '<span class="vplay">▶ ' + (p.dur || "0:15") + '</span>' : "");
+}
+
+function postHtml(p) {
+  const u = USERS[p.user] || USERS.you;
+  const cm = p.comments.map(c => '<p><b>' + c[0] + '</b>' + esc(c[1]) + '</p>').join("");
+  return '<article class="post" id="post-' + p.id + '" data-n="' + p.likes + '">' +
+    '<div class="ph"><div class="av" style="background:' + u[1] + '">' + u[0] + '</div><div><b>' + p.user + '</b><span>' + p.time + '</span></div><button class="more" aria-label="More">⋯</button></div>' +
+    '<div class="media" style="' + (p.src ? "" : "background:" + p.bg) + '">' + mediaHtml(p) + '<span class="pop">♥</span></div>' +
+    '<div class="pa"><button class="like" aria-label="Like">♡</button><button class="cbtn" aria-label="Comment">💬</button><button class="share" aria-label="Share">➤</button><button class="save" aria-label="Save">🔖</button></div>' +
+    '<div class="pb"><div class="likes">' + p.likes + ' likes</div>' +
+    '<div class="cap"><b>' + p.user + '</b>' + esc(p.caption) + '</div>' +
+    '<button class="vc">View all ' + p.comments.length + ' comments</button>' +
+    '<div class="cmts hide">' + cm + '</div>' +
+    '<form class="cf"><input placeholder="Add a comment..." autocomplete="off"><button>Post</button></form></div></article>';
+}
+
+function renderFeed() { $("feed").innerHTML = posts.map(postHtml).join(""); }
+renderFeed();
+
+function setLikes(post, liked) {
+  const base = +post.dataset.n, btn = post.querySelector(".like");
+  btn.classList.toggle("on", liked);
+  btn.textContent = liked ? "♥" : "♡";
+  post.querySelector(".likes").textContent = (base + (liked ? 1 : 0)) + " likes";
+}
+
+$("feed").addEventListener("click", (e) => {
+  const post = e.target.closest(".post"); if (!post) return;
+  if (e.target.closest(".like")) setLikes(post, !post.querySelector(".like").classList.contains("on"));
+  else if (e.target.closest(".save")) post.querySelector(".save").classList.toggle("on");
+  else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
+    post.querySelector(".cmts").classList.toggle("hide");
+    post.querySelector(".cf input").focus();
+  }
+  else if (e.target.closest(".share")) {
+    const link = location.origin + location.pathname + "#" + post.id;
+    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast("Link copied"), () => toast("Link: " + link));
+  }
+});
+
+// double-tap the media to like
+$("feed").addEventListener("dblclick", (e) => {
+  const m = e.target.closest(".media"); if (!m || e.target.closest("video")) return;
+  const post = m.closest(".post"), pop = m.querySelector(".pop");
+  setLikes(post, true);
+  pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
+});
+
+$("feed").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const post = e.target.closest(".post"), input = e.target.querySelector("input"), text = input.value.trim();
+  if (!text) return;
+  const box = post.querySelector(".cmts");
+  box.insertAdjacentHTML("beforeend", '<p><b>you</b>' + esc(text) + '</p>');
+  box.classList.remove("hide");
+  const n = box.children.length;
+  post.querySelector(".vc").textContent = "View all " + n + " comments";
+  input.value = "";
+});
+
+// ---------- follow ----------
+document.querySelectorAll(".follow").forEach(b => b.addEventListener("click", () => {
+  b.classList.toggle("on"); b.textContent = b.classList.contains("on") ? "Following" : "Follow";
+}));
+
+// ---------- views ----------
+function showView(v) {
+  $("homeView").classList.toggle("hide", v !== "home");
+  $("chatView").classList.toggle("hide", v !== "chat");
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v && (v === "chat" || b.textContent.includes("Home") || b.getAttribute("aria-label") === "Home")));
+}
+document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
+
+// ---------- chat ----------
+let cur = null;
+function renderList() {
+  $("clist").innerHTML = CHATS.map((c, i) => {
+    const last = c.msgs[c.msgs.length - 1];
+    return '<button class="ci' + (i === cur ? " on" : "") + '" data-i="' + i + '"><div class="av" style="background:' + USERS[c.u][1] + '">' + USERS[c.u][0] + '</div><div><b>' + c.u + '</b><span>' + (last[0] === "you" ? "You: " : "") + esc(last[1]) + '</span></div></button>';
+  }).join("");
+}
+function renderThread() {
+  const c = CHATS[cur];
+  $("thAv").style.background = USERS[c.u][1]; $("thAv").textContent = USERS[c.u][0]; $("thName").textContent = c.u;
+  $("msgs").innerHTML = c.msgs.map(m => '<div class="m ' + m[0] + '">' + esc(m[1]) + '</div>').join("");
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+}
+$("clist").addEventListener("click", (e) => {
+  const b = e.target.closest(".ci"); if (!b) return;
+  cur = +b.dataset.i;
+  ["th", "msgs", "mf"].forEach(id => $(id).classList.remove("hide"));
+  $("noThread").classList.add("hide");
+  $("chat").classList.add("open");
+  renderList(); renderThread(); $("mi").focus();
+});
+$("back").addEventListener("click", () => $("chat").classList.remove("open"));
+$("mf").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("mi").value.trim(); if (!t || cur === null) return;
+  CHATS[cur].msgs.push(["you", t]); $("mi").value = "";
+  renderList(); renderThread();
+});
+renderList();
+
+// ---------- create post ----------
+let picked = null;
+const openModal = () => $("modal").classList.remove("hide");
+const closeModal = () => {
+  $("modal").classList.add("hide"); picked = null; $("file").value = ""; $("capIn").value = "";
+  $("dropTxt").innerHTML = "<big>📷</big>Choose a photo or video"; $("share").disabled = true;
+};
+document.querySelectorAll("[data-create]").forEach(b => b.addEventListener("click", openModal));
+$("cancel").addEventListener("click", closeModal);
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+$("file").addEventListener("change", function () {
+  const f = this.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f), isVideo = f.type.startsWith("video");
+  picked = { src: url, type: isVideo ? "video" : "photo" };
+  $("dropTxt").innerHTML = isVideo ? '<video src="' + url + '" muted></video>' : '<img src="' + url + '" alt="Preview">';
+  $("share").disabled = false;
+});
+
+$("share").addEventListener("click", () => {
+  if (!picked) return;
+  posts.unshift({ id: Date.now(), user: "you", time: "Just now", type: picked.type, src: picked.src, bg: "", label: "",
+                  caption: $("capIn").value.trim(), likes: 0, comments: [] });
+  renderFeed(); showView("home"); closeModal(); toast("Post shared");
+  // To save for real: send picked file + caption to your Django view with FormData + fetch.
+});
+
+// ---------- toast ----------
+let tt;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 2000);
+}
+</script>
+</body>
+</html>
