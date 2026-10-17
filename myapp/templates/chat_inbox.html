@@ -1,0 +1,738 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoxHub - Messages</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --bg: #0b0e1a;
+    --surface: #131829;
+    --surface-2: #1a2036;
+    --line: #272e49;
+    --text: #e8eaf6;
+    --muted: #8e96b8;
+    --accent: #7c6cff;
+    --accent-2: #22d3ee;
+    --pink: #f472b6;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: "Manrope", sans-serif;
+    background:
+        radial-gradient(900px 500px at 5% -10%, rgba(124,108,255,.16), transparent 60%),
+        radial-gradient(800px 500px at 100% 0, rgba(34,211,238,.09), transparent 60%),
+        var(--bg);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button, input {
+    font: inherit;
+}
+
+.app {
+    max-width: 1180px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr) 300px;
+    gap: 28px;
+    padding: 0 20px;
+}
+
+/* LEFT SIDEBAR */
+
+.side {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.35rem;
+    margin: 0 12px 28px;
+}
+
+.logo-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid;
+    place-items: center;
+    color: white;
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    transition: .2s;
+}
+
+.nav a:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.nav a.active {
+    background: rgba(124,108,255,.16);
+    color: white;
+}
+
+.ico {
+    width: 25px;
+    text-align: center;
+    font-size: 19px;
+}
+
+.side-bottom {
+    margin-top: auto;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: var(--surface);
+}
+
+.side-bottom p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
+/* MAIN */
+
+main {
+    padding: 28px 0 60px;
+    min-width: 0;
+}
+
+.heading {
+    margin-bottom: 25px;
+}
+
+.eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent-2);
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.heading h1 {
+    font-size: 28px;
+    letter-spacing: -1px;
+    margin: 0;
+}
+
+.heading p {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+/* INBOX */
+
+.inbox {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.inbox-top {
+    padding: 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.inbox-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 17px;
+}
+
+.inbox-title h2 {
+    font-size: 16px;
+    margin: 0;
+}
+
+.count {
+    font-size: 11px;
+    color: var(--accent-2);
+    background: rgba(34,211,238,.08);
+    padding: 5px 9px;
+    border-radius: 20px;
+}
+
+.search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 0 13px;
+    height: 44px;
+    background: var(--bg);
+}
+
+.search span {
+    font-size: 19px;
+    color: var(--muted);
+}
+
+.search input {
+    min-width: 0;
+    flex: 1;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    border: none;
+    font-size: 12px;
+}
+
+.search input::placeholder {
+    color: var(--muted);
+}
+
+.people {
+    padding: 8px;
+}
+
+.person {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 14px 12px;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    transition: .2s;
+    min-width: 0;
+}
+
+.person:hover {
+    background: var(--surface-2);
+    border-color: var(--line);
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    border: 2px solid rgba(124,108,255,.6);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.avatar-letter {
+    display: grid;
+    place-items: center;
+    color: white;
+    font-weight: 800;
+}
+
+.person-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.person-info strong {
+    display: block;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-info span {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.open-chat {
+    width: 35px;
+    height: 35px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: var(--accent-2);
+    background: rgba(124,108,255,.12);
+    border-radius: 10px;
+    font-size: 17px;
+}
+
+.person:hover .open-chat {
+    background: var(--accent);
+    color: white;
+}
+
+.empty {
+    text-align: center;
+    padding: 45px 15px;
+}
+
+.empty-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.empty h3 {
+    font-size: 15px;
+    margin: 0 0 8px;
+}
+
+.empty p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+}
+
+/* RIGHT SIDEBAR */
+
+.right {
+    padding: 30px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.profile-card,
+.info-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    padding: 18px;
+    margin-bottom: 20px;
+}
+
+.profile-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.profile-row .avatar {
+    width: 44px;
+    height: 44px;
+}
+
+.profile-row strong {
+    display: block;
+    font-size: 13px;
+}
+
+.profile-row span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.right h3 {
+    margin: 0 0 16px;
+    font-size: 14px;
+}
+
+.tip {
+    display: flex;
+    gap: 11px;
+    margin-bottom: 17px;
+}
+
+.tip:last-child {
+    margin-bottom: 0;
+}
+
+.tip-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    border-radius: 10px;
+}
+
+.tip strong {
+    font-size: 12px;
+}
+
+.tip p {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin: 5px 0 0;
+}
+
+.footer {
+    margin-top: 25px;
+    color: var(--muted);
+    text-align: center;
+    font-size: 11px;
+}
+
+.footer a {
+    color: var(--accent-2);
+}
+
+/* MOBILE */
+
+.mobile-top,
+.mobile-nav {
+    display: none;
+}
+
+@media (max-width: 1050px) {
+    .app {
+        grid-template-columns: 76px minmax(0, 1fr);
+    }
+
+    .right {
+        display: none;
+    }
+
+    .logo {
+        justify-content: center;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .logo .brand-name,
+    .nav .nav-text {
+        display: none;
+    }
+
+    .nav a {
+        justify-content: center;
+    }
+
+    .side-bottom {
+        display: none;
+    }
+}
+
+@media (max-width: 650px) {
+    .app {
+        display: block;
+        padding: 0 13px;
+    }
+
+    .side {
+        display: none;
+    }
+
+    .mobile-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 17px 0;
+    }
+
+    .mobile-top .logo {
+        margin: 0;
+        justify-content: flex-start;
+    }
+
+    main {
+        padding-top: 8px;
+        padding-bottom: 85px;
+    }
+
+    .heading h1 {
+        font-size: 25px;
+    }
+
+    .inbox-top {
+        padding: 15px;
+    }
+
+    .person {
+        padding: 12px 7px;
+        gap: 10px;
+    }
+
+    .avatar {
+        width: 43px;
+        height: 43px;
+    }
+
+    .mobile-nav {
+        display: flex;
+        justify-content: space-around;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        padding: 12px 5px;
+        border-top: 1px solid var(--line);
+        background: rgba(19,24,41,.96);
+        backdrop-filter: blur(12px);
+    }
+
+    .mobile-nav a {
+        font-size: 21px;
+        color: var(--muted);
+    }
+
+    .mobile-nav a.active {
+        color: var(--accent-2);
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- LEFT NAVIGATION -->
+    <aside class="side">
+        <a class="logo" href="/myapp/user_home/">
+            <span class="logo-mark">V</span>
+            <span class="brand-name">VoxHub</span>
+        </a>
+
+        <nav class="nav">
+            <a href="/myapp/user_home/">
+                <span class="ico">🏠</span>
+                <span class="nav-text">Home</span>
+            </a>
+
+            <a href="/myapp/explore/">
+                <span class="ico">🔎</span>
+                <span class="nav-text">Explore</span>
+            </a>
+
+            <a href="/myapp/chat/" class="active">
+                <span class="ico">💬</span>
+                <span class="nav-text">Messages</span>
+            </a>
+
+            <a href="/myapp/user_home/">
+                <span class="ico">🔔</span>
+                <span class="nav-text">Notifications</span>
+            </a>
+
+            <a href="/myapp/user_home/">
+                <span class="ico">👤</span>
+                <span class="nav-text">Profile</span>
+            </a>
+        </nav>
+
+        <div class="side-bottom">
+            <strong>Stay connected ✨</strong>
+            <p>Meet people and keep your VoxHub conversations going.</p>
+        </div>
+
+        <nav class="nav" style="margin-top:auto">
+            <a href="/myapp/logout_view/">
+                <span class="ico">⎋</span>
+                <span class="nav-text">Log out</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MOBILE HEADER -->
+    <div class="mobile-top">
+        <a class="logo" href="/myapp/user_home/">
+            <span class="logo-mark">V</span>
+            <span>VoxHub</span>
+        </a>
+        <a href="/myapp/user_home/" style="font-size:21px">⌂</a>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <header class="heading">
+            <div class="eyebrow">Your community</div>
+            <h1>Messages <span style="color:var(--accent)">.</span></h1>
+            <p>Connect, chat and keep in touch with your people.</p>
+        </header>
+
+        <section class="inbox">
+            <div class="inbox-top">
+                <div class="inbox-title">
+                    <h2>People on VoxHub</h2>
+                    <span class="count">{{ users|length }} users</span>
+                </div>
+
+                <label class="search">
+                    <span>⌕</span>
+                    <input id="user-search"
+                           type="search"
+                           placeholder="Search name or username..."
+                           autocomplete="off">
+                </label>
+            </div>
+
+            <div class="people" id="people-list">
+                {% for person in users %}
+                    <a class="person"
+                       href="{% url 'chat_room' person.id %}"
+                       data-search="{{ person.name|lower }} {{ person.username|lower }}">
+
+                        {% if person.profile_image %}
+                            <img class="avatar"
+                                 src="{{ person.profile_image.url }}"
+                                 alt="{{ person.username }}">
+                        {% else %}
+                            <div class="avatar avatar-letter">
+                                {{ person.username|first|upper }}
+                            </div>
+                        {% endif %}
+
+                        <div class="person-info">
+                            <strong>{{ person.name|default:person.username }}</strong>
+                            <span>@{{ person.username }}</span>
+                        </div>
+
+                        <div class="open-chat" aria-label="Open conversation">➤</div>
+                    </a>
+                {% empty %}
+                    <div class="empty">
+                        <div class="empty-icon">💬</div>
+                        <h3>No conversations yet</h3>
+                        <p>When more people join VoxHub,<br>you can start chatting here.</p>
+                    </div>
+                {% endfor %}
+
+                <div class="empty" id="no-results" hidden>
+                    <div class="empty-icon">🔎</div>
+                    <h3>No users found</h3>
+                    <p>Try searching for another name or username.</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="footer">
+            Made for your community ·
+            <a href="/myapp/user_home/">Back to Home</a>
+        </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="right">
+        <section class="profile-card">
+            <div class="profile-row">
+                {% if me.profile_image %}
+                    <img class="avatar"
+                         src="{{ me.profile_image.url }}"
+                         alt="{{ me.username }}">
+                {% else %}
+                    <div class="avatar avatar-letter">
+                        {{ me.username|first|upper }}
+                    </div>
+                {% endif %}
+
+                <div>
+                    <strong>{{ me.name|default:me.username }}</strong>
+                    <span>@{{ me.username }}</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="info-card">
+            <h3>Messaging tips</h3>
+
+            <div class="tip">
+                <div class="tip-icon">✉</div>
+                <div>
+                    <strong>Start a conversation</strong>
+                    <p>Select a user to open your private chat.</p>
+                </div>
+            </div>
+
+            <div class="tip">
+                <div class="tip-icon">⚡</div>
+                <div>
+                    <strong>Stay connected</strong>
+                    <p>Send messages and reply in your chat window.</p>
+                </div>
+            </div>
+
+            <div class="tip">
+                <div class="tip-icon">♡</div>
+                <div>
+                    <strong>Build your community</strong>
+                    <p>Keep in touch with people on VoxHub.</p>
+                </div>
+            </div>
+        </section>
+    </aside>
+</div>
+
+<!-- MOBILE BOTTOM NAVIGATION -->
+<nav class="mobile-nav">
+    <a href="/myapp/user_home/">🏠</a>
+    <a href="/myapp/explore/">🔎</a>
+    <a href="/myapp/chat/" class="active">💬</a>
+    <a href="/myapp/user_home/">👤</a>
+</nav>
+
+<script>
+const searchInput = document.getElementById("user-search");
+const people = document.querySelectorAll(".person");
+const noResults = document.getElementById("no-results");
+
+searchInput.addEventListener("input", function () {
+    const query = this.value.toLowerCase().trim();
+    let visible = 0;
+
+    people.forEach(function (person) {
+        const text = person.dataset.search || "";
+        const matches = text.includes(query);
+
+        person.style.display = matches ? "flex" : "none";
+
+        if (matches) visible++;
+    });
+
+    noResults.hidden = visible !== 0;
+});
+</script>
+
+</body>
+</html>

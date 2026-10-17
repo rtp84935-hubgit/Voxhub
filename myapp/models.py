@@ -14,6 +14,8 @@ class UserProfile(models.Model):
     name = models.CharField(max_length=100)
 
     email = models.EmailField(unique=True)
+    
+    bio = models.TextField(blank=True, default="")
 
     phone_number = models.CharField(
         max_length=15,
@@ -87,3 +89,32 @@ class Follow(models.Model):
 
     class Meta:
         unique_together = ('FOLLOWER', 'FOLLOWING')
+
+
+class ChatMessage(models.Model):
+    sender = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name="sent_messages"
+    )
+
+    receiver = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name="received_messages"
+    )
+
+    message = models.TextField(max_length=2000)
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["timestamp", "id"]
+
+    def __str__(self):
+        return f"{self.sender.username} -> {self.receiver.username}"
+
+
+

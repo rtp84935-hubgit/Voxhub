@@ -1,0 +1,232 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat with {{ other.username }}</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0c1118;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .layout {
+            display: flex;
+            max-width: 1000px;
+            height: 100vh;
+            margin: auto;
+        }
+        .sidebar {
+            width: 240px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #111a25;
+        }
+        .sidebar a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .sidebar a:hover { background: #263447; }
+        .conversation {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 18px;
+        }
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px 0;
+        }
+        .bubble {
+            max-width: 75%;
+            width: fit-content;
+            padding: 10px 14px;
+            border-radius: 14px;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+        }
+        .mine {
+            align-self: flex-end;
+            background: #6257e8;
+        }
+        .theirs {
+            align-self: flex-start;
+            background: #202c3a;
+        }
+        .time {
+            display: block;
+            margin-top: 5px;
+            font-size: 11px;
+            opacity: .7;
+        }
+        form {
+            display: flex;
+            gap: 8px;
+        }
+        input {
+            flex: 1;
+            min-width: 0;
+            padding: 13px;
+            border: 0;
+            border-radius: 20px;
+            background: #202c3a;
+            color: white;
+        }
+        button {
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 20px;
+            background: #6257e8;
+            color: white;
+            cursor: pointer;
+        }
+        #error { color: #ff8b8b; }
+        @media (max-width: 600px) {
+            .sidebar { width: 105px; padding: 5px; }
+            .conversation { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <h3>Chats</h3>
+        {% for person in users %}
+            <a href="{% url 'chat_room' person.id %}">
+                {{ person.username }}
+            </a>
+        {% endfor %}
+        <a href="{% url 'chat_inbox' %}">Back</a>
+    </aside>
+
+    <main class="conversation">
+        <h3>Chat with {{ other.username }}</h3>
+
+        <div id="messages">
+            {% for msg in chat_messages %}
+                <div class="bubble {% if msg.sender_id == me.id %}mine{% else %}theirs{% endif %}">
+                    {{ msg.message }}
+                    <span class="time">{{ msg.timestamp|date:"d M H:i" }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <p id="error"></p>
+
+        <form id="chat-form"
+              action="{% url 'send_message' other.id %}"
+              method="post">
+            {% csrf_token %}
+            <input type="text" name="message" maxlength="2000"
+                   placeholder="Write a message..." autocomplete="off" required>
+            <button type="submit">Send</button>
+        </form>
+    </main>
+</div>
+
+<script>
+const messageBox = document.getElementById("messages");
+const form = document.getElementById("chat-form");
+const input = form.querySelector('input[name="message"]');
+const errorBox = document.getElementById("error");
+const myId = {{ me.id }};
+const messagesUrl = "{% url 'chat_messages' other.id %}";
+
+let lastSignature = "";
+
+function renderMessages(messages) {
+    const signature = messages.map(m => m.id).join(",");
+    if (signature === lastSignature) return;
+
+    const scrollAtBottom =
+        messageBox.scrollHeight - messageBox.scrollTop -
+        messageBox.clientHeight < 80;
+
+    messageBox.replaceChildren();
+
+    messages.forEach(m => {
+        const bubble = document.createElement("div");
+        bubble.className = "bubble " +
+            (m.sender_id === myId ? "mine" : "theirs");
+
+        bubble.appendChild(document.createTextNode(m.message));
+
+        const time = document.createElement("span");
+        time.className = "time";
+        time.textContent = m.timestamp;
+        bubble.appendChild(time);
+
+        messageBox.appendChild(bubble);
+    });
+
+    lastSignature = signature;
+
+    if (scrollAtBottom) {
+        messageBox.scrollTop = messageBox.scrollHeight;
+    }
+}
+
+async function loadMessages() {
+    try {
+        const response = await fetch(messagesUrl, {
+            credentials: "same-origin"
+        });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (data.ok) renderMessages(data.messages);
+    } catch (error) {
+        console.error("Could not refresh messages:", error);
+    }
+}
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    const button = form.querySelector("button");
+    button.disabled = true;
+    errorBox.textContent = "";
+
+    try {
+        const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            credentials: "same-origin"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            errorBox.textContent = data.error || "Message could not be sent.";
+            return;
+        }
+
+        input.value = "";
+        await loadMessages();
+        messageBox.scrollTop = messageBox.scrollHeight;
+        input.focus();
+    } catch (error) {
+        errorBox.textContent = "Network error. Please try again.";
+    } finally {
+        button.disabled = false;
+    }
+});
+
+loadMessages();
+setInterval(loadMessages, 3000);
+</script>
+</body>
+</html>

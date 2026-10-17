@@ -1,0 +1,622 @@
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ profile.username }} | VoxHub</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --bg:#0b0e1a;
+    --surface:#131829;
+    --surface-2:#1a2036;
+    --line:#272e49;
+    --text:#e8eaf6;
+    --muted:#8e96b8;
+    --accent:#7c6cff;
+    --accent-2:#22d3ee;
+    --pink:#f472b6;
+    --ok:#34d399;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{
+    margin:0;
+    font-family:"Manrope",sans-serif;
+    color:var(--text);
+    line-height:1.5;
+    min-height:100vh;
+    background:
+      radial-gradient(900px 500px at 5% -10%,rgba(124,108,255,.16),transparent 60%),
+      radial-gradient(800px 500px at 100% 0,rgba(34,211,238,.09),transparent 60%),
+      var(--bg);
+    background-attachment:fixed;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+img,video{max-width:100%}
+
+/* Main layout: same as user_home */
+.app{
+    max-width:1180px;
+    margin:auto;
+    display:grid;
+    grid-template-columns:230px minmax(0,1fr) 300px;
+    gap:28px;
+    padding:0 20px;
+}
+.side{
+    position:sticky;
+    top:0;
+    height:100vh;
+    padding:24px 0;
+    display:flex;
+    flex-direction:column;
+}
+.logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:800;
+    font-size:1.35rem;
+    letter-spacing:-.02em;
+    margin:0 12px 22px;
+}
+.logo-mark{
+    width:34px;height:34px;
+    border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;
+    place-items:center;
+}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav a{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:12px;
+    border-radius:12px;
+    font-weight:600;
+    font-size:15px;
+    color:var(--muted);
+    transition:.15s;
+}
+.nav a:hover{background:var(--surface-2);color:var(--text)}
+.nav a.on{color:#fff;background:rgba(124,108,255,.16)}
+.ico{width:24px;text-align:center;font-size:19px;flex-shrink:0}
+.me{margin-top:auto}
+main{padding:24px 0 90px;min-width:0}
+.mtop{display:none}
+
+/* Profile header */
+.profile-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px 18px;
+    margin-bottom:22px;
+}
+.profile-top{
+    display:flex;
+    align-items:center;
+    gap:17px;
+}
+.avatar-ring{
+    width:92px;
+    height:92px;
+    flex-shrink:0;
+    padding:3px;
+    border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--pink),var(--accent-2));
+}
+.avatar{
+    display:block;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    object-fit:cover;
+    border:3px solid var(--surface);
+    background:var(--surface-2);
+}
+.avatar-placeholder{
+    display:grid;
+    place-items:center;
+    color:#fff;
+    font-size:30px;
+    font-weight:800;
+}
+.profile-info{min-width:0;flex:1}
+.username-line{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:9px;
+}
+.username-line h1{
+    font-size:19px;
+    line-height:1.3;
+    overflow-wrap:anywhere;
+    margin:0;
+    width:100%;
+}
+.display-name{font-weight:800;margin-top:8px}
+.bio{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:3px;
+    overflow-wrap:anywhere;
+}
+.bio p{margin:0}
+
+/* Buttons */
+.action{
+    display:inline-flex;
+    justify-content:center;
+    align-items:center;
+    gap:5px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+    transition:.2s;
+}
+.primary{
+    color:white;
+    border:0;
+    background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));
+}
+.secondary{background:var(--surface-2);color:var(--text)}
+.action:hover{filter:brightness(1.12);border-color:var(--accent)}
+.follow-form{display:inline-flex;margin:0}
+.profile-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+
+/* Stats */
+.stats{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:16px 0 13px;
+    margin-top:16px;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+}
+.stat{text-align:center;flex:1;color:var(--muted);font-size:12px}
+.stat strong{display:block;color:var(--text);font-size:16px}
+
+/* Section headings */
+.section-heading{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:25px 0 14px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--line);
+    font-size:13px;
+    font-weight:800;
+    letter-spacing:1px;
+}
+.section-heading span{font-size:20px;color:var(--accent-2)}
+
+/* Posts grid */
+.post-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:7px;
+}
+.post-item{
+    position:relative;
+    display:block;
+    aspect-ratio:1/1;
+    min-width:0;
+    overflow:hidden;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+}
+.post-item img,.post-item video{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .25s;
+}
+.post-item:hover img,.post-item:hover video{transform:scale(1.04)}
+.post-overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    padding:9px;
+    opacity:0;
+    background:linear-gradient(transparent,rgba(0,0,0,.85));
+    transition:opacity .2s;
+    font-size:11px;
+    font-weight:800;
+    overflow-wrap:anywhere;
+}
+.post-item:hover .post-overlay{opacity:1}
+.video-label{
+    position:absolute;
+    top:7px;
+    right:7px;
+    background:rgba(0,0,0,.65);
+    border-radius:7px;
+    padding:3px 6px;
+    font-size:11px;
+}
+.empty{
+    text-align:center;
+    padding:38px 15px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    color:var(--muted);
+}
+.empty-icon{font-size:36px}
+.empty h3{margin:7px 0;color:var(--text)}
+.empty p{font-size:13px;margin-bottom:0}
+
+/* Right column */
+.right{
+    padding:28px 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+}
+.side-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:18px;
+    margin-bottom:16px;
+}
+.side-title{font-size:14px;font-weight:800;margin:0 0 14px}
+.row{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    min-width:0;
+}
+.row .mini-avatar{
+    width:44px;height:44px;flex-shrink:0;
+    border-radius:50%;
+    object-fit:cover;
+    background:var(--surface-2);
+}
+.row-info{min-width:0}
+.row-info b{display:block;font-size:13px;overflow-wrap:anywhere}
+.row-info span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.right-stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:9px;
+    margin-top:17px;
+}
+.right-stat{
+    background:var(--surface-2);
+    border-radius:12px;
+    padding:12px 8px;
+    text-align:center;
+}
+.right-stat strong{display:block;font-size:18px}
+.right-stat span{font-size:11px;color:var(--muted)}
+.side-link{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 0;
+    font-size:13px;
+    font-weight:700;
+    color:var(--muted);
+    border-bottom:1px solid var(--line);
+}
+.side-link:last-child{border-bottom:0;padding-bottom:0}
+.side-link:hover{color:var(--accent-2)}
+
+/* Mobile navigation */
+.bar{display:none}
+
+@media(max-width:1060px){
+    .app{grid-template-columns:76px minmax(0,1fr);gap:22px}
+    .right{display:none}
+    .nav .t,.logo .t{display:none}
+    .logo{margin:0 0 22px 8px}
+    .nav a{justify-content:center}
+}
+@media(max-width:760px){
+    .app{grid-template-columns:1fr;gap:0;padding:0 12px}
+    .side{display:none}
+    .mtop{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding:14px 4px;
+        position:sticky;
+        top:0;
+        z-index:20;
+        background:var(--bg);
+    }
+    .mtop .logo{margin:0}
+    main{padding:4px 0 90px}
+    .profile-card{padding:17px 13px}
+    .profile-top{align-items:flex-start;gap:13px}
+    .avatar-ring{width:76px;height:76px}
+    .username-line h1{font-size:17px}
+    .stats{margin-top:14px;padding:13px 0 10px}
+    .stat{font-size:11px}
+    .stat strong{font-size:15px}
+    .profile-actions .action{padding:8px 10px}
+    .post-grid{gap:4px}
+    .post-item{border-radius:6px}
+    .post-overlay{display:none}
+    .bar{
+        display:flex;
+        position:fixed;
+        bottom:0;left:0;right:0;
+        z-index:30;
+        background:rgba(19,24,41,.96);
+        backdrop-filter:blur(10px);
+        border-top:1px solid var(--line);
+        justify-content:space-around;
+        padding:8px 0 10px;
+    }
+    .bar a{
+        font-size:22px;
+        padding:6px 14px;
+        border-radius:10px;
+        color:var(--muted);
+    }
+    .bar a.on{color:#fff;background:rgba(124,108,255,.16)}
+}
+@media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="side">
+        <a class="logo" href="/myapp/user_home/">
+            <span class="logo-mark">V</span>
+            <span class="t">VoxHub</span>
+        </a>
+
+        <nav class="nav" aria-label="Main navigation">
+            <a href="/myapp/user_home/">
+                <span class="ico">🏠</span><span class="t">Home</span>
+            </a>
+            <a href="/myapp/explore/">
+                <span class="ico">🔎</span><span class="t">Explore</span>
+            </a>
+            <a href="/myapp/chat/">
+                <span class="ico">💬</span><span class="t">Messages</span>
+            </a>
+            <a href="/myapp/user_home/#notifications">
+                <span class="ico">🔔</span><span class="t">Notifications</span>
+            </a>
+            <a href="/myapp/user_home/#create">
+                <span class="ico">➕</span><span class="t">Create</span>
+            </a>
+            <a class="on" href="{% url 'view_profile' me.id %}">
+                <span class="ico">👤</span><span class="t">Profile</span>
+            </a>
+        </nav>
+
+        <div class="nav me">
+            <a href="/myapp/logout_view/">
+                <span class="ico">⎋</span><span class="t">Log out</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <div class="mtop">
+            <a class="logo" href="/myapp/user_home/">
+                <span class="logo-mark">V</span> VoxHub
+            </a>
+            <a class="action secondary" href="/myapp/user_home/">← Home</a>
+        </div>
+
+        <!-- PROFILE HEADER -->
+        <section class="profile-card">
+            <div class="profile-top">
+                <div class="avatar-ring">
+                    {% if profile.profile_image %}
+                        <img class="avatar"
+                             src="{{ profile.profile_image.url }}"
+                             alt="{{ profile.username }}">
+                    {% else %}
+                        <div class="avatar avatar-placeholder">
+                            {{ profile.username|first|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="profile-info">
+                    <div class="username-line">
+                        <h1>{{ profile.username }}</h1>
+                    </div>
+
+                    {% if is_own_profile %}
+                        <div class="profile-actions">
+                            <a class="action secondary" href="/myapp/edit_profile/">
+                                ⚙ Edit profile
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="profile-actions">
+                            <form class="follow-form" method="POST"
+                                  action="{% url 'toggle_follow' profile.id %}">
+                                {% csrf_token %}
+                                {% if is_following %}
+                                    <button class="action secondary" type="submit">
+                                        ✓ Following · Unfollow
+                                    </button>
+                                {% else %}
+                                    <button class="action primary" type="submit">
+                                        + Follow
+                                    </button>
+                                {% endif %}
+                            </form>
+
+                            <a class="action secondary"
+                               href="/myapp/chat/{{ profile.id }}/">
+                                💬 Message
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <strong>{{ post_count }}</strong>
+                    Posts
+                </div>
+                <div class="stat">
+                    <strong>{{ followers_count }}</strong>
+                    Followers
+                </div>
+                <div class="stat">
+                    <strong>{{ following_count }}</strong>
+                    Following
+                </div>
+            </div>
+
+            <div class="display-name">{{ profile.name }}</div>
+            <div class="bio">
+                {% if profile.bio %}
+                    {{ profile.bio|linebreaksbr }}
+                {% else %}
+                    <span>No bio added yet.</span>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- POSTS -->
+        <div class="section-heading">
+            <span>▦</span> POSTS
+        </div>
+
+        {% if posts %}
+            <section class="post-grid">
+                {% for p in posts %}
+                    <a class="post-item"
+                       href="/myapp/user_home/#post-{{ p.id }}">
+
+                        {% if p.is_video %}
+                            <video src="{{ p.photo.url }}"
+                                   muted
+                                   playsinline
+                                   preload="metadata"></video>
+                            <span class="video-label">▶ Video</span>
+                        {% else %}
+                            <img src="{{ p.photo.url }}"
+                                 alt="Post by {{ profile.username }}"
+                                 loading="lazy">
+                        {% endif %}
+
+                        <div class="post-overlay">
+                            <span>♥ {{ p.like_count }} likes</span>
+                            <span>{{ p.caption|truncatechars:55 }}</span>
+                        </div>
+                    </a>
+                {% endfor %}
+            </section>
+        {% else %}
+            <div class="empty">
+                <div class="empty-icon">▧</div>
+                <h3>No posts yet</h3>
+                <p>
+                    When {{ profile.username }} shares photos or videos,
+                    they'll appear here.
+                </p>
+
+                {% if is_own_profile %}
+                    <a class="action primary"
+                       style="margin-top:15px"
+                       href="/myapp/user_home/#create">
+                        + Create your first post
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="right">
+        <section class="side-card">
+            <h3 class="side-title">Profile overview</h3>
+            <div class="row">
+                {% if profile.profile_image %}
+                    <img class="mini-avatar"
+                         src="{{ profile.profile_image.url }}"
+                         alt="{{ profile.username }}">
+                {% else %}
+                    <div class="mini-avatar avatar-placeholder">
+                        {{ profile.username|first|upper }}
+                    </div>
+                {% endif %}
+                <div class="row-info">
+                    <b>{{ profile.name }}</b>
+                    <span>@{{ profile.username }}</span>
+                </div>
+            </div>
+
+            <div class="right-stats">
+                <div class="right-stat">
+                    <strong>{{ followers_count }}</strong>
+                    <span>Followers</span>
+                </div>
+                <div class="right-stat">
+                    <strong>{{ following_count }}</strong>
+                    <span>Following</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="side-card">
+            <h3 class="side-title">Quick links</h3>
+            <a class="side-link" href="/myapp/user_home/">
+                🏠 &nbsp; Back to home
+            </a>
+            <a class="side-link" href="/myapp/explore/">
+                🔎 &nbsp; Explore posts
+            </a>
+            <a class="side-link" href="/myapp/chat/">
+                💬 &nbsp; Messages
+            </a>
+            <a class="side-link" href="/myapp/logout_view/">
+                ⎋ &nbsp; Log out
+            </a>
+        </section>
+
+        <p style="color:var(--muted);font-size:11px;text-align:center">
+            VoxHub · Connect through your voice
+        </p>
+    </aside>
+</div>
+
+<!-- MOBILE BOTTOM NAVIGATION -->
+<nav class="bar" aria-label="Mobile navigation">
+    <a href="/myapp/user_home/" aria-label="Home">🏠</a>
+    <a href="/myapp/explore/" aria-label="Explore">🔎</a>
+    <a href="/myapp/user_home/#create" aria-label="Create">➕</a>
+    <a href="/myapp/chat/" aria-label="Messages">💬</a>
+    <a class="on" href="{% url 'view_profile' me.id %}" aria-label="Profile">👤</a>
+</nav>
+</body>
+</html>

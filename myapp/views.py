@@ -2,6 +2,7 @@ import logging
 import math
 
 import cv2
+from django.contrib import messages
 import numpy as np
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -17,7 +18,12 @@ from django.views.decorators.http import require_POST
 from django.db.models import Count, Exists, OuterRef
 from myapp.models import *
 from myapp.voice.enrollment import create_voice_profile, verify_voice
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 
+from .models import UserProfile, User_posts
 logger = logging.getLogger(__name__)
 
 # =========================================================
@@ -310,7 +316,6 @@ def detect_face(request):
 def _login_error(request, message):
     return render(request, "login.html", {"error": message})
 
-
 def login_view(request):
 
     if request.user.is_authenticated:
@@ -448,17 +453,90 @@ def create_post(request):
     return JsonResponse({'ok': True, 'id': post.id})
 
 
+from transformers import pipeline
+
+MODEL_NAME = "unitary/toxic-bert"
+
+print("Loading model...")
+
+detector = pipeline(
+    "text-classification",
+    model=MODEL_NAME,
+    top_k=None
+)
+
+
+
+
+
 def add_comment(request):
-    text = request.POST.get('comment', '').strip()[:100]
-    if not text:
-        return JsonResponse({'ok': False, 'error': 'Empty comment'}, status=400)
+    if request.method != "POST":
+        return JsonResponse({
+            'ok': False,
+            'error': 'Invalid request method.'
+        }, status=405)
 
-    post = get_object_or_404(User_posts, id=request.POST.get('postid'))
-    profile = get_object_or_404(UserProfile, LOGIN=request.user)
+    comment = request.POST.get('comment', '').strip()[:100]
 
-    Comments.objects.create(USER=profile, POST=post, comment=text)
-    return JsonResponse({'ok': True, 'username': profile.username, 'comment': text})
-    
+    if not comment:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Please enter a comment.'
+        }, status=400)
+
+    C_POST = get_object_or_404(
+        User_posts,
+        id=request.POST.get('postid')
+    )
+
+    C_USER = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    # AI moderation must happen BEFORE saving
+    try:
+        results = detector(comment, truncation=True)[0]
+
+        scores = {
+            item['label'].lower(): item['score']
+            for item in results
+        }
+
+        toxic_score = scores.get('toxic', 0.0)
+
+        print("Comment:", comment)
+        print("Toxicity score:", toxic_score)
+
+    except Exception as e:
+        print("AI moderation error:", e)
+        return JsonResponse({
+            'ok': False,
+            'error': 'AI comment analysis failed. Your comment was not posted.'
+        }, status=503)
+
+    # Reject toxic comments and immediately stop execution
+    if toxic_score >= 0.5:
+        return JsonResponse({
+            'ok': False,
+            'error': 'This comment was analyzed by AI and identified as potentially toxic. Please edit your comment and try again.'
+        }, status=400)
+
+    # Save only after the comment passes moderation
+    Comments.objects.create(
+        comment=comment,
+        date=timezone.now(),
+        USER=C_USER,
+        POST=C_POST
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'username': C_USER.username,
+        'comment': comment
+    })
+
+
 
 
 @login_required
@@ -488,3 +566,270 @@ def toggle_follow(request, uid):
     if not created:
         obj.delete()
     return JsonResponse({'ok': True, 'following': created})
+
+
+from django.db.models import Q
+
+
+@login_required(login_url="login")
+def chat_inbox(request):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    users = UserProfile.objects.exclude(id=me.id)
+
+    return render(request, "chat_inbox.html", {
+        "me": me,
+        "users": users,
+    })
+
+
+@login_required(login_url="login")
+def chat_room(request, user_id):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    other = get_object_or_404(
+        UserProfile,
+        id=user_id
+    )
+
+    if other.id == me.id:
+        return redirect("chat_inbox")
+
+    users = UserProfile.objects.exclude(id=me.id)
+
+    ChatMessage.objects.filter(
+        sender=other,
+        receiver=me,
+        is_read=False
+    ).update(is_read=True)
+
+    messages_list = ChatMessage.objects.filter(
+        Q(sender=me, receiver=other) |
+        Q(sender=other, receiver=me)
+    ).select_related("sender", "receiver")
+
+    return render(request, "chat_room.html", {
+        "me": me,
+        "other": other,
+        "users": users,
+        "chat_messages": messages_list,
+    })
+
+
+@login_required(login_url="login")
+@require_POST
+def send_message(request, user_id):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    receiver = get_object_or_404(
+        UserProfile,
+        id=user_id
+    )
+
+    if receiver.id == me.id:
+        return JsonResponse(
+            {"ok": False, "error": "You cannot message yourself."},
+            status=400
+        )
+
+    message_text = request.POST.get("message", "").strip()
+
+    if not message_text:
+        return JsonResponse(
+            {"ok": False, "error": "Message cannot be empty."},
+            status=400
+        )
+
+    if len(message_text) > 2000:
+        return JsonResponse(
+            {"ok": False, "error": "Message is too long."},
+            status=400
+        )
+
+    msg = ChatMessage.objects.create(
+        sender=me,
+        receiver=receiver,
+        message=message_text
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "id": msg.id,
+        "sender_id": me.id,
+        "message": msg.message,
+        "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
+    })
+
+
+@login_required(login_url="login")
+def chat_messages(request, user_id):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    other = get_object_or_404(
+        UserProfile,
+        id=user_id
+    )
+
+    if other.id == me.id:
+        return JsonResponse(
+            {"ok": False, "error": "Invalid conversation."},
+            status=400
+        )
+
+    ChatMessage.objects.filter(
+        sender=other,
+        receiver=me,
+        is_read=False
+    ).update(is_read=True)
+
+    messages_list = ChatMessage.objects.filter(
+        Q(sender=me, receiver=other) |
+        Q(sender=other, receiver=me)
+    ).select_related("sender").order_by("timestamp", "id")
+
+    data = [
+        {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "message": msg.message,
+            "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
+        }
+        for msg in messages_list
+    ]
+
+    return JsonResponse({"ok": True, "messages": data})
+
+
+
+
+@login_required
+def view_profile(request, user_id):
+    profile = get_object_or_404(UserProfile, id=user_id)
+
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    posts = User_posts.objects.filter(
+        USER=profile
+    ).order_by("-id")
+
+    # Check whether the logged-in user follows this profile
+    is_following = Follow.objects.filter(
+        FOLLOWER=me,
+        FOLLOWING=profile
+    ).exists()
+
+    # Count followers of this profile
+    followers_count = Follow.objects.filter(
+        FOLLOWING=profile
+    ).count()
+
+    # Count users this profile follows
+    following_count = Follow.objects.filter(
+        FOLLOWER=profile
+    ).count()
+
+    context = {
+        "profile": profile,
+        "posts": posts,
+        "me": me,
+        "post_count": posts.count(),
+        "is_own_profile": profile.id == me.id,
+        "is_following": is_following,
+        "followers_count": followers_count,
+        "following_count": following_count,
+    }
+
+    return render(request, "view_profile.html", context)
+
+
+
+
+@login_required
+@require_POST
+def toggle_follow(request, user_id):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    target = get_object_or_404(
+        UserProfile,
+        id=user_id
+    )
+
+    # Prevent following yourself
+    if me.id == target.id:
+        return redirect("view_profile", user_id=target.id)
+
+    relationship = Follow.objects.filter(
+        FOLLOWER=me,
+        FOLLOWING=target
+    )
+
+    if relationship.exists():
+        relationship.delete()
+    else:
+        Follow.objects.get_or_create(
+            FOLLOWER=me,
+            FOLLOWING=target
+        )
+
+    return redirect("view_profile", user_id=target.id)
+
+
+
+
+
+@login_required
+def edit_profile(request):
+    me = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        username = request.POST.get("username", "").strip()
+        bio = request.POST.get("bio", "").strip()
+        profile_image = request.FILES.get("profile_image")
+
+        if not name or not username:
+            messages.error(request, "Name and username are required.")
+            return redirect("edit_profile")
+
+        if UserProfile.objects.filter(
+            username=username
+        ).exclude(id=me.id).exists():
+            messages.error(request, "Username already exists.")
+            return redirect("edit_profile")
+
+        me.name = name
+        me.username = username
+
+        # Only update the picture when a new one is uploaded.
+        if profile_image:
+            me.profile_image = profile_image
+
+        # This requires a bio field in your UserProfile model.
+        me.bio = bio
+        me.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("view_profile", user_id=me.id)
+
+    return render(request, "edit_profile.html", {"me": me})
