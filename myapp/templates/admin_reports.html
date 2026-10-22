@@ -1,0 +1,495 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Reports Management{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+    /* Page-specific styles only. Sidebar, topbar and layout come from admin_base.html.
+       Colour variables are scoped to .rp-page so they don't override the base theme. */
+
+    .rp-page {
+        --panel: #121925;
+        --panel2: #192131;
+        --line: #273247;
+        --rp-text: #e8edf7;
+        --rp-muted: #8c98ad;
+        --rp-purple: #8b5cf6;
+        --cyan: #22d3ee;
+        --rp-red: #fb7185;
+        --green: #34d399;
+        --yellow: #fbbf24;
+
+        font-family: 'Manrope', sans-serif;
+        color: var(--rp-text);
+    }
+
+    .rp-page button,
+    .rp-page input { font-family: inherit; }
+
+    /* Django messages */
+    .message {
+        padding: 13px 16px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        line-height: 1.6;
+        background: #172a25;
+        border: 1px solid #285b49;
+        color: #86efac;
+    }
+    .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+    .message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+    .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+
+    /* Statistics */
+    .rp-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 22px;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .stat-card:hover { border-color: #46516a; transform: translateY(-2px); }
+
+    .stat-label { color: var(--rp-muted); font-size: 13px; }
+    .stat-number { font-size: 29px; font-weight: 800; margin-top: 12px; }
+    .stat-note { color: var(--cyan); font-size: 12px; margin-top: 8px; }
+
+    .stat-card.pending .stat-number { color: var(--yellow); }
+    .stat-card.resolved .stat-number { color: var(--green); }
+    .stat-card.total .stat-number { color: #b9a2ff; }
+
+    /* Reports table card */
+    .content-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        border-bottom: 1px solid var(--line);
+    }
+    .card-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+    .card-header p { color: var(--rp-muted); font-size: 12px; margin-top: 7px; }
+
+    .search {
+        width: 280px;
+        max-width: 100%;
+        padding: 12px 14px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: #0d121c;
+        color: var(--rp-text);
+        outline: none;
+        font-size: 12px;
+    }
+    .search:focus { border-color: var(--rp-purple); box-shadow: 0 0 0 3px #8b5cf622; }
+    .search::placeholder { color: #64748b; }
+
+    /* Filters */
+    .filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .filter-btn {
+        border: 1px solid var(--line);
+        background: var(--panel2);
+        color: var(--rp-muted);
+        padding: 9px 13px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .filter-btn:hover { color: var(--rp-text); border-color: #59657b; }
+    .filter-btn.active {
+        background: rgba(139, 92, 246, 0.16);
+        color: #c4b5fd;
+        border-color: var(--rp-purple);
+    }
+
+    /* Table */
+    .table-wrap { width: 100%; overflow-x: auto; }
+
+    .rp-page table { width: 100%; min-width: 950px; border-collapse: collapse; }
+    .rp-page thead { background: #171f2e; }
+
+    .rp-page th {
+        padding: 15px 17px;
+        text-align: left;
+        color: var(--rp-muted);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        white-space: nowrap;
+        border-bottom: 0;
+    }
+
+    .rp-page td {
+        padding: 16px 17px;
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+        font-size: 12px;
+        vertical-align: middle;
+    }
+
+    .rp-page tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    .report-id { color: #a78bfa; font-weight: 800; }
+    .report-reason { max-width: 220px; overflow-wrap: anywhere; line-height: 1.6; }
+    .subtext { display: block; color: var(--rp-muted); font-size: 11px; margin-top: 5px; }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+    .badge.pending   { background: rgba(251, 191, 36, 0.12); color: var(--yellow); }
+    .badge.resolved  { background: rgba(52, 211, 153, 0.12); color: var(--green); }
+    .badge.dismissed { background: rgba(140, 152, 173, 0.13); color: #aab5c8; }
+
+    /* Action buttons */
+    .rp-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .rp-actions form { display: inline-flex; margin: 0; }
+
+    .rp-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: 7px;
+        font-size: 11px;
+        font-weight: 700;
+        border: 1px solid var(--line);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: filter 0.2s, background 0.2s;
+    }
+    .rp-btn:hover { filter: brightness(1.2); }
+
+    .rp-btn-review {
+        color: #b9a2ff;
+        background: rgba(139, 92, 246, 0.12);
+        border-color: rgba(139, 92, 246, 0.3);
+    }
+    .rp-btn-resolve {
+        color: var(--green);
+        background: rgba(52, 211, 153, 0.08);
+        border-color: rgba(52, 211, 153, 0.25);
+    }
+    .rp-btn-dismiss {
+        color: var(--rp-red);
+        background: rgba(251, 113, 133, 0.08);
+        border-color: rgba(251, 113, 133, 0.25);
+    }
+
+    .rp-btn:focus-visible,
+    .filter-btn:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+
+    /* Empty results */
+    .rp-page td.rp-empty {
+        text-align: center;
+        color: var(--rp-muted);
+        padding: 35px;
+        line-height: 1.7;
+    }
+    .rp-empty i { display: block; font-size: 25px; color: #64748b; margin-bottom: 12px; }
+
+    /* Footer */
+    .rp-footer { text-align: center; color: #657187; font-size: 11px; padding: 25px 0 5px; }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+        .rp-stats { gap: 12px; }
+        .stat-card { padding: 18px; }
+    }
+
+    @media (max-width: 850px) {
+        .rp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 700px) {
+        .rp-stats { grid-template-columns: 1fr; gap: 12px; }
+        .card-header { padding: 17px; }
+        .filters { padding: 14px 17px; }
+        .search { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+    <h1>Reports Management</h1>
+    <p>Review and manage reports submitted by VoxHub members.</p>
+{% endblock %}
+
+
+{% block content %}
+<div class="rp-page">
+
+    <!-- Django messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message
+                {% if message.tags == 'error' %}error
+                {% elif message.tags == 'warning' %}warning
+                {% elif message.tags == 'info' %}info
+                {% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Report Statistics -->
+    <section class="rp-stats">
+
+        <div class="stat-card total">
+            <div class="stat-label">
+                <i class="fa-solid fa-flag"></i>
+                Total Reports
+            </div>
+            <div class="stat-number">{{ reports|length }}</div>
+            <div class="stat-note">All submitted reports</div>
+        </div>
+
+        <div class="stat-card pending">
+            <div class="stat-label">
+                <i class="fa-solid fa-clock"></i>
+                Pending Reports
+            </div>
+            <div class="stat-number">{{ pending_count }}</div>
+            <div class="stat-note">Awaiting review</div>
+        </div>
+
+        <div class="stat-card resolved">
+            <div class="stat-label">
+                <i class="fa-solid fa-circle-check"></i>
+                Resolved Reports
+            </div>
+            <div class="stat-number">{{ resolved_count }}</div>
+            <div class="stat-note">Reviewed by admin</div>
+        </div>
+
+    </section>
+
+    <!-- All Reports -->
+    <section class="content-card">
+
+        <div class="card-header">
+            <div>
+                <h2>All Reports</h2>
+                <p>Search reports and filter by their current status.</p>
+            </div>
+
+            <input
+                type="search"
+                id="reportSearch"
+                class="search"
+                placeholder="Search reports..."
+                aria-label="Search reports"
+            >
+        </div>
+
+        <!-- Status Filters -->
+        <div class="filters">
+            <button type="button" class="filter-btn active" data-filter="all" aria-pressed="true">All Reports</button>
+            <button type="button" class="filter-btn" data-filter="pending" aria-pressed="false">Pending</button>
+            <button type="button" class="filter-btn" data-filter="resolved" aria-pressed="false">Resolved</button>
+            <button type="button" class="filter-btn" data-filter="dismissed" aria-pressed="false">Dismissed</button>
+        </div>
+
+        <!-- Reports Table -->
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Report ID</th>
+                        <th>Reported By</th>
+                        <th>Reported User / Post</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="reportTable">
+
+                {% for report in reports %}
+                    <tr class="report-row" data-status="{{ report.status|lower }}">
+
+                        <td><span class="report-id">#{{ report.id }}</span></td>
+
+                        <td><a href="{% url 'view_userprofile' report.USER.LOGIN_id %}">{{ report.USER.name }}</a></td>
+
+                        <td>
+                            {% if report.VICTIM %}
+                            <a href="{% url 'view_userprofile' report.VICTIM.LOGIN_id %}">{{ report.USER.name }}</a>
+                            {% else %}
+                                <span class="subtext">Post report</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="report-reason">
+                                {{ report.reports|default:"No reason provided" }}
+                            </div>
+                        </td>
+
+                        <td>
+                            {% if report.status == 'pending' %}
+                                <span class="badge pending">Pending</span>
+                            {% elif report.status == 'resolved' %}
+                                <span class="badge resolved">Resolved</span>
+                            {% elif report.status == 'dismissed' %}
+                                <span class="badge dismissed">Dismissed</span>
+                            {% else %}
+                                <span class="badge">{{ report.status|title }}</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="rp-actions">
+
+                                <a href="/myapp/" class="rp-btn rp-btn-review">
+                                    <i class="fa-solid fa-eye"></i>
+                                    Review
+                                </a>
+
+                                {% if report.status == 'pending' %}
+
+                                    <form
+                                        method="POST"
+                                        action="myapp/"
+                                        onsubmit="return confirm('Mark this report as resolved?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rp-btn rp-btn-resolve">
+                                            <i class="fa-solid fa-check"></i>
+                                            Resolve
+                                        </button>
+                                    </form>
+
+                                    <form
+                                        method="POST"
+                                        action="myapp/"
+                                        onsubmit="return confirm('Dismiss this report?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rp-btn rp-btn-dismiss">
+                                            <i class="fa-solid fa-xmark"></i>
+                                            Dismiss
+                                        </button>
+                                    </form>
+
+                                {% endif %}
+
+                            </div>
+                        </td>
+                    </tr>
+
+                {% empty %}
+                    <tr id="emptyReports">
+                        <td colspan="6" class="rp-empty">
+                            <i class="fa-regular fa-folder-open"></i>
+                            No reports have been submitted yet.
+                        </td>
+                    </tr>
+                {% endfor %}
+
+                    <tr id="noResults" style="display: none;">
+                        <td colspan="6" class="rp-empty">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            No reports match your search or filter.
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+    </section>
+
+    <footer class="rp-footer">
+        © 2026 VoxHub Admin Panel · Secure Administration
+    </footer>
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('reportSearch');
+    const rows = document.querySelectorAll('.report-row');
+    const noResults = document.getElementById('noResults');
+    const filterButtons = document.querySelectorAll('.filter-btn');
+
+    let activeFilter = 'all';
+
+    function filterReports() {
+        const query = searchInput.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        rows.forEach(function (row) {
+            const rowText = row.textContent.toLowerCase();
+            const status = (row.dataset.status || '').toLowerCase();
+
+            const matchesText = rowText.includes(query);
+            const matchesStatus = activeFilter === 'all' || status === activeFilter;
+            const visible = matchesText && matchesStatus;
+
+            row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
+        });
+
+        if (noResults) {
+            noResults.style.display = rows.length > 0 && visibleCount === 0 ? '' : 'none';
+        }
+    }
+
+    searchInput.addEventListener('input', filterReports);
+
+    filterButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activeFilter = this.dataset.filter;
+
+            filterButtons.forEach(function (item) {
+                const isActive = item === button;
+                item.classList.toggle('active', isActive);
+                item.setAttribute('aria-pressed', String(isActive));
+            });
+
+            filterReports();
+        });
+    });
+
+    filterReports();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin{% endblock %} | VoxHub</title>
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<style>
+    :root {
+  --bg: #080d17;
+  --sidebar-bg: #0a101c;
+  --card: #0d1423;
+  --border: #1b2740;
+  --text: #e6ebf5;
+  --muted: #9aa7bf;
+  --blue: #1a6ef0;
+  --blue-link: #3b82f6;
+  --active-bg: #11284f;
+  --red: #c9303f;
+  --purple: #6d3adb;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* ---------- Layout ---------- */
+.admin-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  width: 300px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 28px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.main {
+  margin-left: 300px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Sidebar ---------- */
+.brand {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  padding: 0 12px;
+  margin-bottom: 36px;
+}
+.brand span { color: var(--blue); }
+
+.side-nav { display: flex; flex-direction: column; gap: 8px; }
+
+.side-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  font-size: 1.15rem;
+  color: var(--text);
+  transition: background .15s;
+}
+.side-nav a:hover { background: #101a2e; }
+.side-nav a.active { background: var(--active-bg); color: var(--blue-link); }
+
+.logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: #f0525f;
+  font-size: 1.1rem;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 36px 36px 0 38px;
+}
+.page-heading h1 { font-size: 2.1rem; font-weight: 700; }
+.page-heading p { color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
+
+.admin-badge {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 22px;
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+
+.page-content { padding: 36px 36px 48px 38px; }
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px;
+}
+.card h2 { font-size: 1.5rem; font-weight: 700; }
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.link { color: var(--blue-link); font-size: .95rem; }
+.link:hover { text-decoration: underline; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1160px;
+  margin-bottom: 32px;
+}
+.stat { padding: 26px 28px; }
+.stat .label { font-size: 1.1rem; margin-bottom: 4px; }
+.stat .count { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; }
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 520px;
+  gap: 28px;
+  align-items: start;
+}
+.stack { display: flex; flex-direction: column; gap: 28px; }
+
+/* ---------- Table ---------- */
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--muted);
+  padding: 10px 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.table td { padding: 14px 12px; border-bottom: 1px solid var(--border); }
+.empty { color: var(--muted); padding-top: 18px; }
+
+/* ---------- Quick actions ---------- */
+.actions { display: flex; flex-direction: column; gap: 16px; }
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #fff;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn-blue { background: var(--blue); }
+.btn-red { background: var(--red); }
+.btn-purple { background: var(--purple); }
+
+/* ---------- Overview list ---------- */
+.overview h2 { font-size: 2rem; margin-bottom: 18px; }
+.overview li {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 0;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.overview li:last-child { border-bottom: 0; }
+.overview li strong { color: var(--text); }
+
+/* ---------- Status pills ---------- */
+.pill { padding: 4px 12px; border-radius: 999px; font-size: .85rem; }
+.pill-active { background: #0f3a2a; color: #34d399; }
+.pill-banned { background: #4a1620; color: #f87171; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1200px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 800px) {
+  .sidebar { position: static; width: 100%; gap: 20px; }
+  .admin-shell { flex-direction: column; }
+  .main { margin-left: 0; }
+  .stats { grid-template-columns: 1fr; }
+  .topbar, .page-content { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+<body>
+  <div class="admin-shell">
+
+    <!-- ========== COMMON SIDEBAR ========== -->
+    <aside class="sidebar">
+      <div>
+        <a class="brand" href="{% url 'admin_home' %}">Vox<span>Hub</span></a>
+
+        <nav class="side-nav">
+          <a href="{% url 'admin_home' %}"
+             class="{% if request.resolver_match.url_name == 'admin_home' %}active{% endif %}">
+            <span class="ico">🏠</span> Dashboard
+          </a>
+          <a href="{% url 'admin_users' %}"
+             class="{% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}">
+            <span class="ico">👥</span> View All Users
+          </a>
+          <a href="{% url 'admin_banned_users' %}"
+             class="{% if request.resolver_match.url_name == 'admin_banned_users' %}active{% endif %}">
+            <span class="ico">🚫</span> Ban / Unban Users
+          </a>
+          <a href="{% url 'admin_reports' %}"
+             class="{% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
+            <span class="ico">🚩</span> Reports
+          </a>
+          <a href="{% url 'admin_settings' %}"
+             class="{% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
+            <span class="ico">⚙️</span> Settings
+          </a>
+        </nav>
+      </div>
+
+      <a class="logout" href="{% url 'logout' %}">
+        <span class="ico">↪</span> Logout
+      </a>
+    </aside>
+    <!-- ========== END SIDEBAR ========== -->
+
+    <div class="main">
+      <header class="topbar">
+        <div class="page-heading">
+          {% block page_heading %}{% endblock %}
+        </div>
+        <div class="admin-badge"><span class="ico">🛡️</span> Admin Panel</div>
+      </header>
+
+      <main class="page-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+  </div>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

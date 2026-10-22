@@ -1,0 +1,742 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Admin Settings{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+    /* Page-specific styles only. Sidebar, topbar and layout come from admin_base.html */
+
+    .st-page {
+        font-family: 'Manrope', sans-serif;
+        color: #e5e7eb;
+    }
+
+    /* Django Messages */
+    .message {
+        padding: 13px 16px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        background: #172a25;
+        border: 1px solid #285b49;
+        color: #86efac;
+    }
+    .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+    .message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+    .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+
+    /* Settings Grid */
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+        align-items: start;
+    }
+
+    .settings-card {
+        background: #121925;
+        border: 1px solid #273244;
+        border-radius: 16px;
+        padding: 25px;
+        min-width: 0;
+    }
+
+    .card-heading {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding-bottom: 20px;
+        margin-bottom: 22px;
+        border-bottom: 1px solid #273244;
+    }
+
+    .heading-icon {
+        width: 43px;
+        height: 43px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: #292343;
+        color: #c4b5fd;
+        font-size: 17px;
+    }
+
+    .card-heading h2 { font-size: 15px; font-weight: 800; }
+    .card-heading p { font-size: 11px; color: #8491a5; margin-top: 5px; line-height: 1.6; }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+
+    .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: #cbd5e1;
+        margin-bottom: 9px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 14px;
+        background: #0b111c;
+        border: 1px solid #303b4d;
+        border-radius: 9px;
+        color: #e5e7eb;
+        outline: none;
+        font-family: inherit;
+        font-size: 13px;
+        transition: 0.2s;
+    }
+    .form-control:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf622; }
+    .form-control::placeholder { color: #64748b; }
+
+    .help-text {
+        display: block;
+        margin-top: 7px;
+        color: #718096;
+        font-size: 11px;
+        line-height: 1.7;
+    }
+
+    /* Buttons */
+    .st-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 11px 16px;
+        border: none;
+        border-radius: 9px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        text-decoration: none;
+        transition: 0.2s;
+    }
+
+    .st-btn-primary { background: linear-gradient(100deg, #8b5cf6, #6d5dfc); color: white; }
+    .st-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 20px #8b5cf633; }
+
+    .st-btn-secondary { background: #202a3a; border: 1px solid #354256; color: #cbd5e1; }
+    .st-btn-secondary:hover { background: #2a3649; }
+
+    .st-btn-danger { background: #3a202a; border: 1px solid #713444; color: #fda4af; }
+    .st-btn-danger:hover { background: #4a2632; }
+
+    /* Platform Settings Rows */
+    .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        padding: 16px 0;
+        border-bottom: 1px solid #273244;
+    }
+    .setting-row:last-of-type { border-bottom: none; }
+
+    .setting-info { min-width: 0; }
+    .setting-info strong { display: block; font-size: 12px; margin-bottom: 5px; }
+    .setting-info p { color: #8491a5; font-size: 11px; line-height: 1.6; }
+
+    .status-pill {
+        display: inline-block;
+        flex-shrink: 0;
+        padding: 5px 9px;
+        background: #17382b;
+        color: #86efac;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    /* Notification Toggles */
+    .toggle { position: relative; display: inline-block; width: 43px; height: 24px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+        position: absolute;
+        inset: 0;
+        border-radius: 30px;
+        background: #374151;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .toggle-slider::before {
+        content: "";
+        position: absolute;
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        top: 3px;
+        border-radius: 50%;
+        background: white;
+        transition: 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: #8b5cf6; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(19px); }
+    .toggle input:focus-visible + .toggle-slider { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+
+    .full-width { grid-column: 1 / -1; }
+
+    /* Security Section */
+    .danger-card { border-color: #5c2d3a; }
+    .danger-card .heading-icon { background: #3a202a; color: #fb7185; }
+
+    .danger-text { color: #94a3b8; font-size: 12px; line-height: 1.8; margin-bottom: 18px; }
+
+    .security-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Footer */
+    .st-footer { text-align: center; padding: 30px 0 10px; color: #64748b; font-size: 11px; }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+        .settings-grid { grid-template-columns: 1fr; }
+        .full-width { grid-column: auto; }
+    }
+
+    @media (max-width: 700px) {
+        .settings-card { padding: 18px; }
+    }
+
+    @media (max-width: 380px) {
+        .setting-row { align-items: flex-start; }
+        .status-pill { font-size: 9px; }
+        .st-btn { padding: 10px 12px; }
+    }
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+    <h1>Admin Settings</h1>
+    <p>Manage your VoxHub administration and platform preferences.</p>
+{% endblock %}
+
+
+{% block content %}
+<div class="st-page">
+
+    <!-- Django success and error messages (shown once for the whole page) -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message {% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'info' %}info{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="settings-grid">
+
+        <!-- Admin Profile -->
+        <section class="settings-card">
+            <div class="card-heading">
+                <div class="heading-icon"><i class="fa-solid fa-user-gear"></i></div>
+                <div>
+                    <h2>Admin Profile</h2>
+                    <p>Update your administrator account details.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'admin_update_profile' %}">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="admin_username">Username</label>
+                    <input
+                        class="form-control"
+                        type="text"
+                        id="admin_username"
+                        name="username"
+                        value="{{ request.user.username }}"
+                        autocomplete="username"
+                        maxlength="150"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="admin_email">Email Address</label>
+                    <input
+                        class="form-control"
+                        type="email"
+                        id="admin_email"
+                        name="email"
+                        value="{{ request.user.email }}"
+                        autocomplete="email"
+                        placeholder="admin@example.com"
+                    >
+                </div>
+
+                <button type="submit" class="st-btn st-btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    Save Profile
+                </button>
+            </form>
+        </section>
+
+        <!-- Change Password -->
+        <section class="settings-card">
+            <div class="card-heading">
+                <div class="heading-icon">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                    <h2>Change Password</h2>
+                    <p>Keep your administrator account secure.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'admin_changepassword' %}">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="old_password">Current Password</label>
+                    <input
+                        class="form-control"
+                        type="password"
+                        id="old_password"
+                        name="old_password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password">New Password</label>
+                    <input
+                        class="form-control"
+                        type="password"
+                        id="new_password"
+                        name="new_password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm New Password</label>
+                    <input
+                        class="form-control"
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="st-btn st-btn-primary">
+                    <i class="fa-solid fa-key"></i>
+                    Update Password
+                </button>
+            </form>
+        </section>
+
+        <!-- Platform Settings -->
+        <section class="settings-card">
+            <div class="card-heading">
+                <div class="heading-icon"><i class="fa-solid fa-sliders"></i></div>
+                <div>
+                    <h2>Platform Settings</h2>
+                    <p>View general VoxHub platform status.</p>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>Platform Status</strong>
+                    <p>The VoxHub website availability.</p>
+                </div>
+                <span class="status-pill">ONLINE</span>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>User Registration</strong>
+                    <p>Registration status shown by this template.</p>
+                </div>
+                <span class="status-pill">ENABLED</span>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>Comment Moderation</strong>
+                    <p>AI comment moderation status label.</p>
+                </div>
+                <span class="status-pill">AI MODERATION</span>
+            </div>
+
+            <p class="help-text">
+                These are informational labels. They do not change platform
+                behaviour unless connected to settings stored by your Django app.
+            </p>
+        </section>
+
+        <!-- Notification Preferences -->
+        <section class="settings-card">
+            <div class="card-heading">
+                <div class="heading-icon"><i class="fa-solid fa-bell"></i></div>
+                <div>
+                    <h2>Notification Preferences</h2>
+                    <p>Choose which admin alerts to enable in this page.</p>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>New User Alerts</strong>
+                    <p>Show alerts when new users register.</p>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="newUserAlerts" data-key="new_user" {% if prefs.new_user %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>Report Alerts</strong>
+                    <p>Show alerts for newly submitted reports.</p>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="reportAlerts" data-key="report" {% if prefs.report %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <strong>Security Alerts</strong>
+                    <p>Show important account security alerts.</p>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="securityAlerts" data-key="security" {% if prefs.security %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <p class="help-text">
+                These preferences are saved to your admin account. Turned-off
+                alert types are hidden from the notification bell.
+            </p>
+        </section>
+
+        <!-- Security and Administration -->
+        <section class="settings-card danger-card full-width">
+            <div class="card-heading">
+                <div class="heading-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div>
+                    <h2>Security &amp; Administration</h2>
+                    <p>Important information about administrative access.</p>
+                </div>
+            </div>
+
+            <p class="danger-text">
+                Only authorized administrators should access this dashboard.
+                Use a strong password, protect your credentials, and ensure
+                that administrative views verify the user's admin permissions.
+                Review actions carefully before banning or disabling accounts.
+            </p>
+
+            <div class="security-actions">
+                <a href="{% url 'admin_users' %}" class="st-btn st-btn-secondary">
+                    <i class="fa-solid fa-users"></i>
+                    Manage Users
+                </a>
+
+                <a href="{% url 'admin_reports' %}" class="st-btn st-btn-danger">
+                    <i class="fa-solid fa-flag"></i>
+                    Review Reports
+                </a>
+            </div>
+        </section>
+
+    </div>
+
+    <div class="st-footer">
+        © 2026 VoxHub Admin Panel · Secure Administration
+    </div>
+
+</div>
+
+<!-- Save notification preferences to the database -->
+<script>
+    (function () {
+        var tokenEl = document.querySelector('input[name=csrfmiddlewaretoken]');
+        var SAVE_URL = "{% url 'admin_save_notification_pref' %}";
+
+        document.querySelectorAll('.toggle input[data-key]').forEach(function (box) {
+            box.addEventListener('change', function () {
+                var body = new URLSearchParams();
+                body.append('key', box.dataset.key);
+                body.append('value', box.checked ? 'true' : 'false');
+                box.disabled = true;
+
+                fetch(SAVE_URL, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-CSRFToken': tokenEl ? tokenEl.value : '',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: body
+                })
+                .then(function (r) {
+                    return r.json().then(function (j) {
+                        if (!r.ok || !j.ok) throw new Error('save failed');
+                    });
+                })
+                .then(function () {
+                    if (window.refreshAdminBell) window.refreshAdminBell();
+                })
+                .catch(function () {
+                    box.checked = !box.checked;
+                    alert('Could not save the setting. Please try again.');
+                })
+                .finally(function () { box.disabled = false; });
+            });
+        });
+    })();
+</script>
+<style>
+    .ab-wrap {
+        position: fixed;
+        top: 16px;
+        right: 24px;
+        z-index: 1000;
+        font-family: 'Manrope', sans-serif;
+    }
+    .ab-wrap [hidden] { display: none !important; }
+
+    .ab-btn {
+        position: relative;
+        width: 42px;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #121925;
+        border: 1px solid #273244;
+        border-radius: 12px;
+        color: #c4b5fd;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .ab-btn:hover { background: #1a2333; border-color: #354256; }
+    .ab-btn:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+    .ab-btn svg { width: 18px; height: 18px; }
+
+    .ab-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 19px;
+        height: 19px;
+        padding: 0 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fb7185;
+        color: #0b111c;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .ab-panel {
+        position: absolute;
+        top: 52px;
+        right: 0;
+        width: 340px;
+        max-width: calc(100vw - 32px);
+        background: #121925;
+        border: 1px solid #273244;
+        border-radius: 16px;
+        box-shadow: 0 18px 50px #00000080;
+        overflow: hidden;
+    }
+
+    .ab-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid #273244;
+        color: #e5e7eb;
+        font-size: 13px;
+    }
+    .ab-head strong { font-weight: 800; }
+    .ab-head button {
+        background: none;
+        border: none;
+        color: #a78bfa;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .ab-head button:hover { color: #c4b5fd; }
+
+    .ab-list { max-height: 380px; overflow-y: auto; }
+
+    .ab-item {
+        display: flex;
+        gap: 11px;
+        padding: 13px 16px;
+        border-bottom: 1px solid #1f2937;
+    }
+    .ab-item:last-child { border-bottom: none; }
+    .ab-item.unread { background: #171f2e; }
+
+    .ab-dot {
+        width: 9px;
+        height: 9px;
+        margin-top: 5px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: #8b5cf6;
+    }
+    .ab-item.report .ab-dot { background: #fcd34d; }
+    .ab-item.security .ab-dot { background: #fda4af; }
+
+    .ab-msg { color: #e5e7eb; font-size: 12px; line-height: 1.6; word-break: break-word; }
+    .ab-time { margin-top: 3px; color: #718096; font-size: 10px; }
+    .ab-empty { padding: 30px 16px; text-align: center; color: #718096; font-size: 12px; }
+</style>
+
+<div class="ab-wrap" id="adminBell">
+    {% csrf_token %}
+
+    <button type="button" class="ab-btn" id="abBtn" aria-label="Notifications" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="ab-badge" id="abBadge" hidden>0</span>
+    </button>
+
+    <div class="ab-panel" id="abPanel" hidden>
+        <div class="ab-head">
+            <strong>Notifications</strong>
+            <button type="button" id="abRead">Mark all as read</button>
+        </div>
+        <div class="ab-list" id="abList">
+            <div class="ab-empty">Loading…</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var URL_LIST = "{% url 'admin_notifications' %}";
+    var URL_READ = "{% url 'admin_notifications_read' %}";
+
+    var root  = document.getElementById('adminBell');
+    var btn   = document.getElementById('abBtn');
+    var badge = document.getElementById('abBadge');
+    var panel = document.getElementById('abPanel');
+    var list  = document.getElementById('abList');
+    var readBtn = document.getElementById('abRead');
+    var token = root.querySelector('input[name=csrfmiddlewaretoken]');
+
+    function render(data) {
+        if (data.unread > 0) {
+            badge.textContent = data.unread > 99 ? '99+' : data.unread;
+            badge.hidden = false;
+        } else {
+            badge.hidden = true;
+        }
+
+        list.textContent = '';
+
+        if (!data.items.length) {
+            var empty = document.createElement('div');
+            empty.className = 'ab-empty';
+            empty.textContent = 'No notifications';
+            list.appendChild(empty);
+            return;
+        }
+
+        data.items.forEach(function (n) {
+            var row = document.createElement('div');
+            row.className = 'ab-item ' + n.kind + (n.is_read ? '' : ' unread');
+
+            var dot = document.createElement('span');
+            dot.className = 'ab-dot';
+
+            var body = document.createElement('div');
+            var msg = document.createElement('div');
+            msg.className = 'ab-msg';
+            msg.textContent = n.message;           /* textContent: safe against HTML in usernames */
+            var time = document.createElement('div');
+            time.className = 'ab-time';
+            time.textContent = n.time;
+
+            body.appendChild(msg);
+            body.appendChild(time);
+            row.appendChild(dot);
+            row.appendChild(body);
+            list.appendChild(row);
+        });
+    }
+
+    function load() {
+        fetch(URL_LIST, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(render)
+        .catch(function () {});
+    }
+
+    btn.addEventListener('click', function () {
+        var open = panel.hidden;
+        panel.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) load();
+    });
+
+    readBtn.addEventListener('click', function () {
+        fetch(URL_READ, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': token ? token.value : '',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(load).catch(function () {});
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!root.contains(e.target) && !panel.hidden) {
+            panel.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) {
+            panel.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+            btn.focus();
+        }
+    });
+
+    /* lets the settings page refresh the bell right after a toggle changes */
+    window.refreshAdminBell = load;
+
+    load();
+    setInterval(function () { if (!document.hidden) load(); }, 15000);
+})();
+</script>
+{% endblock %}

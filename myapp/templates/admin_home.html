@@ -1,0 +1,108 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block page_heading %}
+  <h1>Welcome, Admin 👋</h1>
+  <p>Here's what's happening on VoxHub today.</p>
+{% endblock %}
+
+{% block content %}
+
+  <!-- Notification bell (fixed at the top right of the page) -->
+  {% include 'admin_bell.html' %}
+
+  <!-- Top stat cards -->
+  <section class="stats">
+    <div class="card stat">
+      <div class="label">Total Users</div>
+      <div class="count">{{ total_users|default:0 }}</div>
+      <a class="link" href="{% url 'admin_users' %}">View all users →</a>
+    </div>
+    <div class="card stat">
+      <div class="label">Banned Users</div>
+      <div class="count">{{ banned_users|default:0 }}</div>
+      <a class="link" href="{% url 'admin_banned_users' %}">Manage bans →</a>
+    </div>
+    <div class="card stat">
+      <div class="label">Pending Reports</div>
+      <div class="count">{{ pending_reports|default:0 }}</div>
+      <a class="link" href="{% url 'admin_reports' %}">View reports →</a>
+    </div>
+  </section>
+
+  <div class="dash-grid">
+
+    <!-- Left column -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-head">
+          <h2>Recent Users</h2>
+          <a class="link" href="{% url 'admin_users' %}">View all →</a>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Username</th><th>Name</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in recent_users %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ user.username }}</td>
+              <td>{{ user.name }}</td>
+              <td>
+                {% if user.is_banned %}
+                  <span class="pill pill-banned">Banned</span>
+                {% else %}
+                  <span class="pill pill-active">Active</span>
+                {% endif %}
+              </td>
+              <td><a class="link" href="{% url 'admin_banned_users' %}">Manage</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if not recent_users %}
+          <p class="empty">No users found.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Latest Reports</h2>
+          <a class="link" href="{% url 'admin_reports' %}">View all →</a>
+        </div>
+        {% for report in latest_reports %}
+          <p>{{ report }}</p>
+        {% empty %}
+          <p class="empty">No reports available.</p>
+        {% endfor %}
+      </section>
+    </div>
+
+    <!-- Right column -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><h2>Quick Actions</h2></div>
+        <div class="actions">
+          <a class="btn btn-blue" href="{% url 'admin_users' %}">👥 View All Users →</a>
+          <a class="btn btn-red" href="{% url 'admin_banned_users' %}">🚫 Ban / Unban User →</a>
+          <a class="btn btn-purple" href="{% url 'admin_reports' %}">🚩 Review Reports →</a>
+        </div>
+      </section>
+
+      <section class="card overview">
+        <h2>Platform Overview</h2>
+        <ul>
+          <li>Total registered users <strong>{{ total_users|default:0 }}</strong></li>
+          <li>Active users <strong>{{ active|default:0 }}</strong></li>
+          <li>Total posts <strong>{{ total_posts|default:0 }}</strong></li>
+          <li>Pending reports <strong>{{ pending_reports|default:0 }}</strong></li>
+        </ul>
+      </section>
+    </div>
+
+  </div>
+{% endblock %}

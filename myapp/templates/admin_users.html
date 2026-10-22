@@ -1,0 +1,337 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Manage Users{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Page-specific styles only. Sidebar, topbar and layout come from admin_base.html */
+
+    /* ================= STATISTICS ================= */
+
+    .um-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background: #0d1522;
+        border: 1px solid #203047;
+        border-radius: 12px;
+        padding: 22px;
+    }
+
+    .stat-card .label { font-size: 14px; color: #a7b8ce; }
+    .stat-card .number { font-size: 30px; font-weight: bold; margin-top: 12px; }
+    .stat-card .symbol { color: #4295ff; font-size: 13px; margin-top: 8px; }
+
+    .number.blue { color: #4295ff; }
+    .number.green { color: #18d6a0; }
+    .number.red { color: #ff5c68; }
+
+    /* ================= USER TABLE ================= */
+
+    .content-card {
+        background: #0d1522;
+        border: 1px solid #203047;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid #1e2b3e;
+    }
+
+    .card-header h2 { font-size: 18px; margin: 0; }
+    .card-header p { color: #91a4bc; font-size: 12px; margin: 7px 0 0; }
+
+    .search {
+        width: 290px;
+        max-width: 100%;
+        padding: 12px 14px;
+        border-radius: 9px;
+        border: 1px solid #273247;
+        background: #080d16;
+        color: #e5edf8;
+        outline: none;
+        font-size: 13px;
+    }
+    .search:focus { border-color: #4295ff; }
+    .search::placeholder { color: #69758b; }
+
+    .table-wrap { width: 100%; overflow-x: auto; }
+
+    .content-card table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 850px;
+    }
+
+    .content-card thead { background: #111b2a; }
+
+    .content-card th {
+        padding: 15px 18px;
+        text-align: left;
+        color: #91a4bc;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        border-bottom: 0;
+    }
+
+    .content-card td {
+        padding: 16px 18px;
+        border-top: 1px solid #1e2b3e;
+        border-bottom: 0;
+        font-size: 13px;
+        color: #d9e5f4;
+    }
+
+    .content-card tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    .user-info { display: flex; align-items: center; gap: 12px; min-width: 180px; }
+
+    .avatar {
+        width: 42px;
+        height: 42px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #34314e;
+        background: #192131;
+    }
+
+    .avatar-placeholder {
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: bold;
+        background: linear-gradient(135deg, #8b5cf6, #2563eb);
+    }
+
+    .user-name { font-weight: 600; margin-bottom: 5px; }
+    .username { color: #91a4bc; font-size: 12px; }
+
+    /* ================= ACCOUNT STATUS ================= */
+
+    .status {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .status.active { background: #073b31; color: #20d9a3; }
+    .status.banned { background: #451d28; color: #ff747c; }
+
+    /* ================= ACTION BUTTONS ================= */
+
+    .row-actions { display: flex; align-items: center; gap: 8px; }
+    .row-actions form { margin: 0; }
+
+    .um-btn {
+        display: inline-block;
+        padding: 8px 11px;
+        border-radius: 7px;
+        border: 1px solid #273247;
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        font-family: inherit;
+    }
+    .um-btn:hover { filter: brightness(1.2); }
+
+    .um-btn-view { background: #19213a; color: #b9a2ff; border-color: #40336b; }
+    .um-btn-ban { background: #351a25; color: #fb7185; border-color: #713044; }
+    .um-btn-unban { background: #103128; color: #34d399; border-color: #205b48; }
+
+    .um-empty { padding: 35px !important; text-align: center; color: #91a4bc !important; }
+
+    .um-footer { text-align: center; color: #657187; font-size: 12px; padding: 25px 0 5px; }
+
+    /* ================= RESPONSIVE ================= */
+
+    @media (max-width: 1100px) {
+        .um-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 700px) {
+        .um-stats { grid-template-columns: 1fr; gap: 12px; }
+        .stat-card { padding: 17px; }
+        .card-header { padding: 17px; }
+        .search { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+    <h1>User Management</h1>
+    <p>View and manage VoxHub member accounts.</p>
+{% endblock %}
+
+
+{% block content %}
+
+    <!-- STATISTICS -->
+    <section class="um-stats">
+        <div class="stat-card">
+            <div class="label">Total users</div>
+            <div class="number blue">{{ users|length }}</div>
+            <div class="symbol">Registered members</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="label">Active users</div>
+            <div class="number green">{{ active_count }}</div>
+            <div class="symbol">Accounts enabled</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="label">Banned users</div>
+            <div class="number red">{{ banned_count }}</div>
+            <div class="symbol">Accounts disabled</div>
+        </div>
+    </section>
+
+    <!-- ALL USERS -->
+    <section class="content-card">
+
+        <div class="card-header">
+            <div>
+                <h2>All Members</h2>
+                <p>Search accounts and manage their status.</p>
+            </div>
+
+            <input
+                type="search"
+                id="userSearch"
+                class="search"
+                placeholder="Search name, username, email..."
+                aria-label="Search users"
+            >
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="userTable">
+
+                    {% for profile in active %}
+                    <tr class="user-row">
+
+                        <td>
+                            <div class="user-info">
+                                {% if profile.profile_image %}
+                                    <img src="{{ profile.profile_image.url }}" class="avatar" alt="Profile photo">
+                                {% else %}
+                                    <div class="avatar avatar-placeholder">{{ profile.name|first|upper }}</div>
+                                {% endif %}
+
+                                <div>
+                                    <div class="user-name">{{ profile.name }}</div>
+                                    <div class="username">@{{ profile.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>{{ profile.email }}</td>
+
+                        <td>{{ profile.phone_number|default:"—" }}</td>
+
+                        <td>
+                            {% if profile.LOGIN.is_active %}
+                                <span class="status active">Active</span>
+                            {% else %}
+                                <span class="status banned">Banned</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="row-actions">
+
+                                <a href="{% url 'view_userprofile' profile.id %}" class="um-btn um-btn-view">View</a>
+
+                                {% if profile.LOGIN.is_active %}
+                                    <form
+                                        method="POST"
+                                        action="{% url 'admin_ban_user' profile.LOGIN.id %}"
+                                        onsubmit="return confirm('Are you sure you want to ban this user?');"
+                                    >
+                                        {% csrf_token %}
+                                        <button type="submit" class="um-btn um-btn-ban">Ban</button>
+                                    </form>
+                                {% else %}
+                                    <form
+                                        method="POST"
+                                        action="myapp/admin_unban_user/{{profile.LOGIN.id}}"
+                                        onsubmit="return confirm('Restore this user account?');"
+                                    >
+                                        {% csrf_token %}
+                                        <button type="submit" class="um-btn um-btn-unban">Unban</button>
+                                    </form>
+                                {% endif %}
+
+                            </div>
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="um-empty">No registered users found.</td>
+                    </tr>
+                    {% endfor %}
+
+                    <tr id="noResults" style="display: none;">
+                        <td colspan="5" class="um-empty">No users match your search.</td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+    </section>
+
+    <div class="um-footer">© VoxHub · Administration Panel</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    const searchInput = document.getElementById("userSearch");
+    const rows = document.querySelectorAll(".user-row");
+    const noResults = document.getElementById("noResults");
+
+    searchInput.addEventListener("input", function () {
+        const query = this.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        rows.forEach(function (row) {
+            const matches = row.textContent.toLowerCase().includes(query);
+            row.style.display = matches ? "" : "none";
+            if (matches) visibleCount++;
+        });
+
+        noResults.style.display = visibleCount === 0 && rows.length > 0 ? "" : "none";
+    });
+</script>
+{% endblock %}

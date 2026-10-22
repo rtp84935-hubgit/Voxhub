@@ -225,10 +225,12 @@ main{padding-top:4px}
       <div class="people">
         {% for u in people %}
         <div class="pcard">
-          <div class="av">{% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="">{% else %}{{ u.name|slice:":2"|upper }}{% endif %}</div>
-          <b>{{ u.username }}</b><span>{{ u.name }}</span>
-          <button class="follow {% if u.id in following_ids %}on{% endif %}" data-url="{% url 'toggle_follow' u.id %}">{% if u.id in following_ids %}Following{% else %}Follow{% endif %}</button>
-        </div>
+  <a class="plink" href="{% url 'view_profile' u.id %}">
+    <div class="av">{% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="">{% else %}{{ u.name|slice:":2"|upper }}{% endif %}</div>
+    <b>{{ u.username }}</b><span>{{ u.name }}</span>
+    <span class="vp">View profile</span>
+  </a>
+</div>
         {% endfor %}
       </div>
       {% endif %}

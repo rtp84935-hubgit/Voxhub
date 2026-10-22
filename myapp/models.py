@@ -43,6 +43,8 @@ class UserProfile(models.Model):
     voice_sample_count = models.PositiveIntegerField(
         default=0
     )
+    
+    created_at = models.DateField(auto_now_add=True)
 
 class VoiceProfile(models.Model):
     USER=models.ForeignKey(UserProfile, on_delete=models.CASCADE)
@@ -118,3 +120,39 @@ class ChatMessage(models.Model):
 
 
 
+class AdminNotification(models.Model):
+    KIND_CHOICES = [
+        ("new_user", "New user"),
+        ("report", "Report"),
+        ("security", "Security"),
+    ]
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    message = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+ 
+    class Meta:
+        ordering = ["-id"]
+ 
+    def __str__(self):
+        return f"[{self.kind}] {self.message}"
+ 
+ 
+class AdminNotificationPreference(models.Model):
+    admin = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="notification_pref"
+    )
+    new_user = models.BooleanField(default=True)
+    report = models.BooleanField(default=True)
+    security = models.BooleanField(default=True)
+ 
+    def __str__(self):
+        return f"Notification preferences for {self.admin.username}"
+
+
+class Reports(models.Model):
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="reports_made")
+    VICTIM = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="reports_received")
+    reports = models.CharField(max_length=100)
+    status = models.CharField(max_length=10, default="pending")
+    date = models.DateTimeField(auto_now_add=True)

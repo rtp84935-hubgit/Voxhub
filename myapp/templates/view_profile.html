@@ -1,4 +1,3 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -174,9 +173,55 @@ main{padding:24px 0 90px;min-width:0}
     background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));
 }
 .secondary{background:var(--surface-2);color:var(--text)}
+.danger{background:rgba(244,114,182,.10);color:var(--pink);border-color:rgba(244,114,182,.35)}
+.danger:disabled{opacity:.6;cursor:default;filter:none}
 .action:hover{filter:brightness(1.12);border-color:var(--accent)}
 .follow-form{display:inline-flex;margin:0}
 .profile-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+
+/* Report popup */
+.modal{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+    background:rgba(5,7,15,.72);
+    backdrop-filter:blur(4px);
+}
+.modal[hidden]{display:none}
+.modal-box{
+    width:100%;
+    max-width:400px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px 20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.modal-box h3{margin:0 0 6px;font-size:16px;overflow-wrap:anywhere}
+.modal-box p{margin:0 0 14px;font-size:12px;color:var(--muted)}
+.modal-box textarea{
+    width:100%;
+    min-height:90px;
+    resize:vertical;
+    padding:11px 13px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:10px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    outline:none;
+}
+.modal-box textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.18)}
+.modal-count{text-align:right;font-size:11px;color:var(--muted);margin-top:5px}
+.modal-msg{min-height:18px;margin:8px 0 0;font-size:12px;font-weight:700}
+.modal-msg.err{color:#fda4af}
+.modal-msg.ok{color:var(--ok)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 
 /* Stats */
 .stats{
@@ -476,6 +521,10 @@ main{padding:24px 0 90px;min-width:0}
                                href="/myapp/chat/{{ profile.id }}/">
                                 💬 Message
                             </a>
+
+                            <button class="action danger" type="button" id="reportOpen">
+                                🚩 Report
+                            </button>
                         </div>
                     {% endif %}
                 </div>
@@ -618,5 +667,111 @@ main{padding:24px 0 90px;min-width:0}
     <a href="/myapp/chat/" aria-label="Messages">💬</a>
     <a class="on" href="{% url 'view_profile' me.id %}" aria-label="Profile">👤</a>
 </nav>
+
+{% if not is_own_profile %}
+<!-- REPORT POPUP -->
+<div class="modal" id="reportModal" hidden role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+    <div class="modal-box">
+        {% csrf_token %}
+        <h3 id="reportTitle">Report @{{ profile.username }}</h3>
+        <p>Tell us what is wrong. Our admins will review your report.</p>
+
+        <textarea id="reportReason" maxlength="100"
+                  placeholder="Reason for reporting (for example spam, abuse, fake account)"></textarea>
+        <div class="modal-count"><span id="reportCount">0</span>/100</div>
+        <div class="modal-msg" id="reportMsg" role="status"></div>
+
+        <div class="modal-actions">
+            <button type="button" class="action secondary" id="reportCancel">Cancel</button>
+            <button type="button" class="action primary" id="reportSend">Submit report</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var openBtn = document.getElementById('reportOpen');
+    var modal   = document.getElementById('reportModal');
+    if (!openBtn || !modal) return;
+
+    var reason  = document.getElementById('reportReason');
+    var count   = document.getElementById('reportCount');
+    var msg     = document.getElementById('reportMsg');
+    var sendBtn = document.getElementById('reportSend');
+    var cancel  = document.getElementById('reportCancel');
+    var token   = modal.querySelector('input[name=csrfmiddlewaretoken]');
+    var REPORT_URL = "{% url 'report_user' profile.id %}";
+
+    function show(text, ok) {
+        msg.textContent = text;
+        msg.className = 'modal-msg ' + (ok ? 'ok' : 'err');
+    }
+
+    function openModal() {
+        modal.hidden = false;
+        show('', true);
+        reason.focus();
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+        openBtn.focus();
+    }
+
+    openBtn.addEventListener('click', openModal);
+    cancel.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hidden) closeModal();
+    });
+
+    reason.addEventListener('input', function () {
+        count.textContent = reason.value.length;
+    });
+
+    sendBtn.addEventListener('click', function () {
+        var text = reason.value.trim();
+        if (!text) { show('Please enter a reason.', false); return; }
+
+        var body = new URLSearchParams();
+        body.append('reason', text);
+
+        sendBtn.disabled = true;
+        show('Sending…', true);
+
+        fetch(REPORT_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': token ? token.value : '',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body
+        })
+        .then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok && d.ok, data: d }; });
+        })
+        .then(function (res) {
+            if (res.ok) {
+                show(res.data.message || 'Report submitted.', true);
+                openBtn.textContent = '✓ Reported';
+                openBtn.disabled = true;
+                setTimeout(function () { modal.hidden = true; }, 1400);
+            } else {
+                show(res.data.error || 'Could not submit the report.', false);
+            }
+        })
+        .catch(function () {
+            show('Something went wrong. Please try again.', false);
+        })
+        .finally(function () { sendBtn.disabled = false; });
+    });
+})();
+</script>
+{% endif %}
 </body>
 </html>

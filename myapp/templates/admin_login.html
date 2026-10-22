@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Login</title>
+<style>
+  :root {
+    --bg: #11141b;
+    --panel: #181c26;
+    --field: #0e1117;
+    --line: #2a3142;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+    --accent: #7aa2ff;
+    --accent-ink: #0b1020;
+    --danger: #ff7a8a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    background: radial-gradient(900px 500px at 15% -10%, #1b2236 0%, transparent 60%), var(--bg);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 36px 32px 28px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-weight: 700; font-size: 18px;
+  }
+  .brand h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  .brand p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+
+  .error {
+    display: none;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid #5a2a33;
+    background: #2a161b;
+    color: var(--danger);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .error.show { display: block; }
+
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field { margin-bottom: 18px; position: relative; }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input::placeholder { color: #566079; }
+  input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(122, 162, 255, .22);
+  }
+  .toggle {
+    position: absolute; right: 8px; top: 29px;
+    background: none; border: 0; color: var(--muted);
+    font-size: 13px; padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  }
+  .toggle:hover { color: var(--text); }
+  .toggle:focus-visible { outline: 2px solid var(--accent); }
+  #password { padding-right: 64px; }
+
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 4px 0 22px; font-size: 13px;
+  }
+  .row label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }
+  .row input { accent-color: var(--accent); width: 15px; height: 15px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  button.submit {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s, transform .05s;
+  }
+  button.submit:hover { filter: brightness(1.08); }
+  button.submit:active { transform: translateY(1px); }
+  button.submit:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  button.submit[disabled] { opacity: .6; cursor: progress; }
+
+  .foot { margin-top: 22px; text-align: center; font-size: 12px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">A</div>
+      <div>
+        <h1>Admin sign in</h1>
+        <p>Use your administrator account</p>
+      </div>
+    </div>
+
+    <div id="error" class="error" role="alert"></div>
+
+    <!-- Django: add method="post" action="{% url 'admin_login' %}" and {% csrf_token %} -->
+    
+<form id="loginForm" method="POST" action="{% url 'admin_login_post' %}">
+    {% csrf_token %}
+
+    <div class="field">
+        <label for="username">Username</label>
+        <input
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+            placeholder="Enter your username"
+            required
+        >
+    </div>
+
+    <div class="field">
+        <label for="password">Password</label>
+        <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+            required
+        >
+        <button type="button" class="toggle" id="toggle">
+            Show
+        </button>
+    </div>
+
+    <button type="submit" class="submit" id="submitBtn">
+        Sign in
+    </button>
+</form>
+
+
+    <p class="foot">Authorized access only. Activity is logged.</p>
+  </main>
+
+<script>
+ 
+const pw = document.getElementById('password');
+const toggle = document.getElementById('toggle');
+
+toggle.addEventListener('click', () => {
+    const hidden = pw.type === 'password';
+
+    pw.type = hidden ? 'text' : 'password';
+    toggle.textContent = hidden ? 'Hide' : 'Show';
+});
+
+</script>
+</body>
+</html>

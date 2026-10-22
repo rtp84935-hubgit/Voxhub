@@ -1,0 +1,311 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Banned Users{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Page-specific styles only. Sidebar, topbar and layout come from admin_base.html.
+       Colour variables are scoped to .bn-page so they don't override the base theme. */
+
+    .bn-page {
+        --panel: #131925;
+        --panel2: #192131;
+        --line: #273247;
+        --bn-text: #e8edf7;
+        --bn-muted: #8c98ad;
+        --bn-purple: #8b5cf6;
+        --bn-red: #fb7185;
+        --green: #34d399;
+
+        color: var(--bn-text);
+    }
+
+    /* Summary */
+    .summary {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 22px;
+        margin-bottom: 24px;
+    }
+
+    .warning-icon {
+        width: 52px;
+        height: 52px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 13px;
+        background: rgba(251, 113, 133, .12);
+        color: var(--bn-red);
+        font-size: 25px;
+    }
+
+    .summary h2 { margin: 0 0 7px; font-size: 17px; }
+    .summary p { color: var(--bn-muted); font-size: 13px; margin: 0; }
+
+    .summary-count {
+        margin-left: auto;
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--bn-red);
+    }
+
+    /* Table card */
+    .content-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .card-header h2 { margin: 0; font-size: 18px; }
+    .card-header p { color: var(--bn-muted); font-size: 12px; margin: 7px 0 0; }
+
+    .search {
+        width: 290px;
+        max-width: 100%;
+        padding: 11px 14px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: #0d121c;
+        color: var(--bn-text);
+        outline: none;
+        font-family: inherit;
+    }
+    .search:focus { border-color: var(--bn-purple); }
+
+    .table-wrap { overflow-x: auto; }
+
+    .bn-page table { width: 100%; min-width: 780px; border-collapse: collapse; }
+    .bn-page thead { background: #171f2e; }
+
+    .bn-page th {
+        padding: 15px 18px;
+        text-align: left;
+        color: var(--bn-muted);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        border-bottom: 0;
+    }
+
+    .bn-page td {
+        padding: 16px 18px;
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+        font-size: 13px;
+    }
+
+    .bn-page tbody tr:hover { background: rgba(255, 255, 255, .02); }
+
+    .user-info { display: flex; align-items: center; gap: 12px; }
+
+    .avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: var(--panel2);
+        border: 2px solid #453044;
+    }
+
+    .avatar-placeholder {
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--bn-purple), #2563eb);
+    }
+
+    .user-name { font-weight: 600; margin-bottom: 5px; }
+    .username { color: var(--bn-muted); font-size: 12px; }
+
+    .status {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .status.banned { color: var(--bn-red); background: rgba(251, 113, 133, .12); }
+
+    .bn-actions { display: flex; align-items: center; gap: 8px; }
+    .bn-actions form { margin: 0; }
+
+    .bn-btn {
+        display: inline-block;
+        padding: 8px 11px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-family: inherit;
+        border: 1px solid var(--line);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .bn-btn:hover { filter: brightness(1.2); }
+
+    .bn-btn-view {
+        color: #b9a2ff;
+        background: rgba(139, 92, 246, .12);
+        border-color: rgba(139, 92, 246, .25);
+    }
+
+    .bn-btn-unban {
+        color: var(--green);
+        background: rgba(52, 211, 153, .09);
+        border-color: rgba(52, 211, 153, .25);
+    }
+
+    .bn-page td.bn-empty { padding: 35px; text-align: center; color: var(--bn-muted); }
+
+    .bn-footer { text-align: center; color: #657187; font-size: 12px; padding: 25px 0 5px; }
+
+    @media (max-width: 650px) {
+        .summary { padding: 16px; gap: 12px; }
+        .summary-count { font-size: 24px; }
+        .card-header { padding: 17px; }
+        .search { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+    <h1>Banned Users</h1>
+    <p>Review suspended accounts and restore access when appropriate.</p>
+{% endblock %}
+
+
+{% block content %}
+<div class="bn-page">
+
+    <section class="summary">
+        <div class="warning-icon">!</div>
+        <div>
+            <h2>Suspended Accounts</h2>
+            <p>These accounts are marked inactive and cannot log in.</p>
+        </div>
+        <div class="summary-count">{{ banned_users|length }}</div>
+    </section>
+
+    <section class="content-card">
+        <div class="card-header">
+            <div>
+                <h2>Banned Members</h2>
+                <p>Search accounts and restore access.</p>
+            </div>
+
+            <input
+                type="search"
+                id="userSearch"
+                class="search"
+                placeholder="Search name, username, email..."
+                aria-label="Search banned users"
+            >
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="userTable">
+                {% for profile in banned %}
+                    <tr class="user-row">
+                        <td>
+                            <div class="user-info">
+                                {% if profile.profile_image %}
+                                    <img src="{{ profile.profile_image.url }}" class="avatar" alt="Profile photo">
+                                {% else %}
+                                    <div class="avatar avatar-placeholder">{{ profile.name|first|upper }}</div>
+                                {% endif %}
+
+                                <div>
+                                    <div class="user-name">{{ profile.name }}</div>
+                                    <div class="username">@{{ profile.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>{{ profile.email }}</td>
+                        <td>{{ profile.phone_number|default:"—" }}</td>
+
+                        <td><span class="status banned">Banned</span></td>
+
+                        <td>
+                            <div class="bn-actions">
+                                <a href="{% url 'view_userprofile' profile.id %}" class="bn-btn bn-btn-view">View</a>
+
+                                <form
+                                    method="POST"
+                                    action="{% url 'admin_unban_user' profile.LOGIN.id %}"
+                                    onsubmit="return confirm('Are you sure you want to restore this account?');"
+                                >
+                                    {% csrf_token %}
+                                    <button type="submit" class="bn-btn bn-btn-unban">Unban</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr id="emptyRow">
+                        <td colspan="5" class="bn-empty">No banned users found.</td>
+                    </tr>
+                {% endfor %}
+
+                    <tr id="noResults" style="display:none">
+                        <td colspan="5" class="bn-empty">No users match your search.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="bn-footer">© VoxHub · Administration Panel</div>
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+const searchInput = document.getElementById('userSearch');
+const rows = document.querySelectorAll('.user-row');
+const noResults = document.getElementById('noResults');
+
+searchInput.addEventListener('input', function () {
+    const query = this.value.toLowerCase().trim();
+    let visibleCount = 0;
+
+    rows.forEach(function (row) {
+        const matches = row.textContent.toLowerCase().includes(query);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+
+    noResults.style.display = rows.length > 0 && visibleCount === 0 ? '' : 'none';
+});
+</script>
+{% endblock %}

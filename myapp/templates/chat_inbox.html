@@ -185,6 +185,7 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
     margin-bottom: 17px;
 }
 
@@ -199,6 +200,7 @@ main {
     background: rgba(34,211,238,.08);
     padding: 5px 9px;
     border-radius: 20px;
+    white-space: nowrap;
 }
 
 .search {
@@ -234,6 +236,8 @@ main {
 .people {
     padding: 8px;
 }
+
+/* USER ROW */
 
 .person {
     display: flex;
@@ -291,6 +295,36 @@ main {
     white-space: nowrap;
 }
 
+/* UNREAD MESSAGE BADGE */
+
+.notification-badge {
+    min-width: 23px;
+    height: 23px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 0 12px rgba(124,108,255,.3);
+    animation: badgeIn .25s ease;
+}
+
+@keyframes badgeIn {
+    from {
+        transform: scale(.7);
+        opacity: .4;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 .open-chat {
     width: 35px;
     height: 35px;
@@ -301,12 +335,15 @@ main {
     background: rgba(124,108,255,.12);
     border-radius: 10px;
     font-size: 17px;
+    transition: .2s;
 }
 
 .person:hover .open-chat {
     background: var(--accent);
     color: white;
 }
+
+/* EMPTY STATE */
 
 .empty {
     text-align: center;
@@ -490,12 +527,17 @@ main {
 
     .person {
         padding: 12px 7px;
-        gap: 10px;
+        gap: 9px;
     }
 
     .avatar {
         width: 43px;
         height: 43px;
+    }
+
+    .open-chat {
+        width: 30px;
+        height: 30px;
     }
 
     .mobile-nav {
@@ -528,7 +570,7 @@ main {
 
 <div class="app">
 
-    <!-- LEFT NAVIGATION -->
+    <!-- LEFT SIDEBAR -->
     <aside class="side">
         <a class="logo" href="/myapp/user_home/">
             <span class="logo-mark">V</span>
@@ -601,18 +643,20 @@ main {
 
                 <label class="search">
                     <span>⌕</span>
-                    <input id="user-search"
-                           type="search"
-                           placeholder="Search name or username..."
-                           autocomplete="off">
+                    <input
+                        id="user-search"
+                        type="search"
+                        placeholder="Search name or username..."
+                        autocomplete="off">
                 </label>
             </div>
 
             <div class="people" id="people-list">
+
                 {% for person in users %}
                     <a class="person"
                        href="{% url 'chat_room' person.id %}"
-                       data-search="{{ person.name|lower }} {{ person.username|lower }}">
+                       data-search="{{ person.name|default:person.username|lower }} {{ person.username|lower }}">
 
                         {% if person.profile_image %}
                             <img class="avatar"
@@ -625,16 +669,38 @@ main {
                         {% endif %}
 
                         <div class="person-info">
-                            <strong>{{ person.name|default:person.username }}</strong>
-                            <span>@{{ person.username }}</span>
+                            <strong>
+                                {{ person.name|default:person.username }}
+                            </strong>
+
+                            <span>
+                                {% if person.last_message %}
+                                    {% if person.last_message.sender_id == me.id %}
+                                        You:
+                                    {% endif %}
+                                    {{ person.last_message.message|truncatechars:30 }}
+                                {% else %}
+                                    @{{ person.username }}
+                                {% endif %}
+                            </span>
                         </div>
 
-                        <div class="open-chat" aria-label="Open conversation">➤</div>
+                        {% if person.unread_count > 0 %}
+                            <span class="notification-badge"
+                                  title="{{ person.unread_count }} unread messages">
+                                {{ person.unread_count }}
+                            </span>
+                        {% endif %}
+
+                        <div class="open-chat" aria-label="Open conversation">
+                            ➤
+                        </div>
                     </a>
+
                 {% empty %}
                     <div class="empty">
                         <div class="empty-icon">💬</div>
-                        <h3>No conversations yet</h3>
+                        <h3>No users yet</h3>
                         <p>When more people join VoxHub,<br>you can start chatting here.</p>
                     </div>
                 {% endfor %}
@@ -644,6 +710,7 @@ main {
                     <h3>No users found</h3>
                     <p>Try searching for another name or username.</p>
                 </div>
+
             </div>
         </section>
 
@@ -702,6 +769,7 @@ main {
             </div>
         </section>
     </aside>
+
 </div>
 
 <!-- MOBILE BOTTOM NAVIGATION -->

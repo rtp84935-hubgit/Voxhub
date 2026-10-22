@@ -260,6 +260,25 @@
         @media (prefers-reduced-motion: reduce) {
             * { transition: none !important; }
         }
+        .admin-login-link {
+    display: block;
+    margin-top: 14px;
+    padding: 12px;
+    text-align: center;
+    color: #22d3ee;
+    border: 1px solid #272e49;
+    border-radius: 10px;
+    background: #0b0e1a;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: 0.2s ease;
+}
+
+.admin-login-link:hover {
+    border-color: #22d3ee;
+    background: rgba(34, 211, 238, 0.1);
+}
     </style>
 </head>
 
@@ -364,9 +383,15 @@
     <!-- SIGN UP -->
 
     <div class="signup-section">
-        <p>New to VoxHub?</p>
-        <a class="signup-link" href="/myapp/registration/">Create an account</a>
-    </div>
+    <p>New to VoxHub?</p>
+    <a class="signup-link" href="/myapp/registration/">
+        Create an account
+    </a>
+
+    <a class="admin-login-link" href="/myapp/admin_login/">
+        🛡️ Administration Login
+    </a>
+</div>
 
 </div>
 

@@ -184,6 +184,102 @@ main{padding-top:4px}
     border: 1px solid #a3cfbb;
 }
 
+/* Suggestions Heading */
+h4 {
+    margin-bottom: 15px;
+}
+
+.suggestion {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    transition: 0.3s ease;
+}
+
+/* Hover Effect */
+.suggestion:hover {
+    background: #f8fafc;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+/* Profile Image */
+.suggestion img {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+/* Name */
+.suggestion h4 {
+    margin: 0;
+    font-size: 15px;
+    color: #111827;
+    flex: 1;
+}
+
+/* Username */
+.suggestion p {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* View Profile Link */
+.suggestion a {
+    text-decoration: none;
+    background: #19a7a0;
+    color: white;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: 0.3s ease;
+}
+
+.suggestion a:hover {
+    background: #12827d;
+}
+
+/* Empty Suggestions Message */
+.suggestion + p,
+body p {
+    color: #6b7280;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .suggestion {
+        gap: 10px;
+        padding: 12px;
+        flex-wrap: wrap;
+    }
+
+    .suggestion img {
+        width: 44px;
+        height: 44px;
+    }
+
+    .suggestion h4 {
+        font-size: 14px;
+    }
+
+    .suggestion a {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+}
+
+
 .suggestion-card {
     display: flex;
     align-items: center;
@@ -306,7 +402,7 @@ main{padding-top:4px}
     <nav class="nav" aria-label="Main">
       <button class="on" data-view="home"><span class="ico">🏠</span><span class="t">Home</span></button>
       <a href="/myapp/explore/" data-view="home"><span class="ico">🔎</span><span class="t">Explore</span></a>
-      <a href="/myapp/chat/" data-view="chat"><span class="ico">💬</span><span class="t">Messages</span><span class="badge">0</span></a>
+      <a href="/myapp/chat/" data-view="chat"><span class="ico">💬</span><span class="t">Messages</span>{% if unread_count > 0 %}<span class="badge">{{unread_count}}</span>{% endif %}</a>
       <button><span class="ico">🔔</span><span class="t">Notifications</span></button>
       <button data-create><span class="ico">➕</span><span class="t">Create</span></button>
       <button><span class="ico">👤</span><span class="t">Profile</span></button>
@@ -408,35 +504,31 @@ main{padding-top:4px}
         <span>{{ i.username }}</span>
     </div>
 </div>    {% endfor %}
-    <h4>Suggested for you</h4>
-    {% for i in others %}
-   
-<div class="suggestion-card">
-    <div class="suggestion-avatar">
-        {% if i.profile_image %}
-            <img src="{{ i.profile_image.url }}" alt="{{ i.name }}">
+
+<h4>Suggested for you</h4>
+
+{% for user in suggested_users %}
+    <div class="suggestion">
+
+        {% if user.profile_image %}
+            <img src="{{ user.profile_image.url }}" alt="Profile">
         {% else %}
-            {{ i.name|first|upper }}
+            <img src="/static/images/default-profile.png" alt="Default Profile">
         {% endif %}
-    </div>
 
-    <div class="suggestion-info">
-        <a href="{% url 'view_profile' i.id %}" class="suggestion-name">
-            {{ i.name }}
+        <h4>{{ user.name }}</h4>
+        <p>@{{ user.username }}</p>
+
+        <a href="{% url 'view_profile' user.id %}">
+            View Profile
         </a>
-        <span class="suggestion-username">@{{ i.username }}</span>
-        <span class="suggestion-note">Suggested for you</span>
+
     </div>
+{% empty %}
+    <p>No new suggestions available.</p>
+{% endfor %}
 
-    <form method="POST" action="{% url 'toggle_follow' i.id %}">
-        {% csrf_token %}
-        <button type="submit" class="suggestion-follow">
-            Follow
-        </button>
-    </form>
-</div>
-
-    {% endfor %}
+    
     <!-- <div class="row"><div class="av" style="background:linear-gradient(135deg,#22d3ee,#7c6cff)">SP</div><div><b>sneha.p</b><span>New to VoxHub</span></div><button class="follow">Follow</button></div>
     <div class="row"><div class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)">DJ</div><div><b>dj.anand</b><span>Suggested for you</span></div><button class="follow">Follow</button></div>
     <div class="row"><div class="av" style="background:linear-gradient(135deg,#fbbf24,#f472b6)">MS</div><div><b>meera.s</b><span>Followed by arjun</span></div><button class="follow">Follow</button></div> -->

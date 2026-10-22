@@ -1,3 +1,4 @@
+from datetime import timedelta
 import logging
 import math
 
@@ -20,8 +21,13 @@ from myapp.models import *
 from myapp.voice.enrollment import create_voice_profile, verify_voice
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
+from django.utils import timesince, timezone
 from django.contrib.auth.decorators import login_required
+
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
 
 from .models import UserProfile, User_posts
 logger = logging.getLogger(__name__)
@@ -388,11 +394,12 @@ def user_home(request):
         )
         .order_by('-id'))
 
-    return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts})
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-import re
-from django.db.models import Count, Q
-from django.shortcuts import render, get_object_or_404
+    unread_count = ChatMessage.objects.filter(receiver=me,is_read=False).count()
+    return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts, "unread_count": unread_count})
+
+
 
 VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
 
@@ -570,7 +577,6 @@ def toggle_follow(request, uid):
 
 from django.db.models import Q
 
-
 @login_required(login_url="login")
 def chat_inbox(request):
     me = get_object_or_404(
@@ -579,6 +585,18 @@ def chat_inbox(request):
     )
 
     users = UserProfile.objects.exclude(id=me.id)
+
+    for user in users:
+        user.unread_count = ChatMessage.objects.filter(
+            sender=user,
+            receiver=me,
+            is_read=False
+        ).count()
+
+        user.last_message = ChatMessage.objects.filter(
+            sender__in=[me, user],
+            receiver__in=[me, user]
+        ).order_by("-timestamp", "-id").first()
 
     return render(request, "chat_inbox.html", {
         "me": me,
@@ -833,3 +851,321 @@ def edit_profile(request):
         return redirect("view_profile", user_id=me.id)
 
     return render(request, "edit_profile.html", {"me": me})
+
+@login_required(login_url="login")
+def suggestions(request):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    # Get IDs of users you already follow
+    following_ids = Follow.objects.filter(
+        FOLLOWER=me
+    ).values_list("FOLLOWING_id", flat=True)
+
+    # Exclude yourself and users already followed
+    suggested_users = UserProfile.objects.exclude(
+        id=me.id
+    ).exclude(
+        id__in=following_ids
+    )
+
+    return render(request, "suggestions.html", {
+        "suggested_users": suggested_users
+    })
+
+
+@login_required(login_url="login")
+@require_POST
+def report_user(request, user_id):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    target = get_object_or_404(UserProfile, id=user_id)
+ 
+    if target.id == me.id:
+        return JsonResponse({"ok": False, "error": "You cannot report yourself."}, status=400)
+ 
+    reason = (request.POST.get("reason") or "").strip()[:100]
+ 
+    if not reason:
+        return JsonResponse({"ok": False, "error": "Please enter a reason."}, status=400)
+ 
+    # Don't let the same user file the same pending report again and again
+    if Reports.objects.filter(USER=me, VICTIM=target, status="pending").exists():
+        return JsonResponse(
+            {"ok": False, "error": "You have already reported this user."},
+            status=400,
+        )
+    
+    Reports.objects.create(USER=me, VICTIM=target, reports=reason)
+ 
+    notify_admin("report", f"{me.username} reported {target.username}.")
+ 
+    return JsonResponse({"ok": True, "message": "Report submitted. Thank you."})
+ 
+
+# =======================================ADMIN====================================
+
+from functools import wraps
+ 
+ 
+def admin_required(view_func):
+    """Allow only logged-in, active users in the 'admin' group
+    (the same rule your admin_login_post uses)."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return redirect("admin_login")
+        if not (user.is_active and user.groups.filter(name="admin").exists()):
+            messages.warning(request, "You are not an admin.")
+            return redirect("admin_login")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+ 
+ 
+# =========================================================
+# The missing view that the Admin Profile form posts to
+# =========================================================
+ 
+@admin_required
+@require_POST
+def admin_update_profile(request):
+    user = request.user
+ 
+    username = (request.POST.get("username") or "").strip()
+    email = (request.POST.get("email") or "").strip()
+ 
+    if not username:
+        messages.warning(request, "Username cannot be empty.")
+        return redirect("admin_settings")
+ 
+    if len(username) > 150:
+        messages.warning(request, "Username is too long.")
+        return redirect("admin_settings")
+ 
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.warning(request, "Please enter a valid email address.")
+            return redirect("admin_settings")
+ 
+    if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
+        messages.warning(request, "That username is already taken.")
+        return redirect("admin_settings")
+ 
+    user.username = username
+    user.email = email
+    user.save()
+ 
+    messages.success(request, "Profile updated successfully!")
+    return redirect("admin_settings")
+
+def admin_home(request):
+    total_users=User.objects.filter(is_active=1,is_staff=0).count()
+    banned_users=User.objects.filter(is_active=0).count()
+    recent_users = UserProfile.objects.order_by('-created_at', '-id')[:5]
+    active=User.objects.filter(is_active=1,is_staff=0).count()
+    total_posts=User_posts.objects.all().count()
+    pending_reports=Reports.objects.filter(status="pending").count()
+    return render(request,'admin_home.html',{'total_users':total_users,"banned_users":banned_users,"recent_users":recent_users,"active":active,"total_posts":total_posts,"pending_reports":pending_reports})
+
+def admin_login(request):
+    return render(request,"admin_login.html")
+
+
+
+
+def admin_login_post(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password
+        )
+
+        print("Username:", username)
+        print("Authentication result:", user)
+
+        if user is not None:
+            print("Admin group:", user.groups.filter(name="admin").exists())
+
+            if user.groups.filter(name="admin").exists():
+                login(request, user)
+                return redirect("admin_home")
+            else:
+                messages.warning(request, "You are not an admin.")
+        else:
+            messages.warning(request, "Wrong username or password.")
+
+    return redirect("admin_login")
+
+def admin_users(request):
+    active = UserProfile.objects.filter(LOGIN__is_active=True)
+    return render(request,"admin_users.html",{'active':active})
+
+def admin_banned_users(request):
+    banned=UserProfile.objects.filter(LOGIN__is_active=False)
+    return render(request,'admin_banned_users.html',{'banned':banned})
+
+def admin_reports(request):
+    reports=Reports.objects.all()
+    return render(request,"admin_reports.html",{'reports':reports})
+
+def admin_settings(request):
+    return render(request,"admin_settings.html")
+
+def admin_ban_user(request,id):
+    ob=User.objects.get(id=id)
+    ob.is_active = 0        
+    ob.save()
+    return redirect('admin_users')
+
+def admin_unban_user(request,id):
+    ob=User.objects.get(id=id)
+    ob.is_active = 1
+    ob.save()
+    return redirect('admin_users')
+
+def view_userprofile(request,id):
+    users=UserProfile.objects.filter(LOGIN_id=id)
+    posts=User_posts.objects.filter(USER__LOGIN_id=id)
+    return render(request,"view_userprofile.html",{"users":users,"posts":posts})
+
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
+
+
+@login_required
+def admin_changepassword(request):
+
+    if request.method != "POST":
+        return redirect("admin_settings")
+
+    user = request.user
+
+    old_password = request.POST.get("old_password", "")
+    new_password = request.POST.get("new_password", "")
+    confirm_password = request.POST.get("confirm_password", "")
+
+    # 1. Check current password
+    if not user.check_password(old_password):
+        messages.warning(request, "Current password is incorrect.")
+        return redirect("admin_settings")
+
+    # 2. Check empty fields
+    if not new_password or not confirm_password:
+        messages.warning(request, "All password fields are required.")
+        return redirect("admin_settings")
+
+    # 3. Check whether new passwords match
+    if new_password != confirm_password:
+        messages.warning(
+            request,
+            "New password and confirm password do not match."
+        )
+        return redirect("admin_settings")
+
+    # 4. Prevent reusing the current password
+    if user.check_password(new_password):
+        messages.warning(
+            request,
+            "Your new password must be different from your current password."
+        )
+        return redirect("admin_settings")
+
+    # 5. Validate password strength using Django validators
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as errors:
+        for error in errors.messages:
+            messages.warning(request, error)
+        return redirect("admin_settings")
+
+    # 6. Save the new password securely
+    user.set_password(new_password)
+    user.save()
+
+    # 7. Keep the admin logged in
+    update_session_auth_hash(request, user)
+
+    messages.success(request, "Password changed successfully!")
+
+    return redirect("admin_settings")
+
+
+NOTIFY_KINDS = ("new_user", "report", "security")
+ 
+ 
+def notify_admin(kind, message):
+    """Create an admin notification. Never raises, so it can't break
+    registration or login. Identical messages within 1 minute are skipped
+    so repeated failed logins can't flood the bell."""
+    try:
+        message = message[:255]
+        since = timezone.now() - timedelta(minutes=1)
+        if AdminNotification.objects.filter(
+            kind=kind, message=message, created_at__gte=since
+        ).exists():
+            return
+        AdminNotification.objects.create(kind=kind, message=message)
+    except Exception:
+        logger.exception("Could not create admin notification")
+ 
+ 
+def _get_prefs(user):
+    prefs, _ = AdminNotificationPreference.objects.get_or_create(admin=user)
+    return prefs
+ 
+ 
+@admin_required
+def admin_settings(request):
+    return render(request, "admin_settings.html", {"prefs": _get_prefs(request.user)})
+ 
+ 
+@admin_required
+@require_POST
+def admin_save_notification_pref(request):
+    key = request.POST.get("key", "")
+    value = request.POST.get("value") == "true"
+ 
+    if key not in NOTIFY_KINDS:
+        return JsonResponse({"ok": False, "error": "Invalid setting."}, status=400)
+ 
+    prefs = _get_prefs(request.user)
+    setattr(prefs, key, value)
+    prefs.save(update_fields=[key])
+    return JsonResponse({"ok": True})
+ 
+ 
+@admin_required
+def admin_notifications(request):
+    prefs = _get_prefs(request.user)
+    enabled = [k for k in NOTIFY_KINDS if getattr(prefs, k)]
+ 
+    qs = AdminNotification.objects.filter(kind__in=enabled)
+    unread = qs.filter(is_read=False).count()
+ 
+    items = [
+        {
+            "id": n.id,
+            "kind": n.kind,
+            "message": n.message,
+            "time": timesince(n.created_at) + " ago",
+            "is_read": n.is_read,
+        }
+        for n in qs[:15]
+    ]
+    return JsonResponse({"ok": True, "unread": unread, "items": items})
+ 
+ 
+@admin_required
+@require_POST
+def admin_notifications_read(request):
+    prefs = _get_prefs(request.user)
+    enabled = [k for k in NOTIFY_KINDS if getattr(prefs, k)]
+    AdminNotification.objects.filter(kind__in=enabled, is_read=False).update(is_read=True)
+    return JsonResponse({"ok": True})
