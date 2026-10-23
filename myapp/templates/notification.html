@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications · VoxHub</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+    :root {
+        --bg: #0b1019; --panel: #121925; --panel2: #192131; --line: #273247;
+        --text: #e8edf7; --muted: #8c98ad; --purple: #8b5cf6; --cyan: #22d3ee;
+        --red: #fb7185; --green: #34d399; --yellow: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Manrope', sans-serif; font-size: 14px; }
+    button { font-family: inherit; }
+    a { color: inherit; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 18px 56px; }
+    .back-home { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; padding: 9px 14px;
+                 border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--muted);
+                 font-size: 12px; font-weight: 700; text-decoration: none; transition: color .2s, border-color .2s; }
+    .back-home:hover { color: var(--text); border-color: #59657b; }
+    .back-home:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+    h1 { margin: 0; font-size: 26px; font-weight: 800; }
+    .sub { margin: 6px 0 24px; color: var(--muted); font-size: 13px; }
+
+    .message { padding: 13px 16px; border-radius: 10px; margin-bottom: 18px; font-size: 13px;
+               background: #172a25; border: 1px solid #285b49; color: #86efac; }
+    .message.error { background: #321b23; border-color: #713444; color: #fda4af; }
+    .message.info  { background: #17283b; border-color: #315477; color: #93c5fd; }
+
+    .section-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800; margin: 26px 0 12px; }
+    .count { background: rgba(251,191,36,.14); color: var(--yellow); font-size: 11px; padding: 3px 9px; border-radius: 20px; }
+
+    .list { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .note { display: flex; gap: 14px; padding: 18px 20px; border-top: 1px solid var(--line); }
+    .note:first-child { border-top: 0; }
+
+    .icon { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center;
+            justify-content: center; background: var(--panel2); border: 1px solid var(--line); }
+    .icon.follow { color: var(--cyan); }
+    .icon.pending { color: var(--yellow); }
+    .icon.resolved { color: var(--green); }
+    .icon.dismissed { color: var(--muted); }
+
+    .body { flex: 1; min-width: 0; }
+    .title { font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+    .title a { color: #c4b5fd; text-decoration: none; }
+    .title a:hover { text-decoration: underline; }
+    .detail { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.6; overflow-wrap: anywhere; }
+
+    .badge { display: inline-block; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 800; margin-left: 6px; vertical-align: middle; }
+    .badge.pending   { background: rgba(251,191,36,.12); color: var(--yellow); }
+    .badge.resolved  { background: rgba(52,211,153,.12); color: var(--green); }
+    .badge.dismissed { background: rgba(140,152,173,.13); color: #aab5c8; }
+
+    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .row-actions form { margin: 0; }
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 8px; font-size: 12px;
+           font-weight: 700; border: 1px solid var(--line); cursor: pointer; transition: filter .2s; }
+    .btn:hover { filter: brightness(1.2); }
+    .btn:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+    .btn-accept  { color: var(--green); background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.28); }
+    .btn-decline { color: var(--red);   background: rgba(251,113,133,.08); border-color: rgba(251,113,133,.28); }
+
+    .empty { text-align: center; padding: 34px 20px; color: var(--muted); line-height: 1.7; }
+    .empty i { display: block; font-size: 24px; color: #64748b; margin-bottom: 10px; }
+
+    @media (max-width: 520px) { .note { padding: 16px 14px; gap: 11px; } .icon { width: 36px; height: 36px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <a href="{% url 'user_home' %}" class="back-home">
+        <i class="fa-solid fa-arrow-left"></i> Back to home
+    </a>
+
+    <h1>Notifications</h1>
+    <p class="sub">Follow requests and updates on reports you submitted.</p>
+
+    {% for message in messages %}
+        <div class="message {% if message.tags == 'error' %}error{% elif message.tags == 'info' %}info{% endif %}">{{ message }}</div>
+    {% endfor %}
+
+    <!-- Follow requests -->
+    <div class="section-title">
+        Follow requests
+        {% if follow_requests %}<span class="count">{{ follow_requests|length }}</span>{% endif %}
+    </div>
+
+    <section class="list">
+        {% for f in follow_requests %}
+        <article class="note">
+            <div class="icon follow"><i class="fa-solid fa-user-plus"></i></div>
+            <div class="body">
+                <div class="title">
+                    <a href="{% url 'view_userprofile' f.FOLLOWER.LOGIN_id %}">{{ f.FOLLOWER.name }}</a>
+                    wants to follow you
+                </div>
+                <div class="row-actions">
+                    <form method="POST" action="{% url 'accept_follow_request' f.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-accept"><i class="fa-solid fa-check"></i> Accept</button>
+                    </form>
+                    <form method="POST" action="{% url 'decline_follow_request' f.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-decline"><i class="fa-solid fa-xmark"></i> Decline</button>
+                    </form>
+                </div>
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty"><i class="fa-regular fa-bell-slash"></i>No pending follow requests.</div>
+        {% endfor %}
+    </section>
+
+    <!-- Reports -->
+    <div class="section-title">Your reports</div>
+
+    <section class="list">
+        {% for r in my_reports %}
+        <article class="note">
+            <div class="icon {{ r.status|default:'pending' }}"><i class="fa-solid fa-flag"></i></div>
+            <div class="body">
+                <div class="title">
+                    Report #{{ r.id }}
+                    {% if r.status == 'pending' %}<span class="badge pending">Pending</span>
+                    {% elif r.status == 'resolved' %}<span class="badge resolved">Resolved</span>
+                    {% elif r.status == 'dismissed' %}<span class="badge dismissed">Dismissed</span>
+                    {% else %}<span class="badge">{{ r.status|title }}</span>{% endif %}
+                </div>
+                <div class="detail">
+                    {% if r.status == 'pending' %}An admin will review it soon.
+                    {% elif r.status == 'resolved' %}An admin reviewed it and took action.
+                    {% elif r.status == 'dismissed' %}An admin reviewed it and found no violation.{% endif %}
+                </div>
+                {% if r.reports %}<div class="detail">Your reason: {{ r.reports }}</div>{% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty"><i class="fa-regular fa-flag"></i>You haven't submitted any reports.</div>
+        {% endfor %}
+    </section>
+
+</div>
+</body>
+</html>

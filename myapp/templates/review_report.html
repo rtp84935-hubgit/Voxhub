@@ -1,0 +1,255 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Report #{{ report.id }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+    .rd-page {
+        --panel: #121925;
+        --panel2: #192131;
+        --line: #273247;
+        --rp-text: #e8edf7;
+        --rp-muted: #8c98ad;
+        --rp-purple: #8b5cf6;
+        --cyan: #22d3ee;
+        --rp-red: #fb7185;
+        --green: #34d399;
+        --yellow: #fbbf24;
+
+        font-family: 'Manrope', sans-serif;
+        color: var(--rp-text);
+    }
+    .rd-page button { font-family: inherit; }
+
+    .message { padding: 13px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 13px; line-height: 1.6;
+               background: #172a25; border: 1px solid #285b49; color: #86efac; }
+    .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+    .message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+    .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--rp-muted); font-size: 12px;
+                 font-weight: 700; text-decoration: none; margin-bottom: 18px; }
+    .back-link:hover { color: var(--rp-text); }
+
+    .rd-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+
+    .content-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+                    margin-bottom: 18px; }
+    .card-header { padding: 20px 22px; display: flex; justify-content: space-between; align-items: center;
+                   flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--line); }
+    .card-header h2 { margin: 0; font-size: 17px; font-weight: 800; }
+    .card-body { padding: 22px; }
+
+    .report-id { color: #a78bfa; font-weight: 800; }
+
+    .badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+    .badge.pending   { background: rgba(251, 191, 36, 0.12); color: var(--yellow); }
+    .badge.resolved  { background: rgba(52, 211, 153, 0.12); color: var(--green); }
+    .badge.dismissed { background: rgba(140, 152, 173, 0.13); color: #aab5c8; }
+
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label { color: var(--rp-muted); font-size: 11px; font-weight: 600; text-transform: uppercase;
+                   letter-spacing: 0.7px; margin-bottom: 8px; }
+    .reason-box { background: #0d121c; border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+                  font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-line; }
+
+    .meta-row { display: flex; justify-content: space-between; gap: 14px; padding: 12px 0;
+                border-top: 1px solid var(--line); font-size: 12px; }
+    .meta-row:first-child { border-top: 0; padding-top: 0; }
+    .meta-row span:first-child { color: var(--rp-muted); }
+    .meta-row span:last-child { font-weight: 700; text-align: right; }
+
+    .person { display: flex; align-items: center; gap: 14px; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--panel2);
+              border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
+              color: var(--rp-muted); flex-shrink: 0; overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .person-name { font-weight: 800; font-size: 14px; }
+    .person-name a { color: var(--rp-text); text-decoration: none; }
+    .person-name a:hover { color: #c4b5fd; }
+    .subtext { display: block; color: var(--rp-muted); font-size: 11px; margin-top: 4px; }
+
+    .rp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px;
+              border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); cursor: pointer;
+              white-space: nowrap; text-decoration: none; width: 100%; transition: filter 0.2s; }
+    .rp-btn:hover { filter: brightness(1.2); }
+    .rp-btn-resolve { color: var(--green); background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.25); }
+    .rp-btn-dismiss { color: var(--yellow); background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.25); }
+    .rp-btn-ban     { color: var(--rp-red); background: rgba(251, 113, 133, 0.08); border-color: rgba(251, 113, 133, 0.25); }
+    .rp-btn-unban   { color: var(--cyan); background: rgba(34, 211, 238, 0.08); border-color: rgba(34, 211, 238, 0.25); }
+    .rp-btn:focus-visible, .back-link:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+
+    .action-stack { display: grid; gap: 10px; }
+    .action-stack form { margin: 0; }
+    .note { color: var(--rp-muted); font-size: 12px; line-height: 1.6; }
+
+    @media (max-width: 900px) { .rd-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+    <h1>Report #{{ report.id }}</h1>
+    <p>Full details of a report submitted by a VoxHub member.</p>
+{% endblock %}
+
+
+{% block content %}
+<div class="rd-page">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message {% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'info' %}info{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <a href="{% url 'admin_reports' %}" class="back-link">
+        <i class="fa-solid fa-arrow-left"></i> Back to all reports
+    </a>
+
+    <div class="rd-grid">
+
+        <!-- Left: report content -->
+        <div>
+            <section class="content-card">
+                <div class="card-header">
+                    <h2>Report <span class="report-id">#{{ report.id }}</span></h2>
+                    {% if report.status == 'pending' %}
+                        <span class="badge pending">Pending</span>
+                    {% elif report.status == 'resolved' %}
+                        <span class="badge resolved">Resolved</span>
+                    {% elif report.status == 'dismissed' %}
+                        <span class="badge dismissed">Dismissed</span>
+                    {% else %}
+                        <span class="badge">{{ report.status|title }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="card-body">
+                    <div class="field">
+                        <div class="field-label">Reason given</div>
+                        <div class="reason-box">{{ report.reports|default:"No reason provided." }}</div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-label">Report type</div>
+                        {% if report.VICTIM %}
+                            <span>User report</span>
+                        {% else %}
+                            <span>Post report</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-card">
+                <div class="card-header"><h2>Summary</h2></div>
+                <div class="card-body">
+                    <div class="meta-row"><span>Report ID</span><span>#{{ report.id }}</span></div>
+                    <div class="meta-row"><span>Status</span><span>{{ report.status|title }}</span></div>
+                    {% if report.created_at %}
+                    <div class="meta-row"><span>Submitted on</span><span>{{ report.created_at|date:"d M Y" }}</span></div>
+                    {% endif %}
+                    <div class="meta-row"><span>Reported by</span><span>{{ report.USER.name }}</span></div>
+                    {% if report.VICTIM %}
+                    <div class="meta-row"><span>Reported user</span><span>{{ report.VICTIM.name }}</span></div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        <!-- Right: people and actions -->
+        <div>
+            <section class="content-card">
+                <div class="card-header"><h2>Reported by</h2></div>
+                <div class="card-body">
+                    <div class="person">
+                        <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <div class="person-name">
+                                <a href="{% url 'view_userprofile' report.USER.LOGIN_id %}">{{ report.USER.name }}</a>
+                            </div>
+                            <span class="subtext">Member</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {% if report.VICTIM %}
+            <section class="content-card">
+                <div class="card-header"><h2>Reported user</h2></div>
+                <div class="card-body">
+                    <div class="person">
+                        <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <div class="person-name">
+                                <a href="{% url 'view_userprofile' report.VICTIM.LOGIN_id %}">{{ report.VICTIM.name }}</a>
+                            </div>
+                            <span class="subtext">
+                                Account: {% if report.VICTIM.active == 'banned' %}Banned{% else %}Active{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="content-card">
+                <div class="card-header"><h2>Actions</h2></div>
+                <div class="card-body">
+                    <div class="action-stack">
+
+                        {% if report.status == 'pending' %}
+                            <form method="POST" action="/myapp/resolve_report/{{report.id}}/"
+                                  onsubmit="return confirm('Mark this report as resolved?');">
+                                {% csrf_token %}
+                                <button type="submit" class="rp-btn rp-btn-resolve">
+                                    <i class="fa-solid fa-check"></i> Resolve report
+                                </button>
+                            </form>
+
+                            <form method="POST" action="/myapp/dismiss_report/{{report.id}}/"
+                                  onsubmit="return confirm('Dismiss this report?');">
+                                {% csrf_token %}
+                                <button type="submit" class="rp-btn rp-btn-dismiss">
+                                    <i class="fa-solid fa-xmark"></i> Dismiss report
+                                </button>
+                            </form>
+                        {% else %}
+                            <p class="note">This report is already {{ report.status }}.</p>
+                        {% endif %}
+
+                        {% if report.VICTIM %}
+                            {% if report.VICTIM.active == 'banned' %}
+                                <form method="POST" action="{% url 'admin_unban_user' report.VICTIM.LOGIN_id %}"
+                                      onsubmit="return confirm('Unban this user?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="rp-btn rp-btn-unban">
+                                        <i class="fa-solid fa-user-check"></i> Unban user
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{% url 'admin_ban_user' report.VICTIM.LOGIN_id %}"
+                                      onsubmit="return confirm('Ban this user?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="rp-btn rp-btn-ban">
+                                        <i class="fa-solid fa-user-slash"></i> Ban reported user
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
