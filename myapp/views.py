@@ -802,10 +802,7 @@ def toggle_follow(request, user_id):
     if relationship.exists():
         relationship.delete()
     else:
-        Follow.objects.get_or_create(
-            FOLLOWER=me,
-            FOLLOWING=target
-        )
+        Follow.objects.create(FOLLOWER=me, FOLLOWING=target, status='pending')
 
     return redirect("view_profile", user_id=target.id)
 
@@ -1011,7 +1008,29 @@ def admin_banned_users(request):
 
 def admin_reports(request):
     reports=Reports.objects.all()
-    return render(request,"admin_reports.html",{'reports':reports})
+    pending_reports=Reports.objects.filter(status="pending").count()
+    resolved_reports=Reports.objects.filter(status="resolved").count()
+    return render(request,"admin_reports.html",{'reports':reports,"pending_reports":pending_reports,"resolved_reports":resolved_reports})
+
+def review_report(request,id):
+    report=Reports.objects.get(id=id)
+    ob=Reports.objects.get(id=id)
+    ob.status="inreview"
+    ob.save()
+    return render(request,"review_report.html",{"report":report})
+
+def resolve_report(request,id):
+    ob=Reports.objects.get(id=id)
+    ob.status="resolved"
+    ob.save()
+    return redirect("admin_reports")
+
+def dismiss_report(request,id):
+    ob=Reports.objects.get(id=id)
+    ob.status="Dismissed"
+    ob.save()   
+    return redirect("admin_reports")
+
 
 def admin_settings(request):
     return render(request,"admin_settings.html")
@@ -1033,9 +1052,7 @@ def view_userprofile(request,id):
     posts=User_posts.objects.filter(USER__LOGIN_id=id)
     return render(request,"view_userprofile.html",{"users":users,"posts":posts})
 
-from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
+
 
 
 
@@ -1169,3 +1186,27 @@ def admin_notifications_read(request):
     enabled = [k for k in NOTIFY_KINDS if getattr(prefs, k)]
     AdminNotification.objects.filter(kind__in=enabled, is_read=False).update(is_read=True)
     return JsonResponse({"ok": True})
+
+
+
+@login_required
+def user_notifications(request):
+    profile = UserProfile.objects.get(LOGIN=request.user)
+
+    follow_requests = Follow.objects.filter(FOLLOWING=profile, status='pending')   # <- changed line
+    my_reports = Reports.objects.filter(USER=profile)
+
+    return render(request, 'notification.html', {
+        'follow_requests': follow_requests,
+        'my_reports': my_reports,
+    })
+
+def accept_follow_request(request, id):
+    if request.method == 'POST':
+        Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).update(status='accepted')
+    return redirect('user_notification')
+
+def decline_follow_request(request, id):
+    if request.method == 'POST':
+        Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).delete()
+    return redirect('user_notification')

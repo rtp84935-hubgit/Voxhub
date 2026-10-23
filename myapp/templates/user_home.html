@@ -396,16 +396,16 @@ body p {
 <body>
 
 <div class="app">
-
+{% for i in me %}
   <aside class="side">
     <a class="logo" href="/"><span class="logo-mark">V</span><span class="t">VoxHub</span></a>
     <nav class="nav" aria-label="Main">
       <button class="on" data-view="home"><span class="ico">🏠</span><span class="t">Home</span></button>
       <a href="/myapp/explore/" data-view="home"><span class="ico">🔎</span><span class="t">Explore</span></a>
       <a href="/myapp/chat/" data-view="chat"><span class="ico">💬</span><span class="t">Messages</span>{% if unread_count > 0 %}<span class="badge">{{unread_count}}</span>{% endif %}</a>
-      <button><span class="ico">🔔</span><span class="t">Notifications</span></button>
+      <a href="/myapp/user_notifications/"><span class="ico">🔔</span><span class="t">Notifications</span></a>
       <button data-create><span class="ico">➕</span><span class="t">Create</span></button>
-      <button><span class="ico">👤</span><span class="t">Profile</span></button>
+      <a href="/myapp/profile/{{i.id}}/"><span class="ico">👤</span><span class="t">Profile</span></a>
     </nav>
     <div class="nav me"><a href="/myapp/logout_view/"><span class="ico">⎋</span><span class="t">Log out</span></a></div>
   </aside>
@@ -493,7 +493,7 @@ body p {
   </main>
 
   <aside class="right">
-    {% for i in me %}
+    
 <div class="row">
     <div class="av">
         <img src="{{ i.profile_image.url }}" alt="{{ i.name }}">

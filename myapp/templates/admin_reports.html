@@ -284,7 +284,7 @@
                 <i class="fa-solid fa-clock"></i>
                 Pending Reports
             </div>
-            <div class="stat-number">{{ pending_count }}</div>
+            <div class="stat-number">{{ pendning_reports|default:0 }}</div>
             <div class="stat-note">Awaiting review</div>
         </div>
 
@@ -293,7 +293,7 @@
                 <i class="fa-solid fa-circle-check"></i>
                 Resolved Reports
             </div>
-            <div class="stat-number">{{ resolved_count }}</div>
+            <div class="stat-number">{{ resolved_reports }}</div>
             <div class="stat-note">Reviewed by admin</div>
         </div>
 
@@ -377,7 +377,7 @@
                         <td>
                             <div class="rp-actions">
 
-                                <a href="/myapp/" class="rp-btn rp-btn-review">
+                                <a href="/myapp/review_report/{{report.id}}/" class="rp-btn rp-btn-review">
                                     <i class="fa-solid fa-eye"></i>
                                     Review
                                 </a>

@@ -36,5 +36,12 @@ urlpatterns = [
     path("admin_notifications_read/",views.admin_notifications_read,name="admin_notifications_read"),
     path("admin_save_notification_pref/",views.admin_save_notification_pref,name="admin_save_notification_pref"),
     path('report_user/<int:user_id>/', views.report_user, name='report_user'),
+    path("review_report/<id>/",views.review_report,name="review_report"),
+    path("resolve_report/<id>/",views.resolve_report,name="resolve_report"),
+    path("dismiss_report/<id>/",views.dismiss_report,name="dismiss_report"),
+    path("user_notifications/",views.user_notifications,name="user_notification"),
+    path("accept_follow_request/<id>",views.accept_follow_request,name="accept_follow_request"),
+    path("decline_follow_request/<id>/",views.decline_follow_request,name="decline_follow_request"),
+
 
 ]

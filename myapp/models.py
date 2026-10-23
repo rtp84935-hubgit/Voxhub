@@ -88,10 +88,10 @@ class Likes(models.Model):
 class Follow(models.Model):
     FOLLOWER = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='following')
     FOLLOWING = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='followers')
+    status = models.CharField(max_length=10, default='accepted')  # pending / accepted / declined
 
     class Meta:
         unique_together = ('FOLLOWER', 'FOLLOWING')
-
 
 class ChatMessage(models.Model):
     sender = models.ForeignKey(
