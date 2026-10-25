@@ -42,6 +42,10 @@ urlpatterns = [
     path("user_notifications/",views.user_notifications,name="user_notification"),
     path("accept_follow_request/<id>",views.accept_follow_request,name="accept_follow_request"),
     path("decline_follow_request/<id>/",views.decline_follow_request,name="decline_follow_request"),
+    path('delete_message/', views.delete_message, name='delete_message'),
+    path('toggle_save/', views.toggle_save, name='toggle_save'),
+    path('saved_posts/', views.saved_posts, name='saved_posts'),
+    
 
 
 ]

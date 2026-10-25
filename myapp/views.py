@@ -1,6 +1,7 @@
 from datetime import timedelta
 import logging
 import math
+from django.utils.timezone import localtime
 
 import cv2
 from django.contrib import messages
@@ -23,11 +24,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timesince, timezone
 from django.contrib.auth.decorators import login_required
-
+from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from django.db.models import Q
 
 from .models import UserProfile, User_posts
 logger = logging.getLogger(__name__)
@@ -323,46 +325,52 @@ def _login_error(request, message):
     return render(request, "login.html", {"error": message})
 
 def login_view(request):
-
+ 
     if request.user.is_authenticated:
         return redirect("user_home")
-
+ 
     if request.method != "POST":
         return render(request, "login.html")
-
+ 
     username = (request.POST.get("username") or "").strip()
     password = request.POST.get("password") or ""
     voice = request.FILES.get("voice")
-
+ 
     # 1. username + password, checked by Django against auth.User
+    #    (authenticate() returns None for a banned user, i.e. is_active = 0)
     user = authenticate(request, username=username, password=password)
-
+ 
     if user is None:
+        # NEW: right password but is_active = 0  ->  tell them they are banned
+        candidate = User.objects.filter(username=username).first()
+        if candidate and not candidate.is_active and candidate.check_password(password):
+            return _login_error(request, "Your account has been banned.")
         return _login_error(request, "Invalid username or password.")
-
+ 
     # 2. the account must have a VoxHub profile (e.g. admin accounts do not)
     profile = UserProfile.objects.filter(LOGIN=user).first()
-
+ 
     if profile is None:
         return _login_error(request, "Invalid username or password.")
-
+ 
     # 3. voice
     if not voice:
         return _login_error(request, "Please record your voice.")
-
+ 
     try:
         verified, similarity = verify_voice(profile.username, voice)
     except Exception:
         logger.exception("Voice login failed for %s", username)
         return _login_error(request, "Voice verification failed.")
-
+ 
     if not verified:
-        return _login_error(request, f"Voice does not match. Similarity: {similarity:.2f}")
-
+        return _login_error(request, "Voice does not match.")
+ 
     # 4. only now create the real Django session
     login(request, user)
-
+ 
     return redirect("user_home")
+
 
 
 def logout_view(request):
@@ -397,8 +405,47 @@ def user_home(request):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
 
     unread_count = ChatMessage.objects.filter(receiver=me,is_read=False).count()
+
     return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts, "unread_count": unread_count})
 
+
+@login_required(login_url="login")
+@require_POST
+def toggle_save(request):
+    """Save a post, or remove it from saved if it is already saved."""
+    me = UserProfile.objects.filter(LOGIN=request.user).first()
+    if not me:
+        return JsonResponse({"ok": False, "error": "Your account has no profile."}, status=403)
+ 
+    post_id = request.POST.get("postid", "")
+    if not post_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Invalid post."}, status=400)
+ 
+    post = User_posts.objects.filter(id=post_id).first()
+    if not post:
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+ 
+    saved, created = Saved_Posts.objects.get_or_create(USER=me, Post=post)
+    if not created:
+        saved.delete()
+ 
+    return JsonResponse({"ok": True, "saved": created})
+ 
+ 
+@login_required(login_url="login")
+def saved_posts(request):
+    """Page that lists every post the logged-in user has saved, newest first."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+ 
+    saved = (
+        Saved_Posts.objects.filter(USER=me)
+        .select_related("Post", "Post__USER")
+        .order_by("-date", "-id")
+    )
+ 
+    return render(request, "saved_posts.html", {"saved": saved})
+ 
+ 
 
 
 VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
@@ -575,110 +622,93 @@ def toggle_follow(request, uid):
     return JsonResponse({'ok': True, 'following': created})
 
 
-from django.db.models import Q
-
 @login_required(login_url="login")
 def chat_inbox(request):
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+ 
     users = UserProfile.objects.exclude(id=me.id)
-
+ 
     for user in users:
+        # unread messages from this person, ignoring ones I deleted
         user.unread_count = ChatMessage.objects.filter(
             sender=user,
             receiver=me,
             is_read=False
-        ).count()
-
+        ).exclude(deleted_for=me).count()
+ 
+        # latest message in the conversation that I have not deleted
         user.last_message = ChatMessage.objects.filter(
             sender__in=[me, user],
             receiver__in=[me, user]
-        ).order_by("-timestamp", "-id").first()
-
+        ).exclude(deleted_for=me).order_by("-timestamp", "-id").first()
+ 
     return render(request, "chat_inbox.html", {
         "me": me,
         "users": users,
     })
-
-
+ 
+ 
 @login_required(login_url="login")
 def chat_room(request, user_id):
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
-    other = get_object_or_404(
-        UserProfile,
-        id=user_id
-    )
-
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    other = get_object_or_404(UserProfile, id=user_id)
+ 
     if other.id == me.id:
         return redirect("chat_inbox")
-
+ 
     users = UserProfile.objects.exclude(id=me.id)
-
+ 
     ChatMessage.objects.filter(
         sender=other,
         receiver=me,
         is_read=False
     ).update(is_read=True)
-
+ 
     messages_list = ChatMessage.objects.filter(
         Q(sender=me, receiver=other) |
         Q(sender=other, receiver=me)
-    ).select_related("sender", "receiver")
-
+    ).exclude(deleted_for=me).select_related("sender", "receiver").order_by("timestamp", "id")
+ 
     return render(request, "chat_room.html", {
         "me": me,
         "other": other,
         "users": users,
         "chat_messages": messages_list,
     })
-
-
+ 
+ 
 @login_required(login_url="login")
 @require_POST
 def send_message(request, user_id):
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
-    receiver = get_object_or_404(
-        UserProfile,
-        id=user_id
-    )
-
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    receiver = get_object_or_404(UserProfile, id=user_id)
+ 
     if receiver.id == me.id:
         return JsonResponse(
             {"ok": False, "error": "You cannot message yourself."},
             status=400
         )
-
+ 
     message_text = request.POST.get("message", "").strip()
-
+ 
     if not message_text:
         return JsonResponse(
             {"ok": False, "error": "Message cannot be empty."},
             status=400
         )
-
+ 
     if len(message_text) > 2000:
         return JsonResponse(
             {"ok": False, "error": "Message is too long."},
             status=400
         )
-
+ 
     msg = ChatMessage.objects.create(
         sender=me,
         receiver=receiver,
         message=message_text
     )
-
+ 
     return JsonResponse({
         "ok": True,
         "id": msg.id,
@@ -686,37 +716,30 @@ def send_message(request, user_id):
         "message": msg.message,
         "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
     })
-
-
+ 
+ 
 @login_required(login_url="login")
 def chat_messages(request, user_id):
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
-    other = get_object_or_404(
-        UserProfile,
-        id=user_id
-    )
-
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    other = get_object_or_404(UserProfile, id=user_id)
+ 
     if other.id == me.id:
         return JsonResponse(
             {"ok": False, "error": "Invalid conversation."},
             status=400
         )
-
+ 
     ChatMessage.objects.filter(
         sender=other,
         receiver=me,
         is_read=False
     ).update(is_read=True)
-
+ 
     messages_list = ChatMessage.objects.filter(
         Q(sender=me, receiver=other) |
         Q(sender=other, receiver=me)
-    ).select_related("sender").order_by("timestamp", "id")
-
+    ).exclude(deleted_for=me).select_related("sender").order_by("timestamp", "id")
+ 
     data = [
         {
             "id": msg.id,
@@ -726,39 +749,52 @@ def chat_messages(request, user_id):
         }
         for msg in messages_list
     ]
-
+ 
     return JsonResponse({"ok": True, "messages": data})
-
-
-
+ 
+ 
+@login_required(login_url="login")
+@require_POST
+def delete_message(request):
+    """Hide a message for the person who deleted it. The other person still sees it."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+ 
+    message_id = request.POST.get("message_id", "")
+    if not message_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Invalid message."}, status=400)
+ 
+    msg = ChatMessage.objects.filter(
+        Q(sender=me) | Q(receiver=me),
+        id=message_id
+    ).first()
+ 
+    if not msg:
+        return JsonResponse({"ok": False, "error": "Message not found."}, status=404)
+ 
+    msg.deleted_for.add(me)
+    return JsonResponse({"ok": True})
 
 @login_required
 def view_profile(request, user_id):
     profile = get_object_or_404(UserProfile, id=user_id)
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
+    posts = User_posts.objects.filter(USER=profile).order_by("-id")
 
-    posts = User_posts.objects.filter(
-        USER=profile
-    ).order_by("-id")
+    # The follow row (if any) between the logged-in user and this profile
+    follow = Follow.objects.filter(FOLLOWER=me, FOLLOWING=profile).first()
 
-    # Check whether the logged-in user follows this profile
-    is_following = Follow.objects.filter(
-        FOLLOWER=me,
-        FOLLOWING=profile
-    ).exists()
+    is_following = bool(follow and follow.status == "accepted")   # request accepted
+    is_requested = bool(follow and follow.status == "pending")    # request sent, not answered yet
 
-    # Count followers of this profile
+    # Count followers of this profile (accepted only)
     followers_count = Follow.objects.filter(
-        FOLLOWING=profile
+        FOLLOWING=profile, status="accepted"
     ).count()
 
-    # Count users this profile follows
+    # Count users this profile follows (accepted only)
     following_count = Follow.objects.filter(
-        FOLLOWER=profile
+        FOLLOWER=profile, status="accepted"
     ).count()
 
     context = {
@@ -768,42 +804,36 @@ def view_profile(request, user_id):
         "post_count": posts.count(),
         "is_own_profile": profile.id == me.id,
         "is_following": is_following,
+        "is_requested": is_requested,
         "followers_count": followers_count,
         "following_count": following_count,
+        "follow":follow,
     }
 
     return render(request, "view_profile.html", context)
 
 
 
-
-@login_required
+ 
+@login_required(login_url="login")
 @require_POST
 def toggle_follow(request, user_id):
-    me = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
-    target = get_object_or_404(
-        UserProfile,
-        id=user_id
-    )
-
-    # Prevent following yourself
-    if me.id == target.id:
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    target = get_object_or_404(UserProfile, id=user_id)
+ 
+    # you can't follow yourself
+    if target.id == me.id:
         return redirect("view_profile", user_id=target.id)
-
-    relationship = Follow.objects.filter(
-        FOLLOWER=me,
-        FOLLOWING=target
-    )
-
-    if relationship.exists():
-        relationship.delete()
+ 
+    follow = Follow.objects.filter(FOLLOWER=me, FOLLOWING=target).first()
+ 
+    if follow:
+        # already following (accepted) or request pending -> unfollow / cancel
+        follow.delete()
     else:
-        Follow.objects.create(FOLLOWER=me, FOLLOWING=target, status='pending')
-
+        # new follow starts as a request the other person has to accept
+        Follow.objects.create(FOLLOWER=me, FOLLOWING=target, status="pending")
+ 
     return redirect("view_profile", user_id=target.id)
 
 
@@ -869,33 +899,55 @@ def suggestions(request):
         "suggested_users": suggested_users
     })
 
-
 @login_required(login_url="login")
 @require_POST
 def report_user(request, user_id):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
     target = get_object_or_404(UserProfile, id=user_id)
- 
+
     if target.id == me.id:
-        return JsonResponse({"ok": False, "error": "You cannot report yourself."}, status=400)
- 
+        return JsonResponse(
+            {"ok": False, "error": "You cannot report yourself."},
+            status=400
+        )
+
     reason = (request.POST.get("reason") or "").strip()[:100]
- 
+
     if not reason:
-        return JsonResponse({"ok": False, "error": "Please enter a reason."}, status=400)
- 
-    # Don't let the same user file the same pending report again and again
-    if Reports.objects.filter(USER=me, VICTIM=target, status="pending").exists():
+        return JsonResponse(
+            {"ok": False, "error": "Please enter a reason."},
+            status=400
+        )
+
+    # Prevent duplicate pending reports
+    if Reports.objects.filter(
+        USER=me,
+        VICTIM=target,
+        status="pending"
+    ).exists():
         return JsonResponse(
             {"ok": False, "error": "You have already reported this user."},
-            status=400,
+            status=400
         )
-    
-    Reports.objects.create(USER=me, VICTIM=target, reports=reason)
- 
-    notify_admin("report", f"{me.username} reported {target.username}.")
- 
-    return JsonResponse({"ok": True, "message": "Report submitted. Thank you."})
+
+    # Save the report
+    report = Reports.objects.create(
+        USER=me,
+        VICTIM=target,
+        reports=reason
+    )
+
+    # Create an admin notification
+    AdminNotification.objects.create(
+        kind="report",
+        message=f"New report submitted against {target.LOGIN.username}"
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": "Report submitted. Thank you."
+    })
+
  
 
 # =======================================ADMIN====================================
@@ -1000,7 +1052,9 @@ def admin_login_post(request):
 
 def admin_users(request):
     active = UserProfile.objects.filter(LOGIN__is_active=True)
-    return render(request,"admin_users.html",{'active':active})
+    banned = UserProfile.objects.filter(LOGIN__is_active=False).count()
+    total = UserProfile.objects.all().count()
+    return render(request,"admin_users.html",{'active':active,"banned":banned,"total":total})
 
 def admin_banned_users(request):
     banned=UserProfile.objects.filter(LOGIN__is_active=False)
@@ -1015,22 +1069,20 @@ def admin_reports(request):
 def review_report(request,id):
     report=Reports.objects.get(id=id)
     ob=Reports.objects.get(id=id)
-    ob.status="inreview"
-    ob.save()
+    if ob.status == "pending":
+        ob.status="inreview"
+        ob.save()
     return render(request,"review_report.html",{"report":report})
 
-def resolve_report(request,id):
-    ob=Reports.objects.get(id=id)
-    ob.status="resolved"
-    ob.save()
-    return redirect("admin_reports")
+@require_POST
+def resolve_report(request, id):
+    Reports.objects.filter(id=id).update(status="resolved", user_seen=False)
+    return redirect("review_report", id=id)
 
-def dismiss_report(request,id):
-    ob=Reports.objects.get(id=id)
-    ob.status="Dismissed"
-    ob.save()   
-    return redirect("admin_reports")
-
+@require_POST
+def dismiss_report(request, id):
+    Reports.objects.filter(id=id).update(status="dismissed", user_seen=False)
+    return redirect("review_report", id=id)
 
 def admin_settings(request):
     return render(request,"admin_settings.html")
@@ -1158,35 +1210,46 @@ def admin_save_notification_pref(request):
     return JsonResponse({"ok": True})
  
  
-@admin_required
+@login_required
 def admin_notifications(request):
-    prefs = _get_prefs(request.user)
-    enabled = [k for k in NOTIFY_KINDS if getattr(prefs, k)]
- 
-    qs = AdminNotification.objects.filter(kind__in=enabled)
-    unread = qs.filter(is_read=False).count()
- 
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    notifications = AdminNotification.objects.all()[:50]
+
+    unread_count = AdminNotification.objects.filter(
+        is_read=False
+    ).count()
+
     items = [
         {
-            "id": n.id,
-            "kind": n.kind,
-            "message": n.message,
-            "time": timesince(n.created_at) + " ago",
-            "is_read": n.is_read,
+            "kind": notification.kind,
+            "message": notification.message,
+            "is_read": notification.is_read,
+            "time": localtime(notification.created_at).strftime(
+                "%b %d, %Y %I:%M %p"
+            ),
         }
-        for n in qs[:15]
+        for notification in notifications
     ]
-    return JsonResponse({"ok": True, "unread": unread, "items": items})
- 
- 
-@admin_required
-@require_POST
-def admin_notifications_read(request):
-    prefs = _get_prefs(request.user)
-    enabled = [k for k in NOTIFY_KINDS if getattr(prefs, k)]
-    AdminNotification.objects.filter(kind__in=enabled, is_read=False).update(is_read=True)
-    return JsonResponse({"ok": True})
 
+    return JsonResponse({
+        "unread": unread_count,
+        "items": items,
+    })
+ 
+@login_required
+@require_POST
+@csrf_protect
+def admin_notifications_read(request):
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    AdminNotification.objects.filter(
+        is_read=False
+    ).update(is_read=True)
+
+    return JsonResponse({"success": True})
 
 
 @login_required
@@ -1195,6 +1258,7 @@ def user_notifications(request):
 
     follow_requests = Follow.objects.filter(FOLLOWING=profile, status='pending')   # <- changed line
     my_reports = Reports.objects.filter(USER=profile)
+    Reports.objects.filter(USER=profile, user_seen=False).update(user_seen=True)
 
     return render(request, 'notification.html', {
         'follow_requests': follow_requests,

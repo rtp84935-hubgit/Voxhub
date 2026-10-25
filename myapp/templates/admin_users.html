@@ -185,19 +185,19 @@
     <section class="um-stats">
         <div class="stat-card">
             <div class="label">Total users</div>
-            <div class="number blue">{{ users|length }}</div>
+            <div class="number blue">{{ total }}</div>
             <div class="symbol">Registered members</div>
         </div>
 
         <div class="stat-card">
             <div class="label">Active users</div>
-            <div class="number green">{{ active_count }}</div>
+            <div class="number green">{{ active | length}}</div>
             <div class="symbol">Accounts enabled</div>
         </div>
 
         <div class="stat-card">
             <div class="label">Banned users</div>
-            <div class="number red">{{ banned_count }}</div>
+            <div class="number red">{{ banned }}</div>
             <div class="symbol">Accounts disabled</div>
         </div>
     </section>

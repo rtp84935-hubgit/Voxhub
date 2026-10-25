@@ -1,146 +1,138 @@
+{% extends 'user_base.html' %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Chat with {{ other.username }}</title>
-    <style>
-        body {
-            margin: 0;
-            background: #0c1118;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
-        .layout {
-            display: flex;
-            max-width: 1000px;
-            height: 100vh;
-            margin: auto;
-        }
-        .sidebar {
-            width: 240px;
-            overflow-y: auto;
-            padding: 15px;
-            background: #111a25;
-        }
-        .sidebar a {
-            display: block;
-            color: white;
-            text-decoration: none;
-            padding: 12px;
-            border-radius: 8px;
-        }
-        .sidebar a:hover { background: #263447; }
-        .conversation {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            padding: 18px;
-        }
-        #messages {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding: 15px 0;
-        }
-        .bubble {
-            max-width: 75%;
-            width: fit-content;
-            padding: 10px 14px;
-            border-radius: 14px;
-            overflow-wrap: anywhere;
-            white-space: pre-wrap;
-        }
-        .mine {
-            align-self: flex-end;
-            background: #6257e8;
-        }
-        .theirs {
-            align-self: flex-start;
-            background: #202c3a;
-        }
-        .time {
-            display: block;
-            margin-top: 5px;
-            font-size: 11px;
-            opacity: .7;
-        }
-        form {
-            display: flex;
-            gap: 8px;
-        }
-        input {
-            flex: 1;
-            min-width: 0;
-            padding: 13px;
-            border: 0;
-            border-radius: 20px;
-            background: #202c3a;
-            color: white;
-        }
-        button {
-            padding: 12px 18px;
-            border: 0;
-            border-radius: 20px;
-            background: #6257e8;
-            color: white;
-            cursor: pointer;
-        }
-        #error { color: #ff8b8b; }
-        @media (max-width: 600px) {
-            .sidebar { width: 105px; padding: 5px; }
-            .conversation { padding: 10px; }
-        }
-    </style>
-</head>
-<body>
-<div class="layout">
-    <aside class="sidebar">
+{% block title %}Chat with {{ other.username }} · VoxHub{% endblock %}
+
+{# no right column on this page, so the base default (two columns) is kept #}
+
+{% block extra_head %}
+<style>
+.room{
+    display:grid;
+    grid-template-columns:240px minmax(0,1fr);
+    height:calc(100vh - 48px);
+    min-height:480px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    overflow:hidden;
+}
+
+/* conversation list */
+.rooms{border-right:1px solid var(--line);overflow-y:auto;padding:12px}
+.rooms h3{margin:6px 8px 12px;font-size:1.05rem}
+.rooms a{display:block;padding:11px 12px;border-radius:10px;color:var(--muted);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rooms a:hover{background:var(--surface-2);color:var(--text)}
+.rooms a.on{background:rgba(124,108,255,.16);color:#fff}
+
+/* thread */
+.thread{display:flex;flex-direction:column;min-width:0;min-height:0}
+.th{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.th h3{margin:0;font-size:1rem}
+.th .back{display:none;font-size:14px;color:var(--accent-2);font-weight:700}
+
+#messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:18px}
+.bubble{
+    position:relative;
+    max-width:75%;
+    width:fit-content;
+    padding:10px 14px;
+    border-radius:18px;
+    font-size:14px;
+    overflow-wrap:anywhere;
+    white-space:pre-wrap;
+}
+.mine{align-self:flex-end;background:linear-gradient(135deg,var(--accent),#4f8dff);color:#fff;border-bottom-right-radius:6px}
+.theirs{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:6px}
+.time{display:block;margin-top:5px;font-size:11px;opacity:.7}
+
+/* delete button (shown on every message in this chat) */
+.del{
+    position:absolute;
+    top:50%;
+    left:-34px;
+    transform:translateY(-50%);
+    width:28px;height:28px;
+    display:grid;place-items:center;
+    border-radius:50%;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    font-size:13px;
+    opacity:0;
+    transition:opacity .15s, background .15s;
+}
+.theirs .del{left:auto;right:-34px}
+.bubble:hover .del,.del:focus-visible{opacity:1}
+.del:hover{background:rgba(244,114,182,.18);border-color:rgba(244,114,182,.5)}
+.del:disabled{opacity:.4;cursor:default}
+@media(hover:none){.del{opacity:.75}}
+
+#error{color:#fda4af;font-size:13px;margin:0;padding:0 18px;min-height:0}
+#chat-form{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
+#chat-form input{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:14px}
+#chat-form input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
+#chat-form button{padding:0 20px;border-radius:999px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2))}
+#chat-form button:disabled{opacity:.5;cursor:default}
+
+@media(max-width:760px){
+    .room{grid-template-columns:1fr;height:calc(100vh - 150px)}
+    .rooms{display:none}
+    .th .back{display:inline}
+    .bubble{max-width:82%}
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="room">
+
+    <aside class="rooms">
         <h3>Chats</h3>
         {% for person in users %}
-            <a href="{% url 'chat_room' person.id %}">
-                {{ person.username }}
-            </a>
+            <a href="{% url 'chat_room' person.id %}" class="{% if person.id == other.id %}on{% endif %}">{{ person.username }}</a>
         {% endfor %}
-        <a href="{% url 'chat_inbox' %}">Back</a>
+        <a href="{% url 'chat_inbox' %}">← All messages</a>
     </aside>
 
-    <main class="conversation">
-        <h3>Chat with {{ other.username }}</h3>
+    <section class="thread">
+        <div class="th">
+            <a class="back" href="{% url 'chat_inbox' %}">← Back</a>
+            <h3>Chat with {{ other.username }}</h3>
+        </div>
 
         <div id="messages">
             {% for msg in chat_messages %}
                 <div class="bubble {% if msg.sender_id == me.id %}mine{% else %}theirs{% endif %}">
                     {{ msg.message }}
                     <span class="time">{{ msg.timestamp|date:"d M H:i" }}</span>
+                    <button type="button" class="del" data-id="{{ msg.id }}" title="Delete message" aria-label="Delete message">🗑</button>
                 </div>
             {% endfor %}
         </div>
 
         <p id="error"></p>
 
-        <form id="chat-form"
-              action="{% url 'send_message' other.id %}"
-              method="post">
+        <form id="chat-form" action="{% url 'send_message' other.id %}" method="post">
             {% csrf_token %}
-            <input type="text" name="message" maxlength="2000"
-                   placeholder="Write a message..." autocomplete="off" required>
+            <input type="text" name="message" maxlength="2000" placeholder="Write a message..." autocomplete="off" required>
             <button type="submit">Send</button>
         </form>
-    </main>
-</div>
+    </section>
 
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
 <script>
 const messageBox = document.getElementById("messages");
 const form = document.getElementById("chat-form");
 const input = form.querySelector('input[name="message"]');
 const errorBox = document.getElementById("error");
+const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
 const myId = {{ me.id }};
 const messagesUrl = "{% url 'chat_messages' other.id %}";
+const deleteUrl = "{% url 'delete_message' %}";
 
 let lastSignature = "";
 
@@ -155,9 +147,9 @@ function renderMessages(messages) {
     messageBox.replaceChildren();
 
     messages.forEach(m => {
+        const mine = m.sender_id === myId;
         const bubble = document.createElement("div");
-        bubble.className = "bubble " +
-            (m.sender_id === myId ? "mine" : "theirs");
+        bubble.className = "bubble " + (mine ? "mine" : "theirs");
 
         bubble.appendChild(document.createTextNode(m.message));
 
@@ -165,6 +157,17 @@ function renderMessages(messages) {
         time.className = "time";
         time.textContent = m.timestamp;
         bubble.appendChild(time);
+
+        {
+            const del = document.createElement("button");
+            del.type = "button";
+            del.className = "del";
+            del.dataset.id = m.id;
+            del.title = "Delete message";
+            del.setAttribute("aria-label", "Delete message");
+            del.textContent = "🗑";
+            bubble.appendChild(del);
+        }
 
         messageBox.appendChild(bubble);
     });
@@ -178,9 +181,7 @@ function renderMessages(messages) {
 
 async function loadMessages() {
     try {
-        const response = await fetch(messagesUrl, {
-            credentials: "same-origin"
-        });
+        const response = await fetch(messagesUrl, { credentials: "same-origin" });
         if (!response.ok) return;
 
         const data = await response.json();
@@ -190,7 +191,8 @@ async function loadMessages() {
     }
 }
 
-form.addEventListener("submit", async function(event) {
+// ---------- send ----------
+form.addEventListener("submit", async function (event) {
     event.preventDefault();
 
     const text = input.value.trim();
@@ -225,8 +227,45 @@ form.addEventListener("submit", async function(event) {
     }
 });
 
+// ---------- delete for me only (the other person still sees it) ----------
+messageBox.addEventListener("click", async function (event) {
+    const btn = event.target.closest(".del");
+    if (!btn) return;
+
+    if (!confirm("Delete this message for you? The other person will still see it.")) return;
+
+    btn.disabled = true;
+
+    const fd = new FormData();
+    fd.append("message_id", btn.dataset.id);
+
+    try {
+        const response = await fetch(deleteUrl, {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": csrfToken }
+        });
+        const text = await response.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch (e) {}
+
+        if (!response.ok || !data.ok) {
+            console.error("Delete failed", response.status, text.slice(0, 300));
+            toast(data.error || ("Delete failed (" + response.status + ")"));
+            btn.disabled = false;
+            return;
+        }
+
+        lastSignature = "";          // force a redraw without the deleted message
+        await loadMessages();
+    } catch (error) {
+        toast("Network error. Please try again.");
+        btn.disabled = false;
+    }
+});
+
 loadMessages();
 setInterval(loadMessages, 3000);
 </script>
-</body>
-</html>
+{% endblock %}

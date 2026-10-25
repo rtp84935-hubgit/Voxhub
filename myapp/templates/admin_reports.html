@@ -382,11 +382,11 @@
                                     Review
                                 </a>
 
-                                {% if report.status == 'pending' %}
+                                {% if report.status == 'pending' or report.status == 'inreview' %}
 
                                     <form
                                         method="POST"
-                                        action="myapp/"
+                                        action="/myapp/resolve_report/{{report.id}}/"
                                         onsubmit="return confirm('Mark this report as resolved?');">
                                         {% csrf_token %}
                                         <button type="submit" class="rp-btn rp-btn-resolve">
@@ -397,7 +397,7 @@
 
                                     <form
                                         method="POST"
-                                        action="myapp/"
+                                        action="/myapp/dismiss_report/{{report.id}}/"
                                         onsubmit="return confirm('Dismiss this report?');">
                                         {% csrf_token %}
                                         <button type="submit" class="rp-btn rp-btn-dismiss">

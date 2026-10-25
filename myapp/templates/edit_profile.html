@@ -1,86 +1,13 @@
-
+{% extends 'user_base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Edit Profile | VoxHub</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% block title %}Edit Profile | VoxHub{% endblock %}
 
+{# keep the 3-column layout (sidebar, content, right column) #}
+{% block app_class %}{% endblock %}
+
+{% block extra_head %}
 <style>
-:root {
-    --bg:#0b0e1a;
-    --surface:#131829;
-    --surface2:#1a2036;
-    --line:#272e49;
-    --text:#e8eaf6;
-    --muted:#8e96b8;
-    --accent:#7c6cff;
-    --cyan:#22d3ee;
-    --pink:#f472b6;
-}
-*{box-sizing:border-box}
-body{
-    margin:0;
-    min-height:100vh;
-    font-family:Manrope,sans-serif;
-    color:var(--text);
-    background:
-      radial-gradient(900px 500px at 5% -10%,rgba(124,108,255,.16),transparent 60%),
-      radial-gradient(800px 500px at 100% 0,rgba(34,211,238,.09),transparent 60%),
-      var(--bg);
-}
-a{color:inherit;text-decoration:none}
-.app{
-    max-width:1180px;
-    margin:auto;
-    padding:0 20px;
-    display:grid;
-    grid-template-columns:230px minmax(0,1fr) 300px;
-    gap:28px;
-}
-.side{
-    height:100vh;
-    position:sticky;
-    top:0;
-    padding:24px 0;
-    display:flex;
-    flex-direction:column;
-}
-.logo{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-size:1.35rem;
-    font-weight:800;
-    margin:0 12px 22px;
-}
-.logo-mark{
-    width:34px;height:34px;
-    display:grid;place-items:center;
-    border-radius:10px;
-    background:linear-gradient(135deg,var(--accent),var(--cyan));
-}
-.nav{display:flex;flex-direction:column;gap:4px}
-.nav a{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    padding:12px;
-    border-radius:12px;
-    color:var(--muted);
-    font-size:14px;
-    font-weight:700;
-}
-.nav a:hover,.nav a.on{
-    background:rgba(124,108,255,.16);
-    color:white;
-}
-.ico{width:24px;text-align:center;font-size:19px}
-.me{margin-top:auto}
-main{padding:30px 0 70px;min-width:0}
 .page-heading{margin:0 0 5px;font-size:24px}
 .subtitle{color:var(--muted);font-size:13px;margin:0 0 22px}
 .card{
@@ -105,7 +32,7 @@ main{padding:30px 0 70px;min-width:0}
     border-radius:50%;
     padding:3px;
     border:3px solid var(--accent);
-    background:var(--surface2);
+    background:var(--surface-2);
 }
 .photo-title{font-size:15px;font-weight:800}
 .photo-subtitle{font-size:12px;color:var(--muted);margin-top:4px}
@@ -114,35 +41,36 @@ main{padding:30px 0 70px;min-width:0}
     margin-top:9px;
     padding:8px 12px;
     border-radius:9px;
-    background:var(--surface2);
+    background:var(--surface-2);
     border:1px solid var(--line);
     font-size:12px;
     font-weight:800;
     cursor:pointer;
 }
 .field{margin-bottom:19px}
-label{
+.card label{
     display:block;
     font-size:13px;
     font-weight:800;
     margin-bottom:8px;
 }
-input,textarea{
+.card .file-label{display:inline-block;font-size:12px;margin-bottom:0}
+.card input,.card textarea{
     width:100%;
     border:1px solid var(--line);
     border-radius:11px;
-    background:var(--surface2);
+    background:var(--surface-2);
     color:var(--text);
     padding:12px 14px;
     font:inherit;
     font-size:14px;
 }
-input:focus,textarea:focus{
+.card input:focus,.card textarea:focus{
     outline:none;
     border-color:var(--accent);
     box-shadow:0 0 0 3px rgba(124,108,255,.18);
 }
-textarea{resize:vertical;min-height:105px}
+.card textarea{resize:vertical;min-height:105px}
 .hint{color:var(--muted);font-size:11px;margin-top:6px}
 .messages{margin-bottom:17px}
 .message{
@@ -150,7 +78,7 @@ textarea{resize:vertical;min-height:105px}
     border-radius:10px;
     font-size:13px;
     margin-bottom:8px;
-    background:var(--surface2);
+    background:var(--surface-2);
 }
 .message.success{border:1px solid #34d399;color:#6ee7b7}
 .message.error{border:1px solid #f472b6;color:#f9a8d4}
@@ -175,10 +103,9 @@ textarea{resize:vertical;min-height:105px}
 .btn-primary{
     color:white;
     border:0;
-    background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--cyan));
+    background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));
 }
-.btn-secondary{background:var(--surface2);color:var(--text)}
-.right{padding:30px 0}
+.btn-secondary{background:var(--surface-2);color:var(--text)}
 .tip{
     background:var(--surface);
     border:1px solid var(--line);
@@ -189,138 +116,97 @@ textarea{resize:vertical;min-height:105px}
     line-height:1.8;
 }
 .tip h3{color:var(--text);font-size:14px;margin-top:0}
-.mobile-top{display:none}
 
-@media(max-width:1060px){
-    .app{grid-template-columns:76px minmax(0,1fr);gap:20px}
-    .right{display:none}
-    .nav .t,.logo .t{display:none}
-    .nav a{justify-content:center}
-}
 @media(max-width:760px){
-    .app{display:block;padding:0 13px}
-    .side{display:none}
-    .mobile-top{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        padding:14px 0;
-    }
-    .mobile-top .logo{margin:0}
-    main{padding:10px 0 35px}
     .card{padding:18px 14px}
     .page-heading{font-size:21px}
 }
 </style>
-</head>
+{% endblock %}
 
-<body>
-<div class="app">
 
-    <aside class="side">
-        <a class="logo" href="/myapp/user_home/">
-            <span class="logo-mark">V</span>
-            <span class="t">VoxHub</span>
-        </a>
+{% block content %}
+    <h1 class="page-heading">Edit profile</h1>
+    <p class="subtitle">Update your information and how people see you on VoxHub.</p>
 
-        <nav class="nav">
-            <a href="/myapp/user_home/"><span class="ico">🏠</span><span class="t">Home</span></a>
-            <a href="/myapp/explore/"><span class="ico">🔎</span><span class="t">Explore</span></a>
-            <a href="/myapp/chat/"><span class="ico">💬</span><span class="t">Messages</span></a>
-            <a href="/myapp/user_home/#create"><span class="ico">➕</span><span class="t">Create</span></a>
-            <a class="on" href="{% url 'view_profile' me.id %}"><span class="ico">👤</span><span class="t">Profile</span></a>
-        </nav>
+    <section class="card">
 
-        <div class="nav me">
-            <a href="/myapp/logout_view/"><span class="ico">⎋</span><span class="t">Log out</span></a>
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
         </div>
-    </aside>
+        {% endif %}
 
-    <main>
-        <div class="mobile-top">
-            <a class="logo" href="/myapp/user_home/">
-                <span class="logo-mark">V</span> VoxHub
-            </a>
-            <a class="btn btn-secondary" href="{% url 'view_profile' me.id %}">Cancel</a>
-        </div>
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
 
-        <h1 class="page-heading">Edit profile</h1>
-        <p class="subtitle">Update your information and how people see you on VoxHub.</p>
-
-        <section class="card">
-
-            {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                <div class="message {{ message.tags }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-
-                <div class="photo-row">
-                    {% if me.profile_image %}
-                        <img class="avatar" id="preview"
-                             src="{{ me.profile_image.url }}" alt="Profile picture">
-                    {% else %}
-                        <div class="avatar" id="placeholder"
-                             style="display:grid;place-items:center;font-size:28px">
-                            {{ me.username|first|upper }}
-                        </div>
-                        <img class="avatar" id="preview" src=""
-                             alt="Profile picture preview" style="display:none">
-                    {% endif %}
-
-                    <div>
-                        <div class="photo-title">{{ me.username }}</div>
-                        <div class="photo-subtitle">Your profile photo</div>
-                        <label class="file-label" for="profile_image">📷 Change photo</label>
-                        <input type="file" id="profile_image" name="profile_image"
-                               accept="image/*" hidden>
+            <div class="photo-row">
+                {% if me.profile_image %}
+                    <img class="avatar" id="preview"
+                         src="{{ me.profile_image.url }}" alt="Profile picture">
+                {% else %}
+                    <div class="avatar" id="placeholder"
+                         style="display:grid;place-items:center;font-size:28px">
+                        {{ me.username|first|upper }}
                     </div>
+                    <img class="avatar" id="preview" src=""
+                         alt="Profile picture preview" style="display:none">
+                {% endif %}
+
+                <div>
+                    <div class="photo-title">{{ me.username }}</div>
+                    <div class="photo-subtitle">Your profile photo</div>
+                    <label class="file-label" for="profile_image">📷 Change photo</label>
+                    <input type="file" id="profile_image" name="profile_image"
+                           accept="image/*" hidden>
                 </div>
+            </div>
 
-                <div class="field">
-                    <label for="name">Full name</label>
-                    <input id="name" type="text" name="name"
-                           value="{{ me.name }}" maxlength="100" required>
-                </div>
+            <div class="field">
+                <label for="name">Full name</label>
+                <input id="name" type="text" name="name"
+                       value="{{ me.name }}" maxlength="100" required>
+            </div>
 
-                <div class="field">
-                    <label for="username">Username</label>
-                    <input id="username" type="text" name="username"
-                           value="{{ me.username }}" maxlength="150" required>
-                    <div class="hint">Choose a username that isn't already in use.</div>
-                </div>
+            <div class="field">
+                <label for="username">Username</label>
+                <input id="username" type="text" name="username"
+                       value="{{ me.username }}" maxlength="150" required>
+                <div class="hint">Choose a username that isn't already in use.</div>
+            </div>
 
-                <div class="field">
-                    <label for="bio">Bio</label>
-                    <textarea id="bio" name="bio" maxlength="300"
-                              placeholder="Tell people a little about yourself...">{{ me.bio }}</textarea>
-                    <div class="hint">Maximum 300 characters.</div>
-                </div>
+            <div class="field">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" maxlength="300"
+                          placeholder="Tell people a little about yourself...">{{ me.bio }}</textarea>
+                <div class="hint">Maximum 300 characters.</div>
+            </div>
 
-                <div class="actions">
-                    <button class="btn btn-primary" type="submit">Save changes</button>
-                    <a class="btn btn-secondary"
-                       href="{% url 'view_profile' me.id %}">Cancel</a>
-                </div>
-            </form>
-        </section>
-    </main>
+            <div class="actions">
+                <button class="btn btn-primary" type="submit">Save changes</button>
+                <a class="btn btn-secondary"
+                   href="{% url 'view_profile' me.id %}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
 
-    <aside class="right">
-        <div class="tip">
-            <h3>💡 Profile tips</h3>
-            <p>Use a clear profile picture so people can recognize you.</p>
-            <p>Choose a username that is easy to remember.</p>
-            <p>Add a short bio to introduce yourself to the VoxHub community.</p>
-        </div>
-    </aside>
-</div>
 
+{% block right_col %}
+<aside class="right">
+    <div class="tip">
+        <h3>💡 Profile tips</h3>
+        <p>Use a clear profile picture so people can recognize you.</p>
+        <p>Choose a username that is easy to remember.</p>
+        <p>Add a short bio to introduce yourself to the VoxHub community.</p>
+    </div>
+</aside>
+{% endblock %}
+
+
+{% block extra_js %}
 <script>
 const fileInput = document.getElementById("profile_image");
 const preview = document.getElementById("preview");
@@ -342,5 +228,4 @@ fileInput.addEventListener("change", function () {
     if (placeholder) placeholder.style.display = "none";
 });
 </script>
-</body>
-</html>
+{% endblock %}

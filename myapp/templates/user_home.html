@@ -1,81 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VoxHub - Home</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% extends 'user_base.html' %}
+
+{% block title %}VoxHub - Home{% endblock %}
+
+{# keep the 3-column layout (sidebar, feed, right column) #}
+{% block app_class %}{% endblock %}
+
+{% block extra_head %}
 <style>
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.av {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, #7c6cff, #22d3ee);
-}
-
-.av img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    display: block;
-}
-:root{--bg:#0b0e1a;--surface:#131829;--surface-2:#1a2036;--line:#272e49;--text:#e8eaf6;--muted:#8e96b8;--accent:#7c6cff;--accent-2:#22d3ee;--ok:#34d399;--pink:#f472b6}
-*{box-sizing:border-box}
-html{color-scheme:dark}
-body{margin:0;font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--text);line-height:1.5;min-height:100vh;
-background:radial-gradient(900px 500px at 5% -10%,rgba(124,108,255,.16),transparent 60%),radial-gradient(800px 500px at 100% 0,rgba(34,211,238,.09),transparent 60%),var(--bg);background-attachment:fixed}
-a{color:inherit;text-decoration:none}
-button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
-input,textarea{font:inherit;color:var(--text)}
-button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
-.hide{display:none!important}
-
-/* layout */
-.app{max-width:1180px;margin:auto;display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:28px;padding:0 20px}
-.side{position:sticky;top:0;height:100vh;padding:24px 0;display:flex;flex-direction:column}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.35rem;letter-spacing:-.02em;margin:0 12px 22px}
-.logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;font-size:17px}
-.nav{display:flex;flex-direction:column;gap:4px}
-.nav button,.nav a{display:flex;align-items:center;gap:14px;padding:12px;border-radius:12px;font-weight:600;font-size:15px;color:var(--muted);text-align:left;transition:background .15s,color .15s}
-.nav button:hover,.nav a:hover{background:var(--surface-2);color:var(--text)}
-.nav .on{color:#fff;background:rgba(124,108,255,.16)}
-.ico{width:24px;text-align:center;font-size:19px}
-.badge{margin-left:auto;background:var(--pink);color:#1a0612;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px}
-.me{margin-top:auto}
-main{padding:24px 0 90px;min-width:0}
-.mtop{display:none}
-
-/* stories (section removed, styles kept) */
-.stories{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 14px;margin-bottom:8px;scrollbar-width:none}
-.story{flex:0 0 auto;width:68px;text-align:center;font-size:12px;color:var(--muted)}
-.ring{width:66px;height:66px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--accent),var(--pink),var(--accent-2));margin-bottom:6px}
-.ring .av{width:100%;height:100%;border:3px solid var(--bg);font-size:17px}
-.story.seen .ring{background:var(--line)}
-.av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 auto}
+/* avatars */
+.av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 auto;overflow:hidden;background:linear-gradient(135deg,#7c6cff,#22d3ee)}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* posts */
 .feed{max-width:480px;margin:auto}
 .post{background:var(--surface);border:1px solid var(--line);border-radius:18px;margin-bottom:22px;overflow:hidden}
 .ph{display:flex;align-items:center;gap:12px;padding:12px 14px}
 .ph .av{width:38px;height:38px;font-size:14px}
-.ph b{display:block;line-height:1.2;font-size:14px}.ph span{font-size:12px;color:var(--muted)}
-.ph .more{margin-left:auto;color:var(--muted);font-size:20px;padding:0 6px}
+.ph b{display:block;line-height:1.2;font-size:14px}
 .media{position:relative;aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;user-select:none}
 .media img,.media video{width:100%;height:100%;object-fit:cover;display:block}
-.media .ph-label{font-size:13px;font-weight:700;color:rgba(255,255,255,.75);text-align:center}
-.media .ph-label big{display:block;font-size:46px;margin-bottom:4px}
-.vplay{position:absolute;inset:auto auto 14px 14px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
 .pop{position:absolute;font-size:90px;pointer-events:none;opacity:0;transform:scale(.4);filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
 .pop.go{animation:pop .7s ease-out}
 @keyframes pop{20%{opacity:1;transform:scale(1.1)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
@@ -95,41 +38,31 @@ main{padding:24px 0 90px;min-width:0}
 .cf input:focus{outline:none}.cf input::placeholder{color:#5d6590}
 .cf button{color:var(--accent);font-weight:800;font-size:14px;opacity:.5}
 .cf input:not(:placeholder-shown)+button{opacity:1}
+.no-posts{text-align:center;color:var(--muted)}
+
+/* django messages */
+.comment-message{padding:10px 12px;margin-bottom:10px;border-radius:8px;font-size:13px}
+.comment-message.warning{background:#fff3cd;color:#856404;border:1px solid #ffe69c}
+.comment-message.error{background:#f8d7da;color:#842029;border:1px solid #f5c2c7}
+.comment-message.success{background:#d1e7dd;color:#0f5132;border:1px solid #a3cfbb}
 
 /* right column */
-.right{padding:28px 0;position:sticky;top:0;height:100vh;overflow:auto}
 .row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .row .av{width:42px;height:42px;font-size:14px}
-.row b{display:block;font-size:14px;line-height:1.2}.row span{font-size:12px;color:var(--muted)}
-.follow{margin-left:auto;font-weight:800;font-size:13px;color:var(--accent)}
-.follow.on{color:var(--muted)}
+.row b{display:block;font-size:14px;line-height:1.2}
+.row span{font-size:12px;color:var(--muted)}
 .right h4{margin:22px 0 14px;font-size:14px;color:var(--muted)}
+.suggestion{display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:10px;border:1px solid rgba(124,108,255,.12);border-radius:16px;background:linear-gradient(135deg,rgba(124,108,255,.07),rgba(34,211,238,.025));transition:.25s ease}
+.suggestion:hover{background:rgba(124,108,255,.12);border-color:rgba(124,108,255,.4);transform:translateY(-2px)}
+.suggestion .av{width:46px;height:46px;font-size:17px}
+.s-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.s-info b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-info span{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-link{padding:8px 13px;border-radius:9px;background:linear-gradient(135deg,#7c6cff,#6554e8);color:#fff;font-size:11px;font-weight:750;white-space:nowrap;transition:.2s ease}
+.s-link:hover{transform:scale(1.05)}
+.no-sugg{color:var(--muted);font-size:13px}
 
-/* chat */
-.chat{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 48px);min-height:480px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
-.clist{border-right:1px solid var(--line);overflow:auto}
-.clist h3{margin:0;padding:18px 18px 10px;font-size:1.1rem}
-.ci{display:flex;align-items:center;gap:12px;padding:12px 18px;width:100%;text-align:left}
-.ci:hover,.ci.on{background:var(--surface-2)}
-.ci .av{width:46px;height:46px;font-size:15px}
-.ci b{display:block;font-size:14px;line-height:1.2}
-.ci span{font-size:13px;color:var(--muted);display:block;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.thread{display:flex;flex-direction:column;min-width:0}
-.th{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
-.th .av{width:38px;height:38px;font-size:14px}
-.th b{display:block;line-height:1.2}.th span{font-size:12px;color:var(--ok)}
-.back{display:none;font-size:20px;padding:0 6px}
-.msgs{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:8px}
-.m{max-width:72%;padding:10px 14px;border-radius:18px;font-size:14px;word-wrap:break-word}
-.m.them{background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:6px;align-self:flex-start}
-.m.you{background:linear-gradient(135deg,var(--accent),#4f8dff);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
-.mf{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
-.mf input{flex:1;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:14px}
-.mf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
-.send{padding:0 20px;border-radius:999px;font-weight:800;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
-.empty{margin:auto;color:var(--muted);text-align:center}
-
-/* modal + toast */
+/* create-post modal */
 .modal{position:fixed;inset:0;z-index:50;background:rgba(5,7,15,.75);backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}
 .mbox{width:460px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .mbox h3{margin:0 0 14px;text-align:center}
@@ -143,406 +76,70 @@ main{padding:24px 0 90px;min-width:0}
 .mact button{flex:1;padding:12px;border-radius:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-2)}
 .mact .go{border:0;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
 .mact .go:disabled{opacity:.45;cursor:not-allowed}
-.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-weight:700;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
-.toast.show{opacity:1}
-.bar{display:none}
-
-@media(max-width:1060px){.app{grid-template-columns:76px minmax(0,1fr)}.right{display:none}.nav span.t,.logo span.t,.badge{display:none}.logo{margin:0 0 22px 8px}.nav button,.nav a{justify-content:center}}
-@media(max-width:760px){
-.app{grid-template-columns:1fr;gap:0;padding:0 12px}.side{display:none}
-.mtop{display:flex;align-items:center;justify-content:space-between;padding:14px 4px;position:sticky;top:0;z-index:20;background:var(--bg)}
-.mtop .logo{margin:0}
-main{padding-top:4px}
-.chat{grid-template-columns:1fr;height:calc(100vh - 150px)}
-.chat .thread{display:none}.chat.open .clist{display:none}.chat.open .thread{display:flex}.back{display:block}
-.bar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(19,24,41,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);justify-content:space-around;padding:8px 0 10px}
-.bar button{font-size:22px;padding:6px 14px;border-radius:10px;color:var(--muted)}.bar .on{color:#fff}
-.toast{bottom:80px}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-.comment-message {
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    font-size: 13px;
-}
-
-.comment-message.warning {
-    background: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffe69c;
-}
-
-.comment-message.error {
-    background: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
-}
-
-.comment-message.success {
-    background: #d1e7dd;
-    color: #0f5132;
-    border: 1px solid #a3cfbb;
-}
-
-/* Suggestions Heading */
-h4 {
-    margin-bottom: 15px;
-}
-
-.suggestion {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 14px 18px;
-    margin-bottom: 12px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    transition: 0.3s ease;
-}
-
-/* Hover Effect */
-.suggestion:hover {
-    background: #f8fafc;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
-}
-
-/* Profile Image */
-.suggestion img {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #e5e7eb;
-    flex-shrink: 0;
-}
-
-/* Name */
-.suggestion h4 {
-    margin: 0;
-    font-size: 15px;
-    color: #111827;
-    flex: 1;
-}
-
-/* Username */
-.suggestion p {
-    margin: 0;
-    font-size: 13px;
-    color: #6b7280;
-}
-
-/* View Profile Link */
-.suggestion a {
-    text-decoration: none;
-    background: #19a7a0;
-    color: white;
-    padding: 9px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: 0.3s ease;
-}
-
-.suggestion a:hover {
-    background: #12827d;
-}
-
-/* Empty Suggestions Message */
-.suggestion + p,
-body p {
-    color: #6b7280;
-}
-
-/* Mobile Responsive */
-@media (max-width: 480px) {
-    .suggestion {
-        gap: 10px;
-        padding: 12px;
-        flex-wrap: wrap;
-    }
-
-    .suggestion img {
-        width: 44px;
-        height: 44px;
-    }
-
-    .suggestion h4 {
-        font-size: 14px;
-    }
-
-    .suggestion a {
-        padding: 8px 10px;
-        font-size: 12px;
-    }
-}
-
-
-.suggestion-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 13px 12px;
-    margin-bottom: 10px;
-    border: 1px solid rgba(124, 108, 255, 0.12);
-    border-radius: 16px;
-    background: linear-gradient(
-        135deg,
-        rgba(124, 108, 255, 0.07),
-        rgba(34, 211, 238, 0.025)
-    );
-    transition: 0.25s ease;
-}
-
-.suggestion-card:hover {
-    background: rgba(124, 108, 255, 0.12);
-    border-color: rgba(124, 108, 255, 0.4);
-    transform: translateY(-2px);
-}
-
-.suggestion-avatar {
-    width: 46px;
-    height: 46px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    padding: 2px;
-    color: white;
-    font-size: 17px;
-    font-weight: 800;
-    background: linear-gradient(135deg, #7c6cff, #f472b6, #22d3ee);
-    box-shadow: 0 0 14px rgba(124, 108, 255, 0.2);
-    overflow: hidden;
-}
-
-.suggestion-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    border: 2px solid #131829;
-}
-
-.suggestion-info {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex: 1;
-    min-width: 0;
-}
-
-.suggestion-name {
-    color: #e8eaf6;
-    font-size: 13px;
-    font-weight: 750;
-    text-decoration: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.suggestion-name:hover {
-    color: #a99cff;
-}
-
-.suggestion-username {
-    color: #8e96b8;
-    font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.suggestion-note {
-    color: #22d3ee;
-    font-size: 10px;
-    margin-top: 2px;
-}
-
-.suggestion-card form {
-    margin: 0;
-    flex-shrink: 0;
-}
-
-.suggestion-follow {
-    padding: 8px 13px;
-    border: none;
-    border-radius: 9px;
-    background: linear-gradient(135deg, #7c6cff, #6554e8);
-    color: #fff;
-    font-size: 11px;
-    font-weight: 750;
-    cursor: pointer;
-    box-shadow: 0 3px 10px rgba(124, 108, 255, 0.2);
-    transition: 0.2s ease;
-}
-
-.suggestion-follow:hover {
-    transform: scale(1.05);
-    box-shadow: 0 5px 16px rgba(124, 108, 255, 0.35);
-}
-
-.suggestion-follow:active {
-    transform: scale(0.96);
-}
-
-
 </style>
-</head>
-<body>
+{% endblock %}
 
-<div class="app">
-{% for i in me %}
-  <aside class="side">
-    <a class="logo" href="/"><span class="logo-mark">V</span><span class="t">VoxHub</span></a>
-    <nav class="nav" aria-label="Main">
-      <button class="on" data-view="home"><span class="ico">🏠</span><span class="t">Home</span></button>
-      <a href="/myapp/explore/" data-view="home"><span class="ico">🔎</span><span class="t">Explore</span></a>
-      <a href="/myapp/chat/" data-view="chat"><span class="ico">💬</span><span class="t">Messages</span>{% if unread_count > 0 %}<span class="badge">{{unread_count}}</span>{% endif %}</a>
-      <a href="/myapp/user_notifications/"><span class="ico">🔔</span><span class="t">Notifications</span></a>
-      <button data-create><span class="ico">➕</span><span class="t">Create</span></button>
-      <a href="/myapp/profile/{{i.id}}/"><span class="ico">👤</span><span class="t">Profile</span></a>
-    </nav>
-    <div class="nav me"><a href="/myapp/logout_view/"><span class="ico">⎋</span><span class="t">Log out</span></a></div>
-  </aside>
 
-  <main>
-    <div class="mtop"><a class="logo" href="/"><span class="logo-mark">V</span>VoxHub</a><button data-create style="font-size:22px">➕</button></div>
+{% block content %}
+<section id="homeView">
+  <div class="feed" id="feed">
 
-    <section id="homeView">
-      <!-- Posts are rendered by Django from the User_posts model -->
-      <div class="feed" id="feed">
-        {% for p in posts %}
-       <article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">
-          <div class="ph">
-            <div class="av"><img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}"></div>
-            <div><a href="/myapp/profile/{{p.USER.id}}/"><b>{{ p.USER.username }}</b></a></div>
-            <!-- <button class="more" aria-label="More">⋯</button> -->
-          </div>
-          <div class="media">
-            {% if p.is_video %}
-              <video src="{{ p.photo.url }}" controls playsinline></video>
-            {% else %}
-              <img src="{{ p.photo.url }}" alt="Post photo">
-            {% endif %}
-            <span class="pop">♥</span>
-          </div>
-          <div class="pa">
-            <button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button>
-            <button class="cbtn" aria-label="Comment">💬</button>
-            <button class="share" aria-label="Share">➤</button>
-            <button class="save" aria-label="Save">🔖</button>
-          </div>
-          <div class="pb">
-            <input type="hidden" name="postid" value="{{p.id}}"/>
-            <div class="likes">{{ p.like_count }} likes</div>
-            <div class="cap"><b>{{ p.USER.username }}</b>{{ p.caption }}</div>
-            {% with cs=p.comments_set.all %}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="comment-message {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    {% for p in posts %}
+    <article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">
+      <div class="ph">
+        <div class="av">
+          {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}">{% else %}{{ p.USER.username|first|upper }}{% endif %}
+        </div>
+        <div><a href="/myapp/profile/{{ p.USER.id }}/"><b>{{ p.USER.username }}</b></a></div>
+      </div>
+
+      <div class="media">
+        {% if p.is_video %}
+          <video src="{{ p.photo.url }}" controls playsinline></video>
+        {% else %}
+          <img src="{{ p.photo.url }}" alt="Post photo">
+        {% endif %}
+        <span class="pop">♥</span>
+      </div>
+
+      <div class="pa">
+        <button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button>
+        <button class="cbtn" aria-label="Comment">💬</button>
+        <button class="share" aria-label="Share">➤</button>
+        <button class="save{% if p.id in saved_ids %} on{% endif %}" aria-label="Save">🔖</button>
+      </div>
+
+      <div class="pb">
+        <div class="likes">{{ p.like_count }} likes</div>
+        <div class="cap"><b>{{ p.USER.username }}</b>{{ p.caption }}</div>
+
+       {% with cs=p.comments_set.all %}
 <button class="vc">View all {{ cs|length }} comments</button>
 <div class="cmts hide">
   {% for c in cs %}<p><b>{{ c.USER.username }}</b>{{ c.comment }}</p>{% endfor %}
 </div>
 {% endwith %}
 
-{% if messages %}
-    {% for message in messages %}
-        <div class="comment-message {{ message.tags }}">
-            {{ message }}
-        </div>
+        <form class="cf" action="{% url 'add_comment' %}" method="post">
+          {% csrf_token %}
+          <input type="hidden" name="postid" value="{{ p.id }}">
+          <input type="text" name="comment" maxlength="100" placeholder="Add a comment..." autocomplete="off" required>
+          <button type="submit">Post</button>
+        </form>
+      </div>
+    </article>
+    {% empty %}
+    <p class="no-posts" id="noPosts">No posts yet</p>
     {% endfor %}
-{% endif %}
 
-<form class="cf" action="{% url 'add_comment' %}" method="post">
-    {% csrf_token %}
-    <input type="hidden" name="postid" value="{{ p.id }}">
-
-    <input
-        type="text"
-        name="comment"
-        maxlength="100"
-        placeholder="Add a comment..."
-        autocomplete="off"
-        required
-    >
-
-    <button type="submit">Post</button>
-</form>
-          </div>
-        </article>
-        {% empty %}
-        <p id="noPosts" style="text-align:center;color:var(--muted)">No posts yet</p>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section id="chatView" class="hide">
-      <div class="chat" id="chat">
-        <div class="clist"><h3>Messages</h3><div id="clist"></div></div>
-        <div class="thread">
-          <div class="empty" id="noThread">Pick a conversation to start chatting</div>
-          <div class="th hide" id="th"><button class="back" id="back" aria-label="Back">←</button><div class="av" id="thAv"></div><div><b id="thName"></b><span>Active now</span></div></div>
-          <div class="msgs hide" id="msgs"></div>
-          <form class="mf hide" id="mf"><input id="mi" placeholder="Message..." autocomplete="off"><button class="send">Send</button></form>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <aside class="right">
-    
-<div class="row">
-    <div class="av">
-        <img src="{{ i.profile_image.url }}" alt="{{ i.name }}">
-    </div>
-
-    <div>
-        <a href="/myapp/profile/{{i.id}}/"><b>{{ i.name }}</b></a>
-        <span>{{ i.username }}</span>
-    </div>
-</div>    {% endfor %}
-
-<h4>Suggested for you</h4>
-
-{% for user in suggested_users %}
-    <div class="suggestion">
-
-        {% if user.profile_image %}
-            <img src="{{ user.profile_image.url }}" alt="Profile">
-        {% else %}
-            <img src="/static/images/default-profile.png" alt="Default Profile">
-        {% endif %}
-
-        <h4>{{ user.name }}</h4>
-        <p>@{{ user.username }}</p>
-
-        <a href="{% url 'view_profile' user.id %}">
-            View Profile
-        </a>
-
-    </div>
-{% empty %}
-    <p>No new suggestions available.</p>
-{% endfor %}
-
-    
-    <!-- <div class="row"><div class="av" style="background:linear-gradient(135deg,#22d3ee,#7c6cff)">SP</div><div><b>sneha.p</b><span>New to VoxHub</span></div><button class="follow">Follow</button></div>
-    <div class="row"><div class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)">DJ</div><div><b>dj.anand</b><span>Suggested for you</span></div><button class="follow">Follow</button></div>
-    <div class="row"><div class="av" style="background:linear-gradient(135deg,#fbbf24,#f472b6)">MS</div><div><b>meera.s</b><span>Followed by arjun</span></div><button class="follow">Follow</button></div> -->
-  </aside>
-
-</div>
-
-<nav class="bar" aria-label="Mobile">
-  <button class="on" data-view="home" aria-label="Home">🏠</button>
-  <a href="/myapp/explore/" data-view="home" aria-label="Explore">🔎</a>
-  <button data-create aria-label="Create">➕</button>
-  <button data-view="chat" aria-label="Messages">💬</button>
-  <button aria-label="Profile">👤</button>
-</nav>
+  </div>
+</section>
 
 <div class="modal hide" id="modal"><div class="mbox">
   <h3>Create new post</h3>
@@ -550,57 +147,50 @@ body p {
   <textarea id="capIn" name="caption" rows="3" placeholder="Write a caption..."></textarea>
   <div class="mact"><button type="button" id="cancel">Cancel</button><button type="button" class="go" id="share" disabled>Share</button></div>
 </div></div>
+{% endblock %}
 
-<div class="toast" id="toast"></div>
 
+{% block right_col %}
+<aside class="right">
+
+  {% if sidebar_user %}
+  <div class="row">
+    <div class="av">
+      {% if sidebar_user.profile_image %}<img src="{{ sidebar_user.profile_image.url }}" alt="{{ sidebar_user.name }}">{% else %}{{ sidebar_user.username|first|upper }}{% endif %}
+    </div>
+    <div>
+      <a href="/myapp/profile/{{ sidebar_user.id }}/"><b>{{ sidebar_user.name }}</b></a>
+      <span>{{ sidebar_user.username }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <h4>Suggested for you</h4>
+
+  {% for u in suggested_users %}
+  <div class="suggestion">
+    <a class="av" href="{% url 'view_profile' u.id %}">
+      {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="{{ u.username }}">{% else %}{{ u.username|first|upper }}{% endif %}
+    </a>
+    <div class="s-info">
+      <b>{{ u.name }}</b>
+      <span>@{{ u.username }}</span>
+    </div>
+    <a class="s-link" href="{% url 'view_profile' u.id %}">View</a>
+  </div>
+  {% empty %}
+  <p class="no-sugg">No new suggestions available.</p>
+  {% endfor %}
+
+</aside>
+{% endblock %}
+
+
+{% block extra_js %}
 <script>
-const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-// ---------- sample data (chat only; feed comes from the database) ----------
-const USERS = {
-  anjali: ["AN", "linear-gradient(135deg,#f472b6,#7c6cff)"],
-  arjun:  ["AR", "linear-gradient(135deg,#22d3ee,#34d399)"],
-  meera:  ["MS", "linear-gradient(135deg,#fbbf24,#f472b6)"],
-  ravi:   ["RK", "linear-gradient(135deg,#7c6cff,#f472b6)"],
-  sneha:  ["SP", "linear-gradient(135deg,#22d3ee,#7c6cff)"],
-  you:    ["You", "linear-gradient(135deg,#7c6cff,#22d3ee)"]
-};
-
-// new posts created in the modal are added here (existing posts are rendered by Django)
-let posts = [];
-
-const CHATS = [
-  { u: "anjali", msgs: [["them", "Hey! Did you see my new post?"], ["you", "Yes, loved the rain photo 😍"], ["them", "Thanks! Coffee this weekend?"]] },
-  { u: "arjun",  msgs: [["them", "Trek photos are up"], ["you", "Checking them out now"]] },
-  { u: "meera",  msgs: [["them", "Can you share the painting link?"]] },
-  { u: "ravi",   msgs: [["you", "Welcome to VoxHub!"], ["them", "Thanks, glad to be here"]] }
-];
-
-// ---------- feed ----------
-function mediaHtml(p) {
-  if (p.src) return p.type === "video"
-    ? '<video src="' + p.src + '" controls playsinline></video>'
-    : '<img src="' + p.src + '" alt="Post photo">';
-  // placeholder media: swap for your real image or video URL (post.image.url / post.video.url)
-  return '<div class="ph-label"><big>' + p.label.split(" ")[0] + '</big>' + p.label.split(" ").slice(1).join(" ") + '</div>' +
-    (p.type === "video" ? '<span class="vplay">▶ ' + (p.dur || "0:15") + '</span>' : "");
-}
-
-function postHtml(p) {
-  const u = USERS[p.user] || USERS.you;
-  const cm = p.comments.map(c => '<p><b>' + c[0] + '</b>' + esc(c[1]) + '</p>').join("");
-  return '<article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">' +
-    '<div class="ph"><div class="av" style="background:' + u[1] + '">' + u[0] + '</div><div><b>' + p.user + '</b><span>' + p.time + '</span></div><button class="more" aria-label="More">⋯</button></div>' +
-    '<div class="media" style="' + (p.src ? "" : "background:" + p.bg) + '">' + mediaHtml(p) + '<span class="pop">♥</span></div>' +
-    '<div class="pa"><button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button><button class="cbtn" aria-label="Comment">💬</button><button class="share" aria-label="Share">➤</button><button class="save" aria-label="Save">🔖</button></div>' +
-    '<div class="pb"><div class="likes">' + p.likes + ' likes</div>' +
-    '<div class="cap"><b>' + p.user + '</b>' + esc(p.caption) + '</div>' +
-    '<button class="vc">View all ' + p.comments.length + ' comments</button>' +
-    '<div class="cmts hide">' + cm + '</div>' +
-    '<form class="cf"><input placeholder="Add a comment..." autocomplete="off"><button>Post</button></form></div></article>';
-}
-
+// ---------- likes ----------
 function toggleLike(post, onlyLike) {
   const btn = post.querySelector(".like");
   if (onlyLike && btn.classList.contains("on")) return;   // double-tap never unlikes
@@ -613,7 +203,6 @@ function toggleLike(post, onlyLike) {
   })
   .then(async r => {
     const text = await r.text();
-    console.log("like status:", r.status, "url:", r.url, "body:", text.slice(0, 200));
     let d = {};
     try { d = JSON.parse(text); } catch (_) {}
     if (!d.ok) { toast(d.error || "Like failed (" + r.status + ")"); return; }
@@ -624,11 +213,35 @@ function toggleLike(post, onlyLike) {
   .catch(err => { console.error(err); toast("Network error"); });
 }
 
+// ---------- save ----------
+function toggleSave(post) {
+  const btn = post.querySelector(".save");
+  const fd = new FormData();
+  fd.append("postid", post.dataset.id);
+
+  fetch("{% url 'toggle_save' %}", {
+    method: "POST", body: fd, credentials: "same-origin",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  })
+  .then(async r => {
+    const text = await r.text();
+    let d = {};
+    try { d = JSON.parse(text); } catch (_) {}
+    if (!d.ok) {
+      console.error("Save failed", r.status, r.url, text.slice(0, 300));
+      toast(d.error || "Save failed (" + r.status + ")");
+      return;
+    }
+    btn.classList.toggle("on", d.saved);
+    toast(d.saved ? "Saved" : "Removed from saved");
+  })
+  .catch(err => { console.error(err); toast("Network error"); });
+}
 
 $("feed").addEventListener("click", (e) => {
   const post = e.target.closest(".post"); if (!post) return;
   if (e.target.closest(".like")) toggleLike(post);
-  else if (e.target.closest(".save")) post.querySelector(".save").classList.toggle("on");
+  else if (e.target.closest(".save")) toggleSave(post);
   else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
     post.querySelector(".cmts").classList.toggle("hide");
     post.querySelector(".cf input").focus();
@@ -647,6 +260,7 @@ $("feed").addEventListener("dblclick", (e) => {
   pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
 });
 
+// ---------- comments ----------
 $("feed").addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.target, post = form.closest(".post");
@@ -669,58 +283,13 @@ $("feed").addEventListener("submit", (e) => {
     })
     .catch(() => toast("Network error"));
 });
-// ---------- follow ----------
-document.querySelectorAll(".follow").forEach(b => b.addEventListener("click", () => {
-  b.classList.toggle("on"); b.textContent = b.classList.contains("on") ? "Following" : "Follow";
-}));
-
-// ---------- views ----------
-function showView(v) {
-  $("homeView").classList.toggle("hide", v !== "home");
-  $("chatView").classList.toggle("hide", v !== "chat");
-  document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v && (v === "chat" || b.textContent.includes("Home") || b.getAttribute("aria-label") === "Home")));
-}
-document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
-
-// ---------- chat ----------
-let cur = null;
-function renderList() {
-  $("clist").innerHTML = CHATS.map((c, i) => {
-    const last = c.msgs[c.msgs.length - 1];
-    return '<button class="ci' + (i === cur ? " on" : "") + '" data-i="' + i + '"><div class="av" style="background:' + USERS[c.u][1] + '">' + USERS[c.u][0] + '</div><div><b>' + c.u + '</b><span>' + (last[0] === "you" ? "You: " : "") + esc(last[1]) + '</span></div></button>';
-  }).join("");
-}
-function renderThread() {
-  const c = CHATS[cur];
-  $("thAv").style.background = USERS[c.u][1]; $("thAv").textContent = USERS[c.u][0]; $("thName").textContent = c.u;
-  $("msgs").innerHTML = c.msgs.map(m => '<div class="m ' + m[0] + '">' + esc(m[1]) + '</div>').join("");
-  $("msgs").scrollTop = $("msgs").scrollHeight;
-}
-$("clist").addEventListener("click", (e) => {
-  const b = e.target.closest(".ci"); if (!b) return;
-  cur = +b.dataset.i;
-  ["th", "msgs", "mf"].forEach(id => $(id).classList.remove("hide"));
-  $("noThread").classList.add("hide");
-  $("chat").classList.add("open");
-  renderList(); renderThread(); $("mi").focus();
-});
-$("back").addEventListener("click", () => $("chat").classList.remove("open"));
-$("mf").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const t = $("mi").value.trim(); if (!t || cur === null) return;
-  CHATS[cur].msgs.push(["you", t]); $("mi").value = "";
-  renderList(); renderThread();
-});
-renderList();
 
 // ---------- create post ----------
-let picked = null;
 const openModal = () => $("modal").classList.remove("hide");
 const closeModal = () => {
-  $("modal").classList.add("hide"); picked = null; $("file").value = ""; $("capIn").value = "";
+  $("modal").classList.add("hide"); $("file").value = ""; $("capIn").value = "";
   $("dropTxt").innerHTML = "<big>📷</big>Choose a photo or video"; $("share").disabled = true;
 };
-document.querySelectorAll("[data-create]").forEach(b => b.addEventListener("click", openModal));
 $("cancel").addEventListener("click", closeModal);
 $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
@@ -728,7 +297,6 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal
 $("file").addEventListener("change", function () {
   const f = this.files[0]; if (!f) return;
   const url = URL.createObjectURL(f), isVideo = f.type.startsWith("video");
-  picked = { src: url, type: isVideo ? "video" : "photo" };
   $("dropTxt").innerHTML = isVideo ? '<video src="' + url + '" muted></video>' : '<img src="' + url + '" alt="Preview">';
   $("share").disabled = false;
 });
@@ -759,12 +327,10 @@ $("share").addEventListener("click", () => {
   .catch(err => { console.error(err); toast("Network error"); $("share").disabled = false; });
 });
 
-// ---------- toast ----------
-let tt;
-function toast(msg) {
-  const t = $("toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 2000);
+// the sidebar's Create link opens this page with ?create=1
+if (location.search.includes("create=1")) {
+  openModal();
+  history.replaceState(null, "", location.pathname + location.hash);
 }
 </script>
-</body>
-</html>
+{% endblock %}

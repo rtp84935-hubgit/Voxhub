@@ -1,0 +1,159 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Saved posts · VoxHub{% endblock %}
+
+{# no right column on this page, so the base default (two columns) is kept #}
+
+{% block extra_head %}
+<style>
+.sv{max-width:940px;margin:auto}
+.sv h1{margin:0 0 4px;font-size:24px}
+.sv .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+
+.av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 auto;overflow:hidden;background:linear-gradient(135deg,#7c6cff,#22d3ee)}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--surface-2);padding:0;display:block}
+.tile img,.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.tile:hover img,.tile:hover video{transform:scale(1.05)}
+.ov{position:absolute;inset:0;display:flex;align-items:flex-end;padding:9px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:11px;font-weight:800;opacity:0;transition:opacity .2s;text-align:left}
+.tile:hover .ov,.tile:focus-visible .ov{opacity:1}
+.vb{position:absolute;top:8px;right:8px;font-size:15px;text-shadow:0 2px 6px rgba(0,0,0,.7)}
+
+.empty{text-align:center;padding:48px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;color:var(--muted);line-height:1.7}
+.empty .big{display:block;font-size:36px;margin-bottom:8px}
+.empty h3{margin:0 0 6px;color:var(--text)}
+
+/* viewer */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(5,7,15,.75);backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}
+.vbox{width:900px;max-width:100%;max-height:92vh;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.vmedia{background:#000;display:grid;place-items:center;min-height:300px}
+.vmedia img,.vmedia video{width:100%;max-height:92vh;object-fit:contain;display:block}
+.vside{padding:20px;display:flex;flex-direction:column;gap:12px}
+.vside .top{display:flex;align-items:center;gap:10px}
+.vside .top a{font-size:15px;font-weight:800}
+.vside .x{margin-left:auto;font-size:22px;color:var(--muted);padding:0 6px}
+.vcap{font-size:14px;flex:1;overflow:auto;white-space:pre-wrap;word-wrap:break-word}
+.vunsave{padding:11px;border-radius:12px;font-weight:800;border:1px solid rgba(244,114,182,.4);background:rgba(244,114,182,.1);color:var(--pink)}
+.vunsave:disabled{opacity:.5;cursor:default}
+@media(max-width:760px){.vbox{grid-template-columns:1fr;overflow:auto}.grid{gap:3px}.tile{border-radius:4px}}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="sv">
+    <h1>Saved posts</h1>
+    <p class="sub">Only you can see what you've saved.</p>
+
+    {% if saved %}
+    <div class="grid" id="grid">
+        {% for s in saved %}
+        {% with p=s.Post %}
+        <button class="tile" type="button"
+                data-type="{% if p.is_video %}video{% else %}photo{% endif %}"
+                data-src="{{ p.photo.url }}"
+                data-author="{{ p.USER.username }}"
+                data-author-id="{{ p.USER.id }}"
+                data-caption="{{ p.caption }}"
+                data-post-id="{{ p.id }}"
+                aria-label="Open saved post by {{ p.USER.username }}">
+            {% if p.is_video %}<video src="{{ p.photo.url }}#t=0.1" muted preload="metadata"></video><span class="vb">🎬</span>
+            {% else %}<img src="{{ p.photo.url }}" alt="" loading="lazy">{% endif %}
+            <span class="ov">{{ p.caption|truncatechars:45 }}</span>
+        </button>
+        {% endwith %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="empty {% if saved %}hide{% endif %}" id="emptyBox">
+        <span class="big">🔖</span>
+        <h3>No saved posts yet</h3>
+        Tap the 🔖 on a post to keep it here.
+    </div>
+</div>
+
+<div class="modal hide" id="viewer"><div class="vbox">
+    <div class="vmedia" id="vMedia"></div>
+    <div class="vside">
+        <div class="top"><a href="#" id="vUser"></a><button class="x" id="vClose" aria-label="Close">✕</button></div>
+        <div class="vcap" id="vCap"></div>
+        <button class="vunsave" id="vUnsave" type="button">Remove from saved</button>
+    </div>
+</div></div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+const CSRF = "{{ csrf_token }}";
+let openTile = null;
+
+function openViewer(tile) {
+    openTile = tile;
+    const d = tile.dataset;
+    $("vMedia").innerHTML = d.type === "video"
+        ? '<video src="' + d.src + '" controls autoplay playsinline></video>'
+        : '<img src="' + d.src + '" alt="Saved post">';
+    $("vUser").textContent = d.author;
+    $("vUser").href = "/myapp/profile/" + d.authorId + "/";
+    $("vCap").textContent = d.caption || "No caption.";
+    $("vUnsave").disabled = false;
+    $("viewer").classList.remove("hide");
+}
+
+function closeViewer() {
+    $("viewer").classList.add("hide");
+    $("vMedia").innerHTML = "";          // stops video playback
+    openTile = null;
+}
+
+document.querySelectorAll(".tile").forEach(t => t.addEventListener("click", () => openViewer(t)));
+$("vClose").addEventListener("click", closeViewer);
+$("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) closeViewer(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
+
+$("vUnsave").addEventListener("click", async () => {
+    if (!openTile) return;
+    const tile = openTile;
+    $("vUnsave").disabled = true;
+
+    const fd = new FormData();
+    fd.append("postid", tile.dataset.postId);
+
+    try {
+        const r = await fetch("{% url 'toggle_save' %}", {
+            method: "POST", body: fd, credentials: "same-origin",
+            headers: { "X-CSRFToken": CSRF }
+        });
+        const text = await r.text();
+        let d = {};
+        try { d = JSON.parse(text); } catch (_) {}
+
+        if (!d.ok) {
+            toast(d.error || "Could not update (" + r.status + ")");
+            $("vUnsave").disabled = false;
+            return;
+        }
+        if (d.saved) {                    // it was unsaved in another tab, now saved again
+            toast("Saved again");
+            $("vUnsave").disabled = false;
+            return;
+        }
+
+        closeViewer();
+        tile.remove();
+        toast("Removed from saved");
+        if (!document.querySelector(".tile")) {
+            $("grid").classList.add("hide");
+            $("emptyBox").classList.remove("hide");
+        }
+    } catch (e) {
+        toast("Network error");
+        $("vUnsave").disabled = false;
+    }
+});
+</script>
+{% endblock %}

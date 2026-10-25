@@ -112,6 +112,8 @@ class ChatMessage(models.Model):
 
     is_read = models.BooleanField(default=False)
 
+    deleted_for = models.ManyToManyField(UserProfile, blank=True, related_name='hidden_messages')
+
     class Meta:
         ordering = ["timestamp", "id"]
 
@@ -156,3 +158,12 @@ class Reports(models.Model):
     reports = models.CharField(max_length=100)
     status = models.CharField(max_length=10, default="pending")
     date = models.DateTimeField(auto_now_add=True)
+    user_seen = models.BooleanField(default=True)
+    
+
+
+class Saved_Posts(models.Model):
+    USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
+    Post=models.ForeignKey(User_posts,on_delete=models.CASCADE)
+    date=models.DateTimeField(auto_now_add=True)
+    
