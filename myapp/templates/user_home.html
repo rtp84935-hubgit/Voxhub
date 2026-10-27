@@ -17,6 +17,8 @@
 .ph{display:flex;align-items:center;gap:12px;padding:12px 14px}
 .ph .av{width:38px;height:38px;font-size:14px}
 .ph b{display:block;line-height:1.2;font-size:14px}
+.del-post{margin-left:auto;font-size:18px;padding:6px 9px;border-radius:10px;line-height:1;opacity:.7;transition:background .15s,opacity .15s}
+.del-post:hover{background:rgba(244,114,182,.15);opacity:1}
 .media{position:relative;aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;user-select:none}
 .media img,.media video{width:100%;height:100%;object-fit:cover;display:block}
 .pop{position:absolute;font-size:90px;pointer-events:none;opacity:0;transform:scale(.4);filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
@@ -76,6 +78,36 @@
 .mact button{flex:1;padding:12px;border-radius:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-2)}
 .mact .go{border:0;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
 .mact .go:disabled{opacity:.45;cursor:not-allowed}
+
+.comment-item {
+    margin-bottom: 8px;
+    overflow-wrap: anywhere;
+}
+
+.comment-item p {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 6px;
+}
+
+.comment-item p b {
+    flex-shrink: 0;
+}
+
+.delete-comment {
+    margin-left: auto;
+    padding: 2px 5px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0.65;
+    flex-shrink: 0;
+}
+
+.delete-comment:hover {
+    opacity: 1;
+    background: rgba(244, 114, 182, 0.15);
+}
 </style>
 {% endblock %}
 
@@ -97,13 +129,16 @@
           {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}">{% else %}{{ p.USER.username|first|upper }}{% endif %}
         </div>
         <div><a href="/myapp/profile/{{ p.USER.id }}/"><b>{{ p.USER.username }}</b></a></div>
+        {% if sidebar_user and p.USER.id == sidebar_user.id %}
+        <button class="del-post" type="button" aria-label="Delete post" title="Delete post">🗑</button>
+        {% endif %}
       </div>
 
       <div class="media">
         {% if p.is_video %}
           <video src="{{ p.photo.url }}" controls playsinline></video>
         {% else %}
-          <img src="{{ p.photo.url }}" alt="Post photo">
+          <img src="{{ p.display_photo.url }}" alt="Post photo">
         {% endif %}
         <span class="pop">♥</span>
       </div>
@@ -119,12 +154,32 @@
         <div class="likes">{{ p.like_count }} likes</div>
         <div class="cap"><b>{{ p.USER.username }}</b>{{ p.caption }}</div>
 
-       {% with cs=p.comments_set.all %}
-<button class="vc">View all {{ cs|length }} comments</button>
-<div class="cmts hide">
-  {% for c in cs %}<p><b>{{ c.USER.username }}</b>{{ c.comment }}</p>{% endfor %}
+        {% with cs=p.comments_set.all %}
+        <button class="vc">View all {{ cs|length }} comments</button>
+        <div class="cmts hide">
+        
+{% for c in cs %}
+<div class="comment-item" data-comment-id="{{ c.id }}">
+    <p>
+        <b>{{ c.USER.username }}</b>
+        {{ c.comment }}
+
+        {% if sidebar_user and c.USER.id == sidebar_user.id %}
+        <button
+            type="button"
+            class="delete-comment"
+            data-comment-id="{{ c.id }}"
+            title="Delete comment"
+            aria-label="Delete comment">
+            🗑️
+        </button>
+        {% endif %}
+    </p>
 </div>
-{% endwith %}
+{% endfor %}
+
+        </div>
+        {% endwith %}
 
         <form class="cf" action="{% url 'add_comment' %}" method="post">
           {% csrf_token %}
@@ -238,10 +293,39 @@ function toggleSave(post) {
   .catch(err => { console.error(err); toast("Network error"); });
 }
 
+// ---------- delete your own post ----------
+function deletePost(post) {
+  if (!confirm("Delete this post? This cannot be undone.")) return;
+  const fd = new FormData();
+  fd.append("postid", post.dataset.id);
+
+  fetch("/myapp/delete_post/", {
+    method: "POST", body: fd, credentials: "same-origin",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  })
+  .then(async r => {
+    const text = await r.text();
+    let d = {};
+    try { d = JSON.parse(text); } catch (_) {}
+    if (!d.ok) {
+      console.error("Delete failed", r.status, r.url, text.slice(0, 300));
+      toast(d.error || "Delete failed (" + r.status + ")");
+      return;
+    }
+    post.remove();
+    toast("Post deleted");
+    if (!document.querySelector("#feed .post")) {
+      $("feed").insertAdjacentHTML("beforeend", '<p class="no-posts" id="noPosts">No posts yet</p>');
+    }
+  })
+  .catch(err => { console.error(err); toast("Network error"); });
+}
+
 $("feed").addEventListener("click", (e) => {
   const post = e.target.closest(".post"); if (!post) return;
   if (e.target.closest(".like")) toggleLike(post);
   else if (e.target.closest(".save")) toggleSave(post);
+  else if (e.target.closest(".del-post")) deletePost(post);
   else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
     post.querySelector(".cmts").classList.toggle("hide");
     post.querySelector(".cf input").focus();
@@ -332,5 +416,58 @@ if (location.search.includes("create=1")) {
   openModal();
   history.replaceState(null, "", location.pathname + location.hash);
 }
+
+$("feed").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".delete-comment");
+    if (!btn) return;
+
+    if (!confirm("Delete this comment?")) return;
+
+    const commentItem = btn.closest(".comment-item");
+    const post = btn.closest(".post");
+
+    const fd = new FormData();
+    fd.append("comment_id", btn.dataset.commentId);
+
+    btn.disabled = true;
+
+    try {
+        const response = await fetch("/myapp/delete_comment/", {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}"
+            }
+        });
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {}
+
+        if (!response.ok || !data.ok) {
+            toast(data.error || "Failed to delete comment.");
+            btn.disabled = false;
+            return;
+        }
+
+        commentItem.remove();
+
+        const commentsBox = post.querySelector(".cmts");
+        const count = commentsBox.children.length;
+
+        post.querySelector(".vc").textContent =
+            "View all " + count + " comments";
+
+        toast("Comment deleted successfully.");
+
+    } catch (error) {
+        console.error("Delete comment error:", error);
+        toast("Network error. Please try again.");
+        btn.disabled = false;
+    }
+});
+
 </script>
 {% endblock %}

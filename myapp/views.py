@@ -3,9 +3,12 @@ import logging
 import math
 from django.utils.timezone import localtime
 
+import face_recognition
 import cv2
 from django.contrib import messages
 import numpy as np
+import uuid
+from io import BytesIO
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
@@ -15,6 +18,7 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Exists, OuterRef
@@ -28,6 +32,9 @@ from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.db import transaction
+
 
 from django.db.models import Q
 
@@ -489,38 +496,551 @@ def explore(request):
         'following_ids': set(Follow.objects.filter(FOLLOWER=me).values_list('FOLLOWING_id', flat=True)),
     })
 
+
+def mask_face_regions(image, faces):
+    output = image.copy()
+    image_height, image_width = output.shape[:2]
+
+    for face in faces:
+        # Never blur the uploader's face
+        if face.is_uploader:
+            continue
+
+        # Never blur unregistered people
+        if face.person_id is None:
+            continue
+
+        # Don't blur registered users who consented to THIS post
+        if face.consent_status == "accepted":
+            continue
+
+        # Get face coordinates and keep them within image boundaries
+        top = max(0, min(face.top, image_height))
+        bottom = max(0, min(face.bottom, image_height))
+        left = max(0, min(face.left, image_width))
+        right = max(0, min(face.right, image_width))
+
+        if bottom <= top or right <= left:
+            continue
+
+        region_height = bottom - top
+        region_width = right - left
+
+        # Extract the face region
+        face_region = output[top:bottom, left:right].copy()
+
+        if region_height < 3 or region_width < 3:
+            cv2.rectangle(
+                output,
+                (left, top),
+                (right - 1, bottom - 1),
+                (0, 0, 0),
+                -1
+            )
+            continue
+
+        # Create a strongly blurred version
+        kernel_size = min(99, region_height, region_width)
+
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+
+        kernel_size = max(1, kernel_size)
+
+        blurred_region = cv2.GaussianBlur(
+            face_region,
+            (kernel_size, kernel_size),
+            30
+        )
+
+        # Create a circular mask
+        circle_mask = np.zeros(
+            (region_height, region_width),
+            dtype=np.uint8
+        )
+
+        center = (region_width // 2, region_height // 2)
+
+        # Use the smaller dimension so the mask is circular
+        radius = max(
+            1,
+            min(region_width, region_height) // 2
+        )
+
+        cv2.circle(
+            circle_mask,
+            center,
+            radius,
+            255,
+            -1
+        )
+
+        # Apply blur only inside the circle
+        blurred_output = output[top:bottom, left:right]
+
+        blurred_output[circle_mask > 0] = blurred_region[
+            circle_mask > 0
+        ]
+
+    return output
+
+
+
+def regenerate_post_image(post):
+    """
+    Rebuild the public image using the private original photo
+    and the latest face-consent decisions.
+    """
+
+    if not post.original_photo:
+        raise ValueError("Private original photo is missing.")
+
+    post.original_photo.open("rb")
+
+    try:
+        original_bytes = post.original_photo.read()
+    finally:
+        post.original_photo.close()
+
+    image_array = np.frombuffer(
+        original_bytes,
+        dtype=np.uint8,
+    )
+
+    original = cv2.imdecode(
+        image_array,
+        cv2.IMREAD_COLOR,
+    )
+
+    if original is None:
+        raise ValueError("Could not read the private original photo.")
+
+    # Reapply masking using the latest consent statuses.
+    faces = list(post.detected_faces.all())
+
+    safe_image = mask_face_regions(
+        original,
+        faces,
+    )
+
+    success, encoded_image = cv2.imencode(
+        ".jpg",
+        safe_image,
+    )
+
+    if not success:
+        raise ValueError("Could not generate the safe image.")
+
+    safe_bytes = encoded_image.tobytes()
+
+    new_name = f"post_{post.pk}_{uuid.uuid4().hex}.jpg"
+
+    # Remember previous public file names for cleanup.
+    old_photo_name = post.photo.name
+    old_masked_name = post.masked_photo.name
+
+    # Save the newly generated safe image.
+    post.photo.save(
+        new_name,
+        ContentFile(safe_bytes),
+        save=False,
+    )
+
+    post.masked_photo.save(
+        f"masked_{new_name}",
+        ContentFile(safe_bytes),
+        save=False,
+    )
+
+    post.save(
+        update_fields=[
+            "photo",
+            "masked_photo",
+        ]
+    )
+
+    # Delete old public copies after saving the replacements.
+    for field, old_name in (
+        (post.photo, old_photo_name),
+        (post.masked_photo, old_masked_name),
+    ):
+        if old_name and old_name != field.name:
+            try:
+                field.storage.delete(old_name)
+            except Exception as exc:
+                print(
+                    f"Could not delete old image {old_name}: {exc}"
+                )
+
+    return post
+
+
 @login_required
 @require_POST
 def create_post(request):
-    photo = request.FILES.get('photo')
-    caption = request.POST.get('caption', '').strip()[:100]
+    photo = request.FILES.get("photo")
+    caption = request.POST.get("caption", "").strip()[:100]
 
     if not photo:
-        return JsonResponse({'ok': False, 'error': 'No file received'}, status=400)
+        return JsonResponse({
+            "ok": False,
+            "error": "No file received.",
+        }, status=400)
+
+    if photo.size > 10 * 1024 * 1024:
+        return JsonResponse({
+            "ok": False,
+            "error": "Photo must be 10 MB or smaller.",
+        }, status=400)
 
     try:
         profile = UserProfile.objects.get(LOGIN=request.user)
     except UserProfile.DoesNotExist:
-        return JsonResponse({'ok': False, 'error': 'No UserProfile for this login'}, status=400)
+        return JsonResponse({
+            "ok": False,
+            "error": "No user profile found.",
+        }, status=400)
 
-    post = User_posts.objects.create(USER=profile, photo=photo, caption=caption)
-    return JsonResponse({'ok': True, 'id': post.id})
+    # Read the uploaded image.
+    photo_bytes = photo.read()
+
+    try:
+        image_array = np.frombuffer(photo_bytes, dtype=np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+        if image is None:
+            raise ValueError("Invalid image file.")
+
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Detect faces.
+        locations = face_recognition.face_locations(rgb_image)
+        detected_faces = []
+
+        image_height, image_width = image.shape[:2]
+
+        for location in locations:
+            top, right, bottom, left = location
+            encoding = None
+
+            try:
+                encodings = face_recognition.face_encodings(
+                    rgb_image,
+                    known_face_locations=[location],
+                )
+                if encodings:
+                    encoding = encodings[0]
+            except Exception as exc:
+                print(f"Face encoding failed: {exc!r}")
+
+            # Expand the face region.
+            face_height = bottom - top
+            face_width = right - left
+
+            top = max(0, top - int(face_height * 0.35))
+            bottom = min(
+                image_height,
+                bottom + int(face_height * 0.35),
+            )
+            left = max(0, left - int(face_width * 0.35))
+            right = min(
+                image_width,
+                right + int(face_width * 0.35),
+            )
+
+            detected_faces.append({
+                "encoding": encoding,
+                "top": top,
+                "right": right,
+                "bottom": bottom,
+                "left": left,
+                "person": None,
+                "is_uploader": False,
+            })
+
+    except Exception as exc:
+        import traceback
+        print(f"Image processing failed: {exc!r}")
+        traceback.print_exc()
+
+        return JsonResponse({
+            "ok": False,
+            "error": "Could not safely process this photo.",
+        }, status=400)
+
+    # Load registered users' reference-face encodings.
+    registered_encodings = []
+
+    users = UserProfile.objects.select_related("LOGIN").all()
+
+    for user in users:
+        if not user.original_user:
+            continue
+
+        try:
+            user.original_user.open("rb")
+            try:
+                reference_bytes = user.original_user.read()
+            finally:
+                user.original_user.close()
+
+            reference_array = np.frombuffer(
+                reference_bytes,
+                dtype=np.uint8,
+            )
+            reference_image = cv2.imdecode(
+                reference_array,
+                cv2.IMREAD_COLOR,
+            )
+
+            if reference_image is None:
+                continue
+
+            reference_rgb = cv2.cvtColor(
+                reference_image,
+                cv2.COLOR_BGR2RGB,
+            )
+            reference_faces = face_recognition.face_encodings(
+                reference_rgb,
+            )
+
+            if reference_faces:
+                registered_encodings.append({
+                    "profile": user,
+                    "encoding": reference_faces[0],
+                })
+
+        except Exception as exc:
+            print(
+                f"Could not load reference for profile "
+                f"{user.pk}: {exc!r}"
+            )
+
+    matched_users = set()
+
+    # Match detected faces to registered users.
+    for face in detected_faces:
+        encoding = face["encoding"]
+
+        # Faces without encodings remain unidentified.
+        if encoding is None:
+            continue
+
+        distances = []
+
+        for registered in registered_encodings:
+            distance = float(
+                face_recognition.face_distance(
+                    [registered["encoding"]],
+                    encoding,
+                )[0]
+            )
+            distances.append((distance, registered["profile"]))
+
+        distances.sort(key=lambda item: item[0])
+
+        # No reliable match: treat the face as unregistered.
+        if not distances or distances[0][0] > 0.45:
+            continue
+
+        best_distance, best_profile = distances[0]
+
+        # Avoid uncertain matches between similar candidates.
+        if (
+            len(distances) > 1
+            and distances[1][0] - best_distance < 0.05
+        ):
+            continue
+
+        if best_profile.LOGIN_id == request.user.id:
+            # The uploader's face stays visible.
+            face["is_uploader"] = True
+            face["person"] = best_profile
+        else:
+            # A matched registered person other than the uploader.
+            face["person"] = best_profile
+            matched_users.add(best_profile.pk)
+
+    post = None
+
+    try:
+        with transaction.atomic():
+            post = User_posts(
+                USER=profile,
+                caption=caption,
+            )
+
+            # Save the original image using private storage.
+            extension = os.path.splitext(photo.name)[1].lower()
+            if extension not in (".jpg", ".jpeg", ".png", ".webp"):
+                extension = ".jpg"
+
+            post.original_photo.save(
+                f"original_{uuid.uuid4().hex}{extension}",
+                ContentFile(photo_bytes),
+                save=False,
+            )
+            post.save()
+
+            # Store a face record for every detected face.
+            for face in detected_faces:
+                PostFace.objects.create(
+                    post=post,
+                    person=face["person"],
+                    top=face["top"],
+                    right=face["right"],
+                    bottom=face["bottom"],
+                    left=face["left"],
+                    is_uploader=face["is_uploader"],
+                    consent_status=(
+                        "accepted"
+                        if face["is_uploader"]
+                        else "pending"
+                    ),
+                )
+
+            # Generate the public image with masking applied.
+            regenerate_post_image(post)
+
+            # Notify each matched registered person once.
+            for recipient_id in matched_users:
+                recipient = UserProfile.objects.get(
+                    pk=recipient_id,
+                )
+
+                notification = UserNotification.objects.create(
+                    recipient=recipient,
+                    sender=profile,
+                    post=post,
+                    message=(
+                        f"{profile.name} uploaded a photo containing "
+                        "a face that may match your registration photo. "
+                        "Respond to control whether your face appears."
+                    ),
+                    status="pending",
+                )
+
+                print(
+                    f"NOTIFICATION CREATED: {notification.id}; "
+                    f"recipient={recipient.pk}; post={post.pk}"
+                )
+
+        return JsonResponse({
+            "ok": True,
+            "message": "Post created successfully.",
+            "post_id": post.pk,
+        })
+
+    except Exception as exc:
+        import traceback
+        print(f"Post creation failed: {exc!r}")
+        traceback.print_exc()
+
+        # Clean up saved files if processing fails.
+        if post is not None:
+            for field_name in (
+                "photo",
+                "masked_photo",
+                "original_photo",
+            ):
+                field = getattr(post, field_name, None)
+
+                if field and field.name:
+                    try:
+                        field.storage.delete(field.name)
+                    except Exception as cleanup_exc:
+                        print(
+                            f"File cleanup failed: {cleanup_exc!r}"
+                        )
+
+        return JsonResponse({
+            "ok": False,
+            "error": (
+                "The photo could not be processed safely. "
+                "Please try again."
+            ),
+        }, status=500)
+
+
+
+@login_required(login_url="login")
+@require_POST
+def delete_post(request):
+    """Delete a post owned by the logged-in user."""
+
+    me = UserProfile.objects.filter(LOGIN=request.user).first()
+
+    if not me:
+        return JsonResponse({
+            "ok": False,
+            "error": "Your account has no profile."
+        }, status=403)
+
+    post_id = request.POST.get("postid", "").strip()
+
+ 
+
+    if not post_id.isdigit():
+        return JsonResponse({
+            "ok": False,
+            "error": "Invalid post ID."
+        }, status=400)
+
+    # Find the post by ID.
+    post = User_posts.objects.filter(id=post_id).first()
+
+    if not post:
+        return JsonResponse({
+            "ok": False,
+            "error": "Post not found. It may have already been deleted."
+        }, status=404)
+
+    # Verify that the logged-in user owns the post.
+    if post.USER_id != me.id:
+        return JsonResponse({
+            "ok": False,
+            "error": "You are not allowed to delete this post."
+        }, status=403)
+
+    try:
+        with transaction.atomic():
+            # Delete the database record first.
+            # Related records configured with CASCADE will also be removed.
+            post.delete()
+
+        # Clean up uploaded files after successful database deletion.
+        for field_name in ("photo", "masked_photo", "original_photo"):
+            field = getattr(post, field_name, None)
+
+            if field and field.name:
+                try:
+                    field.storage.delete(field.name)
+                except Exception as exc:
+                    print(
+                        f"Could not delete file {field.name}: {exc}"
+                    )
+
+        return JsonResponse({
+            "ok": True,
+            "message": "Post deleted successfully."
+        })
+
+    except Exception as exc:
+        print(f"Delete post failed: {exc}")
+
+        return JsonResponse({
+            "ok": False,
+            "error": "Could not delete the post. Please try again."
+        }, status=500)
 
 
 from transformers import pipeline
 
-MODEL_NAME = "unitary/toxic-bert"
-
-print("Loading model...")
-
 detector = pipeline(
     "text-classification",
-    model=MODEL_NAME,
+    model="unitary/toxic-bert",
     top_k=None
 )
-
-
-
 
 
 def add_comment(request):
@@ -1252,18 +1772,43 @@ def admin_notifications_read(request):
     return JsonResponse({"success": True})
 
 
+
 @login_required
 def user_notifications(request):
     profile = UserProfile.objects.get(LOGIN=request.user)
 
-    follow_requests = Follow.objects.filter(FOLLOWING=profile, status='pending')   # <- changed line
+    # Face detection notifications
+    notifications = UserNotification.objects.filter(
+        recipient=profile
+    ).select_related(
+        'sender', 'post'
+    ).order_by('-id')
+
+    pending_face_count = notifications.filter(
+        status='pending'
+    ).count()
+
+    # Follow requests
+    follow_requests = Follow.objects.filter(
+        FOLLOWING=profile,
+        status='pending'
+    )
+
+    # Reports
     my_reports = Reports.objects.filter(USER=profile)
-    Reports.objects.filter(USER=profile, user_seen=False).update(user_seen=True)
+
+    Reports.objects.filter(
+        USER=profile,
+        user_seen=False
+    ).update(user_seen=True)
 
     return render(request, 'notification.html', {
+        'notifications': notifications,
+        'pending_face_count': pending_face_count,
         'follow_requests': follow_requests,
         'my_reports': my_reports,
     })
+
 
 def accept_follow_request(request, id):
     if request.method == 'POST':
@@ -1274,3 +1819,214 @@ def decline_follow_request(request, id):
     if request.method == 'POST':
         Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).delete()
     return redirect('user_notification')
+
+@login_required
+@require_POST
+def respond_to_notification(request, notification_id):
+    profile = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    notification = get_object_or_404(
+        UserNotification,
+        id=notification_id,
+        recipient=profile
+    )
+
+    if notification.status != "pending":
+        messages.warning(request, "You have already responded.")
+        return redirect("notifications")
+
+    action = request.POST.get("action")
+
+    if action not in ["accept", "reject"]:
+        messages.error(request, "Invalid action.")
+        return redirect("notifications")
+
+    faces = PostFace.objects.filter(
+        post=notification.post,
+        person=profile,
+        is_uploader=False,
+        consent_status="pending"
+    )
+
+    if not faces.exists():
+        messages.error(
+            request,
+            "No pending face-visibility request was found."
+        )
+        return redirect("notifications")
+
+    new_status = "accepted" if action == "accept" else "rejected"
+
+    try:
+        with transaction.atomic():
+            faces.update(consent_status=new_status)
+
+            notification.status = new_status
+            notification.is_read = True
+            notification.save(update_fields=["status", "is_read"])
+
+            regenerate_post_image(notification.post)
+
+        if action == "accept":
+            messages.success(
+                request,
+                "You accepted the request. Your face can now appear in this post."
+            )
+        else:
+            messages.success(
+                request,
+                "You rejected the request. Your face will remain hidden."
+            )
+
+    except Exception as exc:
+        print(f"Face consent update failed: {exc}")
+        messages.error(
+            request,
+            "Could not safely update the post image. Please try again."
+        )
+
+    return redirect("user_notifications")
+
+@login_required
+def notifications(request):
+    profile = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    face_notifications = UserNotification.objects.filter(
+        recipient=profile
+    ).select_related('sender', 'post')
+
+    pending_face_count = face_notifications.filter(
+        status='pending'
+    ).count()
+
+    follow_requests = Follow.objects.filter(
+        FOLLOWING=profile,
+        status='pending'
+    ).select_related('FOLLOWER')
+
+    my_reports = Reports.objects.filter(
+        USER=profile
+    )
+
+    return render(
+        request,
+        'notifications.html',
+        {
+            'notifications': face_notifications,
+            'pending_face_count': pending_face_count,
+            'follow_requests': follow_requests,
+            'my_reports': my_reports,
+        }
+    )
+
+@login_required
+@require_POST
+def delete_comment(request):
+    comment_id = request.POST.get('comment_id')
+
+    if not comment_id:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Comment ID is required.'
+        }, status=400)
+
+    C_USER = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    comment = get_object_or_404(
+        Comments,
+        id=comment_id
+    )
+
+    # Allow users to delete only their own comments
+    if comment.USER_id != C_USER.id:
+        return JsonResponse({
+            'ok': False,
+            'error': 'You can delete only your own comments.'
+        }, status=403)
+
+    comment.delete()
+
+    return JsonResponse({
+        'ok': True,
+        'message': 'Comment deleted successfully.'
+    })
+
+@login_required
+def settings_view(request):
+    profile = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    return render(request, 'user_settings.html', {
+        'sidebar_user': profile,
+    })
+
+
+
+@login_required
+def change_password(request):
+    if request.method == "POST":
+        current_password = request.POST.get("current_password", "")
+        new_password = request.POST.get("new_password", "")
+        confirm_password = request.POST.get("confirm_password", "")
+
+        if not request.user.check_password(current_password):
+            messages.error(request, "Your current password is incorrect.")
+
+        elif new_password != confirm_password:
+            messages.error(request, "New passwords do not match.")
+
+        elif current_password == new_password:
+            messages.error(
+                request,
+                "Your new password must be different from your current password."
+            )
+
+        else:
+            try:
+                validate_password(new_password, user=request.user)
+            except ValidationError as error:
+                for message in error.messages:
+                    messages.error(request, message)
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+
+                # Keep the user logged in after changing the password.
+                update_session_auth_hash(request, request.user)
+
+                messages.success(
+                    request,
+                    "Your password has been changed successfully."
+                )
+                return redirect("change_password")
+
+    return render(request, "change_password.html")
+
+
+@login_required
+def liked_posts(request):
+    liked_posts = Likes.objects.filter(
+        USER=request.user.user_profile
+    ).select_related('POST').order_by('-id')
+
+    return render(request, 'liked_posts.html', {
+        'liked_posts': liked_posts
+    })
+
+@login_required
+def commented_posts(request):
+    commented_posts = Comments.objects.filter(
+        USER=request.user.user_profile
+    ).select_related('POST').order_by('-date')
+
+    return render(request, 'commented_posts.html', {
+        'commented_posts': commented_posts
+    })

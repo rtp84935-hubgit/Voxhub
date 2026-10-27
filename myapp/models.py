@@ -5,9 +5,16 @@ from django.db import models
 # Create your models here.
 from django.db import models
 from django.contrib.auth.models import User
+import os
 
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 
-    
+PRIVATE_POST_STORAGE = FileSystemStorage(
+    location=os.path.join(settings.BASE_DIR, "private_post_originals"),
+    base_url=None,
+)
+
 class UserProfile(models.Model):
     LOGIN=models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_profile")
 
@@ -68,9 +75,74 @@ class VoiceProfile(models.Model):
 
 
 class User_posts(models.Model):
-    USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
-    photo=models.FileField()
-    caption=models.CharField(max_length=100)
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+
+    # The public-facing, privacy-protected image or existing video.
+    photo = models.FileField()
+
+    # Safe, masked image used by the feed and notifications.
+    masked_photo = models.FileField(blank=True)
+
+    # Original upload; must never be served directly to public viewers.
+    original_photo = models.FileField(
+        storage=PRIVATE_POST_STORAGE,
+        upload_to="originals/",
+        blank=True,
+    )
+
+    caption = models.CharField(max_length=100)
+    date = models.DateTimeField(auto_now_add=True)
+    
+    @property
+    def display_photo(self):
+        return self.masked_photo or self.photo
+
+    def __str__(self):
+        return f"Post by {self.USER.username}"
+
+class PostFace(models.Model):
+    CONSENT_CHOICES = [
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("rejected", "Rejected"),
+    ]
+
+    post = models.ForeignKey(
+        User_posts,
+        on_delete=models.CASCADE,
+        related_name="detected_faces",
+    )
+
+    # Null for a face that could not be matched to a registered user.
+    person = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="faces_in_posts",
+    )
+
+    # Face coordinates in the original image.
+    top = models.PositiveIntegerField()
+    right = models.PositiveIntegerField()
+    bottom = models.PositiveIntegerField()
+    left = models.PositiveIntegerField()
+
+    # The uploader's own face can remain visible.
+    is_uploader = models.BooleanField(default=False)
+
+    # Each face is tracked independently.
+    consent_status = models.CharField(
+        max_length=10,
+        choices=CONSENT_CHOICES,
+        default="pending",
+    )
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"Face in post {self.post_id}"
 
 class Comments(models.Model):
     comment=models.CharField(max_length=100)
@@ -161,9 +233,49 @@ class Reports(models.Model):
     user_seen = models.BooleanField(default=True)
     
 
-
 class Saved_Posts(models.Model):
     USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
     Post=models.ForeignKey(User_posts,on_delete=models.CASCADE)
     date=models.DateTimeField(auto_now_add=True)
-    
+
+
+class UserNotification(models.Model):
+    recipient = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+
+    sender = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='sent_notifications'
+    )
+
+    post = models.ForeignKey(
+        User_posts,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+
+    message = models.CharField(max_length=255)
+
+    is_read = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    status = models.CharField(
+    max_length=10,
+    choices=[
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("rejected", "Rejected"),
+    ],
+    default="pending",
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.sender} -> {self.recipient}: {self.message}"

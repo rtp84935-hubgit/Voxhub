@@ -1,0 +1,269 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Liked Posts | VoxHub{% endblock %}
+{% block app_class %}no-right{% endblock %}
+
+{% block extra_head %}
+<style>
+.activity-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 15px 0 60px;
+    color: var(--text);
+}
+
+.activity-header {
+    margin-bottom: 25px;
+}
+
+.activity-header .eyebrow {
+    color: var(--accent-2);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.activity-header h1 {
+    margin: 10px 0;
+    font-size: clamp(27px, 4vw, 36px);
+    font-weight: 800;
+}
+
+.activity-header p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.posts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.post-card {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: var(--surface);
+    transition: .2s ease;
+}
+
+.post-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+}
+
+.post-media {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--surface-2);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.post-media img,
+.post-media video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.post-body {
+    padding: 17px;
+}
+
+.post-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    min-width: 0;
+}
+
+.post-avatar {
+    width: 37px;
+    height: 37px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--surface-2);
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+}
+
+.post-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.post-author-info {
+    min-width: 0;
+}
+
+.post-author-info h3 {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.post-author-info p {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.post-caption {
+    margin: 0 0 13px;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.post-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.liked-label {
+    color: #f472b6;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.activity-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 12px;
+    border-radius: 9px;
+    color: white;
+    background: linear-gradient(135deg, var(--accent), #6354e8);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.activity-empty {
+    padding: 55px 20px;
+    border: 1px dashed var(--line);
+    border-radius: 18px;
+    text-align: center;
+    background: var(--surface);
+}
+
+.activity-empty .empty-icon {
+    font-size: 42px;
+}
+
+.activity-empty h2 {
+    margin: 14px 0 8px;
+    font-size: 19px;
+}
+
+.activity-empty p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+@media(max-width:650px) {
+    .posts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media(max-width:520px) {
+    .activity-page {
+        padding-top: 8px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="activity-page">
+
+    <header class="activity-header">
+        <div class="eyebrow">✦ YOUR ACTIVITY</div>
+        <h1>Liked Posts <span style="color:var(--accent)">♥</span></h1>
+        <p>All the posts you've liked on VoxHub, collected in one place.</p>
+    </header>
+
+    {% if liked_posts %}
+        <div class="posts-grid">
+
+            {% for like in liked_posts %}
+                {% with post=like.POST %}
+                    <article class="post-card">
+
+                        <div class="post-media">
+                            {% if post.image %}
+                                <img src="{{ post.image.url }}"
+                                     alt="Post by {{ post.USER }}"
+                                     loading="lazy">
+                            {% elif post.video %}
+                                <video controls preload="metadata">
+                                    <source src="{{ post.video.url }}">
+                                    Your browser does not support video.
+                                </video>
+                            {% else %}
+                                <span style="color:var(--muted);font-size:13px;">
+                                    No media available
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="post-body">
+
+                            <div class="post-author">
+                                <div class="post-avatar">
+                                    {{ post.USER|first|upper }}
+                                </div>
+
+                                <div class="post-author-info">
+                                    <h3>{{ post.USER }}</h3>
+                                    <p>Post #{{ post.id }}</p>
+                                </div>
+                            </div>
+
+                            {% if post.caption %}
+                                <p class="post-caption">
+                                    {{ post.caption }}
+                                </p>
+                            {% endif %}
+
+                            <div class="post-actions">
+                                <span class="liked-label">♥ Liked</span>
+
+                                <a class="activity-link"
+                                   href="/myapp/profile/{{ post.USER_id }}/">
+                                    View profile ↗
+                                </a>
+                            </div>
+
+                        </div>
+
+                    </article>
+                {% endwith %}
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+        <div class="activity-empty">
+            <div class="empty-icon">♡</div>
+            <h2>No liked posts yet</h2>
+            <p>When you like posts, they'll appear here.</p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

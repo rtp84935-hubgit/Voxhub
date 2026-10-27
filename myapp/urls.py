@@ -45,6 +45,13 @@ urlpatterns = [
     path('delete_message/', views.delete_message, name='delete_message'),
     path('toggle_save/', views.toggle_save, name='toggle_save'),
     path('saved_posts/', views.saved_posts, name='saved_posts'),
+    path('delete_post/', views.delete_post, name='delete_post'),
+    path('notifications/respond/<int:notification_id>/',views.respond_to_notification,name='respond_to_notification'),
+    path('delete_comment/', views.delete_comment, name='delete_comment'),
+    path('user_settings/', views.settings_view, name='settings'),
+    path('change_password/',views.change_password,name='change_password'),
+    path('liked_posts/', views.liked_posts, name='liked_posts'),
+    path('commented_posts/', views.commented_posts, name='commented_posts'),
     
 
 

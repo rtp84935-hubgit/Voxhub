@@ -1,48 +1,283 @@
+
 {% extends 'user_base.html' %}
 
 {% block title %}Notifications · VoxHub{% endblock %}
 
 {% block extra_head %}
 <style>
-    .np { --red: #fb7185; --yellow: #fbbf24; --green: #34d399; max-width: 680px; margin: 0 auto; }
-    .np h1 { margin: 0; font-size: 26px; font-weight: 800; }
-    .np .sub { margin: 6px 0 22px; color: var(--muted); font-size: 13px; }
+    .np {
+        --red: #fb7185;
+        --yellow: #fbbf24;
+        --green: #34d399;
+        --purple: #a99cff;
 
-    .np .message { padding: 13px 16px; border-radius: 10px; margin-bottom: 18px; font-size: 13px;
-                   background: #172a25; border: 1px solid #285b49; color: #86efac; }
-    .np .message.error { background: #321b23; border-color: #713444; color: #fda4af; }
-    .np .message.info  { background: #17283b; border-color: #315477; color: #93c5fd; }
+        max-width: 680px;
+        margin: 0 auto;
+    }
 
-    .np .section-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800; margin: 26px 0 12px; }
-    .np .count { background: rgba(251,191,36,.14); color: var(--yellow); font-size: 11px; padding: 3px 9px; border-radius: 20px; }
+    .np h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800;
+    }
 
-    .np .list { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-    .np .note { display: flex; gap: 14px; padding: 18px 20px; border-top: 1px solid var(--line); }
-    .np .note:first-child { border-top: 0; }
+    .np .sub {
+        margin: 6px 0 22px;
+        color: var(--muted);
+        font-size: 13px;
+    }
 
-    .np .icon { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center;
-                justify-content: center; background: var(--surface-2); border: 1px solid var(--line); font-size: 16px; }
-    .np .body { flex: 1; min-width: 0; }
-    .np .title { font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
-    .np .title a { color: #a99cff; }
-    .np .title a:hover { text-decoration: underline; }
-    .np .detail { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.6; overflow-wrap: anywhere; }
+    /* Django messages */
 
-    .np .tag { display: inline-block; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 800; margin-left: 6px; vertical-align: middle; }
-    .np .tag.pending   { background: rgba(251,191,36,.12); color: var(--yellow); }
-    .np .tag.resolved  { background: rgba(52,211,153,.12); color: var(--green); }
-    .np .tag.dismissed { background: rgba(142,150,184,.14); color: #aab5c8; }
+    .np .message {
+        padding: 13px 16px;
+        border-radius: 10px;
+        margin-bottom: 18px;
+        font-size: 13px;
+        background: #172a25;
+        border: 1px solid #285b49;
+        color: #86efac;
+    }
 
-    .np .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    .np .row-actions form { margin: 0; }
-    .np .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 9px; font-size: 12px;
-               font-weight: 700; border: 1px solid var(--line); transition: filter .2s; }
-    .np .btn:hover { filter: brightness(1.25); }
-    .np .btn-accept  { color: var(--green); background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.28); }
-    .np .btn-decline { color: var(--red);   background: rgba(251,113,133,.08); border-color: rgba(251,113,133,.28); }
+    .np .message.error {
+        background: #321b23;
+        border-color: #713444;
+        color: #fda4af;
+    }
 
-    .np .empty { text-align: center; padding: 34px 20px; color: var(--muted); line-height: 1.7; }
-    .np .empty .ico-big { display: block; font-size: 26px; margin-bottom: 8px; }
+    .np .message.info {
+        background: #17283b;
+        border-color: #315477;
+        color: #93c5fd;
+    }
+
+    .np .message.warning {
+        background: #302819;
+        border-color: #705624;
+        color: #fcd34d;
+    }
+
+    /* Section headings */
+
+    .np .section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 800;
+        margin: 26px 0 12px;
+    }
+
+    .np .count {
+        background: rgba(251, 191, 36, .14);
+        color: var(--yellow);
+        font-size: 11px;
+        padding: 3px 9px;
+        border-radius: 20px;
+    }
+
+    /* Notification list */
+
+    .np .list {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        overflow: hidden;
+    }
+
+    .np .note {
+        display: flex;
+        gap: 14px;
+        padding: 18px 20px;
+        border-top: 1px solid var(--line);
+    }
+
+    .np .note:first-child {
+        border-top: 0;
+    }
+
+    .np .note.unread {
+        background: rgba(169, 156, 255, .045);
+    }
+
+    .np .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        font-size: 16px;
+    }
+
+    .np .body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .np .title {
+        font-weight: 700;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+    .np .title a {
+        color: var(--purple);
+        text-decoration: none;
+    }
+
+    .np .title a:hover {
+        text-decoration: underline;
+    }
+
+    .np .detail {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 4px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+    }
+
+    /* Status tags */
+
+    .np .tag {
+        display: inline-block;
+        padding: 4px 9px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 800;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+
+    .np .tag.pending {
+        background: rgba(251, 191, 36, .12);
+        color: var(--yellow);
+    }
+
+    .np .tag.resolved,
+    .np .tag.accepted {
+        background: rgba(52, 211, 153, .12);
+        color: var(--green);
+    }
+
+    .np .tag.dismissed,
+    .np .tag.rejected {
+        background: rgba(251, 113, 133, .12);
+        color: var(--red);
+    }
+
+    /* Action buttons */
+
+    .np .row-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .np .row-actions form {
+        margin: 0;
+    }
+
+    .np .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 14px;
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid var(--line);
+        cursor: pointer;
+        transition: filter .2s;
+    }
+
+    .np .btn:hover {
+        filter: brightness(1.25);
+    }
+
+    .np .btn-accept {
+        color: var(--green);
+        background: rgba(52, 211, 153, .08);
+        border-color: rgba(52, 211, 153, .28);
+    }
+
+    .np .btn-decline {
+        color: var(--red);
+        background: rgba(251, 113, 133, .08);
+        border-color: rgba(251, 113, 133, .28);
+    }
+
+    /* Post preview */
+
+    .np .post-preview {
+        display: block;
+        margin-top: 12px;
+        max-width: 220px;
+    }
+
+    .np .post-preview img {
+        display: block;
+        width: 100%;
+        max-height: 220px;
+        object-fit: cover;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+    }
+
+    .np .post-link {
+        display: inline-block;
+        margin-top: 8px;
+        color: var(--purple);
+        font-size: 12px;
+        text-decoration: none;
+    }
+
+    .np .post-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Empty state */
+
+    .np .empty {
+        text-align: center;
+        padding: 34px 20px;
+        color: var(--muted);
+        line-height: 1.7;
+        font-size: 13px;
+    }
+
+    .np .empty .ico-big {
+        display: block;
+        font-size: 26px;
+        margin-bottom: 8px;
+    }
+
+    @media (max-width: 520px) {
+        .np h1 {
+            font-size: 23px;
+        }
+
+        .np .note {
+            padding: 15px 12px;
+            gap: 10px;
+        }
+
+        .np .icon {
+            width: 34px;
+            height: 34px;
+            font-size: 14px;
+        }
+
+        .np .btn {
+            padding: 8px 11px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -51,70 +286,331 @@
 <div class="np">
 
     <h1>Notifications</h1>
-    <p class="sub">Follow requests and updates on reports you submitted.</p>
+
+    <p class="sub">
+        Face detection requests, follow requests and updates on your reports.
+    </p>
+
+
+    <!-- Django messages -->
 
     {% for message in messages %}
-        <div class="message {% if message.tags == 'error' %}error{% elif message.tags == 'info' %}info{% endif %}">{{ message }}</div>
+        <div class="message
+            {% if message.tags %}
+                {{ message.tags }}
+            {% endif %}">
+            {{ message }}
+        </div>
     {% endfor %}
 
-    <!-- Follow requests -->
+
+    <!-- ================================================== -->
+    <!-- FACE DETECTION NOTIFICATIONS                       -->
+    <!-- ================================================== -->
+
     <div class="section-title">
-        Follow requests
-        {% if follow_requests %}<span class="count">{{ follow_requests|length }}</span>{% endif %}
+        Face Detection Requests
+
+        {% if pending_face_count %}
+            <span class="count">{{ pending_face_count }}</span>
+        {% endif %}
     </div>
 
     <section class="list">
-        {% for f in follow_requests %}
-        <article class="note">
-            <div class="icon">👤</div>
-            <div class="body">
-                <div class="title">
-                    <a href="/myapp/profile/{{ f.FOLLOWER.id }}/">{{ f.FOLLOWER.name }}</a>
-                    wants to follow you
+
+        {% for n in notifications %}
+
+            <article class="note {% if not n.is_read %}unread{% endif %}">
+
+                <div class="icon">📸</div>
+
+                <div class="body">
+
+                    <div class="title">
+
+                        <a href="/myapp/profile/{{ n.sender.id }}/">
+                            {{ n.sender.name }}
+                        </a>
+
+                        uploaded a post containing your face.
+
+                        {% if n.status == 'pending' %}
+                            <span class="tag pending">Pending</span>
+
+                        {% elif n.status == 'accepted' %}
+                            <span class="tag accepted">Accepted</span>
+
+                        {% elif n.status == 'rejected' %}
+                            <span class="tag rejected">Rejected</span>
+                        {% endif %}
+
+                    </div>
+
+                    <div class="detail">
+                        {{ n.message }}
+                    </div>
+
+
+                    <!-- Blurred post image -->
+
+                    {% if n.post.masked_photo %}
+
+                        <a href="{{ n.post.masked_photo.url }}"
+                           class="post-preview"
+                           target="_blank"
+                           rel="noopener noreferrer">
+
+                            <img src="{{ n.post.masked_photo.url }}"
+                                 alt="Blurred post image"
+                                 loading="lazy">
+
+                        </a>
+
+                        <a href="{{ n.post.masked_photo.url }}"
+                           class="post-link"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            View post image
+                        </a>
+
+                    {% endif %}
+
+
+                    <!-- Accept / Reject -->
+
+                    {% if n.status == 'pending' %}
+
+                        <div class="row-actions">
+
+                            <form method="POST"
+                                  action="{% url 'respond_to_notification' n.id %}">
+
+                                {% csrf_token %}
+
+                                <button type="submit"
+                                        name="action"
+                                        value="accept"
+                                        class="btn btn-accept">
+
+                                    ✓ Accept
+
+                                </button>
+
+                            </form>
+
+
+                            <form method="POST"
+                                  action="{% url 'respond_to_notification' n.id %}">
+
+                                {% csrf_token %}
+
+                                <button type="submit"
+                                        name="action"
+                                        value="reject"
+                                        class="btn btn-decline">
+
+                                    ✕ Reject
+
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    {% elif n.status == 'accepted' %}
+
+                        <div class="detail">
+                            ✓ You accepted this request.
+                        </div>
+
+                    {% elif n.status == 'rejected' %}
+
+                        <div class="detail">
+                            ✕ You rejected this request.
+                        </div>
+
+                    {% endif %}
+
                 </div>
-                <div class="row-actions">
-                    <form method="POST" action="{% url 'accept_follow_request' f.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-accept">✓ Accept</button>
-                    </form>
-                    <form method="POST" action="{% url 'decline_follow_request' f.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-decline">✕ Decline</button>
-                    </form>
-                </div>
-            </div>
-        </article>
+
+            </article>
+
         {% empty %}
-        <div class="empty"><span class="ico-big">🔔</span>No pending follow requests.</div>
+
+            <div class="empty">
+                <span class="ico-big">📸</span>
+                No face detection notifications yet.
+            </div>
+
         {% endfor %}
+
     </section>
 
-    <!-- Reports -->
-    <div class="section-title">Your reports</div>
+
+    <!-- ================================================== -->
+    <!-- FOLLOW REQUESTS                                    -->
+    <!-- ================================================== -->
+
+    <div class="section-title">
+
+        Follow Requests
+
+        {% if follow_requests %}
+            <span class="count">{{ follow_requests|length }}</span>
+        {% endif %}
+
+    </div>
 
     <section class="list">
-        {% for r in my_reports %}
-        <article class="note">
-            <div class="icon">🚩</div>
-            <div class="body">
-                <div class="title">
-                    Report #{{ r.id }}
-                    {% if r.status == 'pending' %}<span class="tag pending">Pending</span>
-                    {% elif r.status == 'resolved' %}<span class="tag resolved">Resolved</span>
-                    {% elif r.status == 'dismissed' %}<span class="tag dismissed">Dismissed</span>
-                    {% else %}<span class="tag">{{ r.status|title }}</span>{% endif %}
+
+        {% for f in follow_requests %}
+
+            <article class="note">
+
+                <div class="icon">👤</div>
+
+                <div class="body">
+
+                    <div class="title">
+
+                        <a href="/myapp/profile/{{ f.FOLLOWER.id }}/">
+                            {{ f.FOLLOWER.name }}
+                        </a>
+
+                        wants to follow you.
+
+                    </div>
+
+                    <div class="row-actions">
+
+                        <form method="POST"
+                              action="{% url 'accept_follow_request' f.id %}">
+
+                            {% csrf_token %}
+
+                            <button type="submit"
+                                    class="btn btn-accept">
+                                ✓ Accept
+                            </button>
+
+                        </form>
+
+
+                        <form method="POST"
+                              action="{% url 'decline_follow_request' f.id %}">
+
+                            {% csrf_token %}
+
+                            <button type="submit"
+                                    class="btn btn-decline">
+                                ✕ Decline
+                            </button>
+
+                        </form>
+
+                    </div>
+
                 </div>
-                <div class="detail">
-                    {% if r.status == 'pending' %}An admin will review it soon.
-                    {% elif r.status == 'resolved' %}An admin reviewed it and took action.
-                    {% elif r.status == 'dismissed' %}An admin reviewed it and found no violation.{% endif %}
-                </div>
-                {% if r.reports %}<div class="detail">Your reason: {{ r.reports }}</div>{% endif %}
-            </div>
-        </article>
+
+            </article>
+
         {% empty %}
-        <div class="empty"><span class="ico-big">🚩</span>You haven't submitted any reports.</div>
+
+            <div class="empty">
+                <span class="ico-big">🔔</span>
+                No pending follow requests.
+            </div>
+
         {% endfor %}
+
+    </section>
+
+
+    <!-- ================================================== -->
+    <!-- REPORT UPDATES                                     -->
+    <!-- ================================================== -->
+
+    <div class="section-title">
+        Your Reports
+    </div>
+
+    <section class="list">
+
+        {% for r in my_reports %}
+
+            <article class="note">
+
+                <div class="icon">🚩</div>
+
+                <div class="body">
+
+                    <div class="title">
+
+                        Report #{{ r.id }}
+
+                        {% if r.status == 'pending' %}
+
+                            <span class="tag pending">Pending</span>
+
+                        {% elif r.status == 'resolved' %}
+
+                            <span class="tag resolved">Resolved</span>
+
+                        {% elif r.status == 'dismissed' %}
+
+                            <span class="tag dismissed">Dismissed</span>
+
+                        {% else %}
+
+                            <span class="tag">
+                                {{ r.status|title }}
+                            </span>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <div class="detail">
+
+                        {% if r.status == 'pending' %}
+
+                            An admin will review it soon.
+
+                        {% elif r.status == 'resolved' %}
+
+                            An admin reviewed it and took action.
+
+                        {% elif r.status == 'dismissed' %}
+
+                            An admin reviewed it and found no violation.
+
+                        {% endif %}
+
+                    </div>
+
+
+                    {% if r.reports %}
+
+                        <div class="detail">
+                            Your reason: {{ r.reports }}
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </article>
+
+        {% empty %}
+
+            <div class="empty">
+                <span class="ico-big">🚩</span>
+                You haven't submitted any reports.
+            </div>
+
+        {% endfor %}
+
     </section>
 
 </div>

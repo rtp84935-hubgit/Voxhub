@@ -1,0 +1,150 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Commented Posts | VoxHub{% endblock %}
+{% block app_class %}no-right{% endblock %}
+
+{% block extra_head %}
+<style>
+.activity-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 15px 0 60px;
+    color: var(--text);
+}
+
+.activity-header {
+    margin-bottom: 25px;
+}
+
+.activity-header .eyebrow {
+    color: var(--accent-2);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.activity-header h1 {
+    margin: 10px 0;
+    font-size: clamp(27px, 4vw, 36px);
+    font-weight: 800;
+}
+
+.activity-header p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.activity-card {
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: var(--surface);
+    transition: .2s ease;
+}
+
+.activity-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.activity-card h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.comment-text {
+    padding: 13px;
+    border-left: 3px solid var(--accent);
+    border-radius: 7px;
+    background: var(--surface-2);
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.activity-link {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 9px 13px;
+    border-radius: 9px;
+    color: white;
+    background: linear-gradient(135deg, var(--accent), #6354e8);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.activity-empty {
+    padding: 55px 20px;
+    border: 1px dashed var(--line);
+    border-radius: 18px;
+    text-align: center;
+    background: var(--surface);
+}
+
+.activity-empty .empty-icon {
+    font-size: 42px;
+}
+
+.activity-empty h2 {
+    margin: 14px 0 8px;
+    font-size: 19px;
+}
+
+.activity-empty p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+@media(max-width:520px) {
+    .activity-page {
+        padding-top: 8px;
+    }
+
+    .activity-card {
+        padding: 14px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="activity-page">
+
+    <header class="activity-header">
+        <div class="eyebrow">✦ YOUR ACTIVITY</div>
+        <h1>Commented Posts <span style="color:var(--accent)">.</span></h1>
+        <p>Revisit the posts where you've shared your thoughts.</p>
+    </header>
+
+    {% for comment in commented_posts %}
+        <article class="activity-card">
+            <h3>💬 Your comment</h3>
+
+            <div class="comment-text">
+                {{ comment.comment }}
+            </div>
+
+            {% if comment.POST %}
+                <p style="color:var(--muted);font-size:12px;margin-top:12px;">
+                    Post ID: {{ comment.POST.id }}
+                </p>
+
+                <a class="activity-link"
+                   href="/myapp/profile/{{ comment.POST.USER_id }}/">
+                    View author's profile ↗
+                </a>
+            {% endif %}
+        </article>
+    {% empty %}
+        <div class="activity-empty">
+            <div class="empty-icon">💬</div>
+            <h2>No comments yet</h2>
+            <p>Your comments on VoxHub posts will appear here.</p>
+        </div>
+    {% endfor %}
+
+</div>
+{% endblock %}
