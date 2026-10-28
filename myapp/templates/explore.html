@@ -27,11 +27,35 @@
 .pcard b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcard span{display:block;font-size:12px;color:var(--muted);margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcard .vp{color:var(--accent);font-weight:700;margin-bottom:0}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;grid-auto-flow:dense}
-.tile{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--surface-2);padding:0;display:block}
-.tile img,.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+
+/* uniform grid: every tile is an identical square, no gaps */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+}
+.tile{
+  position:relative;
+  width:100%;
+  aspect-ratio:1/1;
+  border:0;
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--surface-2);
+  padding:0;
+  display:block;
+  cursor:pointer;
+}
+.tile img,.tile video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  transition:transform .3s;
+}
 .tile:hover img,.tile:hover video{transform:scale(1.05)}
-.tile:nth-child(10n+3){grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
 .ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:18px;background:rgba(5,7,15,.55);color:#fff;font-weight:800;opacity:0;transition:opacity .2s}
 .tile:hover .ov,.tile:focus-visible .ov{opacity:1}
 .vb{position:absolute;top:8px;right:8px;font-size:15px;text-shadow:0 2px 6px rgba(0,0,0,.7)}

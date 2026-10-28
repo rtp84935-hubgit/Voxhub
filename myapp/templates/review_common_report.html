@@ -1,0 +1,48 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Review Report{% endblock %}
+
+{% block page_heading %}
+  <h1>Report #{{ report.id }}</h1>
+  <p><a class="link" href="{% url 'admin_common_reports' %}">← Back to Common Reports</a></p>
+{% endblock %}
+
+{% block content %}
+
+{% for message in messages %}
+  <div class="flash {{ message.tags }}">{{ message }}</div>
+{% endfor %}
+
+<div class="card" style="max-width:760px">
+  <div class="card-head">
+    <h2>Report details</h2>
+    <span class="pill pill-{{ report.status }}">{{ report.get_status_display }}</span>
+  </div>
+
+  <ul class="overview" style="padding:0">
+    <li><span>Reported by</span><strong>{{ report.USER.username }} ({{ report.USER.name }})</strong></li>
+    <li><span>Email</span><strong>{{ report.USER.email }}</strong></li>
+    <li><span>Submitted</span><strong>{{ report.date|date:"d M Y, H:i" }}</strong></li>
+  </ul>
+
+  <div style="margin:22px 0;padding:16px 18px;background:var(--bg);border:1px solid var(--border);border-radius:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">{{ report.reports }}</div>
+
+  {% if report.status == "resolved" or report.status == "dismissed" %}
+    <p class="empty" style="padding-top:0">This report has been {{ report.status }}.</p>
+  {% else %}
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <form method="post" action="{% url 'update_common_report' report.id %}" style="margin:0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="resolved">
+        <button type="submit" class="btn btn-blue" style="border:0;cursor:pointer;font-size:1rem">✔ Mark as resolved</button>
+      </form>
+      <form method="post" action="{% url 'update_common_report' report.id %}" style="margin:0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="dismissed">
+        <button type="submit" class="btn btn-red" style="border:0;cursor:pointer;font-size:1rem">✖ Dismiss</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

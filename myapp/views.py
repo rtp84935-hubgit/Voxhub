@@ -1,56 +1,80 @@
-from datetime import timedelta
+"""
+VoxHub views, organised in this order:
+
+    1. IMPORTS
+    2. CONSTANTS & SETTINGS
+    3. COMMON  - shared helpers (face check, masking, decorators, notifications)
+    4. COMMON  - registration & authentication (user side)
+    5. USER    - feed, posts, likes, comments, saved
+    6. USER    - profiles, follow, suggestions, reports, explore
+    7. USER    - chat
+    8. USER    - notifications
+    9. USER    - account settings
+   10. ADMIN   - auth, dashboard, users, reports, settings, notifications
+"""
+
+# =========================================================
+# 1. IMPORTS
+# =========================================================
+
+# ---- standard library ----
 import logging
 import math
-from django.utils.timezone import localtime
-
-import face_recognition
-import cv2
-from django.contrib import messages
-import numpy as np
+import os
+import traceback
 import uuid
-from io import BytesIO
-from django.contrib.auth import authenticate, login, logout
+from datetime import timedelta
+from functools import wraps
+
+# ---- third party ----
+import cv2
+import face_recognition
+import numpy as np
+from transformers import pipeline
+
+# ---- django ----
+from django.contrib import messages
+from django.contrib.auth import (
+    authenticate,
+    login,
+    logout,
+    update_session_auth_hash,
+)
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import transaction
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.core.files.base import ContentFile
-from django.urls import reverse
-from django.views.decorators.http import require_POST
-from django.db.models import Count, Exists, OuterRef
-from myapp.models import *
-from myapp.voice.enrollment import create_voice_profile, verify_voice
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.utils import timesince, timezone
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_protect
-from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models import Count, Exists, OuterRef, Q
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.timezone import localtime
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 
-
-from django.db.models import Q
-
+# ---- local ----
+from myapp.models import *
+from myapp.voice.enrollment import create_voice_profile, verify_voice
 from .models import UserProfile, User_posts
+
 logger = logging.getLogger(__name__)
 
+
 # =========================================================
-# FACE CHECK SETTINGS
-# Keep CIRCLE_RADIUS_RATIO in sync with the browser:
-# the guide circle is 70% of the video height -> radius = 0.35 * height
+# 2. CONSTANTS & SETTINGS
 # =========================================================
 
+# ---- face check (registration) ----
+# Keep CIRCLE_RADIUS_RATIO in sync with the browser:
+# the guide circle is 70% of the video height -> radius = 0.35 * height
 CIRCLE_RADIUS_RATIO = 0.35
 
 MIN_IMAGE_SIDE = 360                  # px, reject tiny images
-MAX_IMAGE_BYTES = 5 * 1024 * 1024     # 5 MB
+MAX_IMAGE_BYTES = 5 * 1024 * 1024     # 5 MB (registration face capture)
 
 SIZE_MIN, SIZE_MAX = 0.45, 0.95       # face width / circle diameter
 MAX_CENTER_OFFSET = 0.30              # face centre distance / circle radius
@@ -59,7 +83,19 @@ BRIGHT_MIN, BRIGHT_MAX = 60, 200      # mean face brightness (0-255)
 MIN_SHARPNESS = 35                    # Laplacian variance on a 200x200 face crop
 MIN_EYES = 1                          # set to 2 for a stricter check
 
-# Load the cascades once at import time (not on every request)
+# ---- post uploads ----
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+VIDEO_EXTENSIONS = (".mp4", ".mov", ".webm", ".m4v")
+MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10 MB
+MAX_VIDEO_SIZE = 50 * 1024 * 1024   # 50 MB
+
+# Used by explore() to filter photos / videos
+VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
+
+# ---- admin notifications ----
+NOTIFY_KINDS = ("new_user", "report", "security")
+
+# ---- loaded once at import time (not on every request) ----
 _face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
@@ -67,11 +103,36 @@ _eye_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_eye.xml"
 )
 
+# AI comment moderation model
+detector = pipeline(
+    "text-classification",
+    model="unitary/toxic-bert",
+    top_k=None
+)
+
 
 # =========================================================
-# SHARED FACE VALIDATION  (unchanged)
-# returns (ok: bool, error_message: str | None)
+# 3. COMMON - SHARED HELPERS
 # =========================================================
+
+def _fail(message):
+    return JsonResponse({"success": False, "message": message})
+
+
+def _login_error(request, message):
+    return render(request, "login.html", {"error": message})
+
+def community_guidelines(request):
+    return render(request,"community_guidelines.html")
+
+def about_us(request):
+    return render(request,"about_us.html")
+
+
+# ---------------------------------------------------------
+# Face validation (registration)
+# returns (ok: bool, error_message: str | None)
+# ---------------------------------------------------------
 
 def validate_face_image(data: bytes):
 
@@ -175,22 +236,236 @@ def validate_face_image(data: bytes):
     return True, None
 
 
-def _fail(message):
-    return JsonResponse({"success": False, "message": message})
+# ---------------------------------------------------------
+# Post image privacy (face masking)
+# ---------------------------------------------------------
+
+def mask_face_regions(image, faces):
+    output = image.copy()
+    image_height, image_width = output.shape[:2]
+
+    for face in faces:
+        # Never blur the uploader's face
+        if face.is_uploader:
+            continue
+
+        # Never blur unregistered people
+        if face.person_id is None:
+            continue
+
+        # Don't blur registered users who consented to THIS post
+        if face.consent_status == "accepted":
+            continue
+
+        # Get face coordinates and keep them within image boundaries
+        top = max(0, min(face.top, image_height))
+        bottom = max(0, min(face.bottom, image_height))
+        left = max(0, min(face.left, image_width))
+        right = max(0, min(face.right, image_width))
+
+        if bottom <= top or right <= left:
+            continue
+
+        region_height = bottom - top
+        region_width = right - left
+
+        # Extract the face region
+        face_region = output[top:bottom, left:right].copy()
+
+        if region_height < 3 or region_width < 3:
+            cv2.rectangle(
+                output,
+                (left, top),
+                (right - 1, bottom - 1),
+                (0, 0, 0),
+                -1
+            )
+            continue
+
+        # Create a strongly blurred version
+        kernel_size = min(99, region_height, region_width)
+
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+
+        kernel_size = max(1, kernel_size)
+
+        blurred_region = cv2.GaussianBlur(
+            face_region,
+            (kernel_size, kernel_size),
+            30
+        )
+
+        # Create a circular mask
+        circle_mask = np.zeros(
+            (region_height, region_width),
+            dtype=np.uint8
+        )
+
+        center = (region_width // 2, region_height // 2)
+
+        # Use the smaller dimension so the mask is circular
+        radius = max(
+            1,
+            min(region_width, region_height) // 2
+        )
+
+        cv2.circle(
+            circle_mask,
+            center,
+            radius,
+            255,
+            -1
+        )
+
+        # Apply blur only inside the circle
+        blurred_output = output[top:bottom, left:right]
+
+        blurred_output[circle_mask > 0] = blurred_region[
+            circle_mask > 0
+        ]
+
+    return output
+
+
+def regenerate_post_image(post):
+    """
+    Rebuild the public image using the private original photo
+    and the latest face-consent decisions.
+    """
+
+    if not post.original_photo:
+        raise ValueError("Private original photo is missing.")
+
+    post.original_photo.open("rb")
+
+    try:
+        original_bytes = post.original_photo.read()
+    finally:
+        post.original_photo.close()
+
+    image_array = np.frombuffer(
+        original_bytes,
+        dtype=np.uint8,
+    )
+
+    original = cv2.imdecode(
+        image_array,
+        cv2.IMREAD_COLOR,
+    )
+
+    if original is None:
+        raise ValueError("Could not read the private original photo.")
+
+    # Reapply masking using the latest consent statuses.
+    faces = list(post.detected_faces.all())
+
+    safe_image = mask_face_regions(
+        original,
+        faces,
+    )
+
+    success, encoded_image = cv2.imencode(
+        ".jpg",
+        safe_image,
+    )
+
+    if not success:
+        raise ValueError("Could not generate the safe image.")
+
+    safe_bytes = encoded_image.tobytes()
+
+    new_name = f"post_{post.pk}_{uuid.uuid4().hex}.jpg"
+
+    # Remember previous public file names for cleanup.
+    old_photo_name = post.photo.name
+    old_masked_name = post.masked_photo.name
+
+    # Save the newly generated safe image.
+    post.photo.save(
+        new_name,
+        ContentFile(safe_bytes),
+        save=False,
+    )
+
+    post.masked_photo.save(
+        f"masked_{new_name}",
+        ContentFile(safe_bytes),
+        save=False,
+    )
+
+    post.save(
+        update_fields=[
+            "photo",
+            "masked_photo",
+        ]
+    )
+
+    # Delete old public copies after saving the replacements.
+    for field, old_name in (
+        (post.photo, old_photo_name),
+        (post.masked_photo, old_masked_name),
+    ):
+        if old_name and old_name != field.name:
+            try:
+                field.storage.delete(old_name)
+            except Exception as exc:
+                print(
+                    f"Could not delete old image {old_name}: {exc}"
+                )
+
+    return post
+
+
+# ---------------------------------------------------------
+# Admin helpers (decorator + notifications)
+# ---------------------------------------------------------
+
+def admin_required(view_func):
+    """Allow only logged-in, active users in the 'admin' group
+    (the same rule your admin_login_post uses)."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return redirect("admin_login")
+        if not (user.is_active and user.groups.filter(name="admin").exists()):
+            messages.warning(request, "You are not an admin.")
+            return redirect("admin_login")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def notify_admin(kind, message):
+    """Create an admin notification. Never raises, so it can't break
+    registration or login. Identical messages within 1 minute are skipped
+    so repeated failed logins can't flood the bell."""
+    try:
+        message = message[:255]
+        since = timezone.now() - timedelta(minutes=1)
+        if AdminNotification.objects.filter(
+            kind=kind, message=message, created_at__gte=since
+        ).exists():
+            return
+        AdminNotification.objects.create(kind=kind, message=message)
+    except Exception:
+        logger.exception("Could not create admin notification")
+
+
+def _get_prefs(user):
+    prefs, _ = AdminNotificationPreference.objects.get_or_create(admin=user)
+    return prefs
 
 
 # =========================================================
-# REGISTRATION PAGE
+# 4. COMMON - REGISTRATION & AUTHENTICATION (USER SIDE)
 # =========================================================
 
 def registration(request):
     return render(request, "registration.html")
 
 
-# =========================================================
-# REGISTER  (called by the registration page with fetch)
-# =========================================================
-
+# Called by the registration page with fetch()
 def register(request):
 
     if request.method != "POST":
@@ -301,10 +576,6 @@ def register(request):
     })
 
 
-# =========================================================
-# FACE DETECTION  (unchanged)
-# =========================================================
-
 @require_POST
 def detect_face(request):
 
@@ -324,60 +595,53 @@ def detect_face(request):
     return JsonResponse({"face_detected": True, "message": "Face accepted."})
 
 
-# =========================================================
-# LOGIN  (password + voice)
-# =========================================================
-
-def _login_error(request, message):
-    return render(request, "login.html", {"error": message})
-
+# Login = password + voice
 def login_view(request):
- 
+
     if request.user.is_authenticated:
         return redirect("user_home")
- 
+
     if request.method != "POST":
         return render(request, "login.html")
- 
+
     username = (request.POST.get("username") or "").strip()
     password = request.POST.get("password") or ""
     voice = request.FILES.get("voice")
- 
+
     # 1. username + password, checked by Django against auth.User
     #    (authenticate() returns None for a banned user, i.e. is_active = 0)
     user = authenticate(request, username=username, password=password)
- 
+
     if user is None:
-        # NEW: right password but is_active = 0  ->  tell them they are banned
+        # right password but is_active = 0  ->  tell them they are banned
         candidate = User.objects.filter(username=username).first()
         if candidate and not candidate.is_active and candidate.check_password(password):
             return _login_error(request, "Your account has been banned.")
         return _login_error(request, "Invalid username or password.")
- 
+
     # 2. the account must have a VoxHub profile (e.g. admin accounts do not)
     profile = UserProfile.objects.filter(LOGIN=user).first()
- 
+
     if profile is None:
         return _login_error(request, "Invalid username or password.")
- 
+
     # 3. voice
     if not voice:
         return _login_error(request, "Please record your voice.")
- 
+
     try:
         verified, similarity = verify_voice(profile.username, voice)
     except Exception:
         logger.exception("Voice login failed for %s", username)
         return _login_error(request, "Voice verification failed.")
- 
+
     if not verified:
         return _login_error(request, "Voice does not match.")
- 
+
     # 4. only now create the real Django session
     login(request, user)
- 
-    return redirect("user_home")
 
+    return redirect("user_home")
 
 
 def logout_view(request):
@@ -386,8 +650,12 @@ def logout_view(request):
 
 
 # =========================================================
-# HOME  (only for logged-in users)
+# 5. USER - FEED, POSTS, LIKES, COMMENTS, SAVED
 # =========================================================
+
+# ---------------------------------------------------------
+# Home feed
+# ---------------------------------------------------------
 
 @login_required(login_url="login")
 def user_home(request):
@@ -411,269 +679,14 @@ def user_home(request):
 
     me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-    unread_count = ChatMessage.objects.filter(receiver=me,is_read=False).count()
+    unread_count = ChatMessage.objects.filter(receiver=me, is_read=False).count()
 
     return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts, "unread_count": unread_count})
 
 
-@login_required(login_url="login")
-@require_POST
-def toggle_save(request):
-    """Save a post, or remove it from saved if it is already saved."""
-    me = UserProfile.objects.filter(LOGIN=request.user).first()
-    if not me:
-        return JsonResponse({"ok": False, "error": "Your account has no profile."}, status=403)
- 
-    post_id = request.POST.get("postid", "")
-    if not post_id.isdigit():
-        return JsonResponse({"ok": False, "error": "Invalid post."}, status=400)
- 
-    post = User_posts.objects.filter(id=post_id).first()
-    if not post:
-        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
- 
-    saved, created = Saved_Posts.objects.get_or_create(USER=me, Post=post)
-    if not created:
-        saved.delete()
- 
-    return JsonResponse({"ok": True, "saved": created})
- 
- 
-@login_required(login_url="login")
-def saved_posts(request):
-    """Page that lists every post the logged-in user has saved, newest first."""
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
- 
-    saved = (
-        Saved_Posts.objects.filter(USER=me)
-        .select_related("Post", "Post__USER")
-        .order_by("-date", "-id")
-    )
- 
-    return render(request, "saved_posts.html", {"saved": saved})
- 
- 
-
-
-VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
-
-@login_required(login_url="login")
-def explore(request):
-    q = request.GET.get('q', '').strip()
-    kind = request.GET.get('type', '')
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
-
-    posts = (User_posts.objects
-        .select_related('USER')
-        .annotate(
-            like_count=Count('likes', distinct=True),
-            comment_count=Count('comments', distinct=True),
-        )
-        .order_by('-id'))
-
-    people = []
-    if q:
-        # search users by name or username
-        people = (UserProfile.objects
-            .filter(Q(name__icontains=q) | Q(username__icontains=q))
-            .exclude(LOGIN=request.user)[:20])
-        # posts: caption or author's name
-        posts = posts.filter(
-            Q(caption__icontains=q) | Q(USER__name__icontains=q) | Q(USER__username__icontains=q)
-        )
-
-    if kind == 'video':
-        posts = posts.filter(photo__iregex=VIDEO_RE)
-    elif kind == 'photo':
-        posts = posts.exclude(photo__iregex=VIDEO_RE)
-
-    return render(request, 'explore.html', {
-        'q': q,
-        'kind': kind,
-        'people': people,
-        'posts': posts,
-        'liked_ids': set(Likes.objects.filter(USER=me).values_list('POST_id', flat=True)),
-        'following_ids': set(Follow.objects.filter(FOLLOWER=me).values_list('FOLLOWING_id', flat=True)),
-    })
-
-
-def mask_face_regions(image, faces):
-    output = image.copy()
-    image_height, image_width = output.shape[:2]
-
-    for face in faces:
-        # Never blur the uploader's face
-        if face.is_uploader:
-            continue
-
-        # Never blur unregistered people
-        if face.person_id is None:
-            continue
-
-        # Don't blur registered users who consented to THIS post
-        if face.consent_status == "accepted":
-            continue
-
-        # Get face coordinates and keep them within image boundaries
-        top = max(0, min(face.top, image_height))
-        bottom = max(0, min(face.bottom, image_height))
-        left = max(0, min(face.left, image_width))
-        right = max(0, min(face.right, image_width))
-
-        if bottom <= top or right <= left:
-            continue
-
-        region_height = bottom - top
-        region_width = right - left
-
-        # Extract the face region
-        face_region = output[top:bottom, left:right].copy()
-
-        if region_height < 3 or region_width < 3:
-            cv2.rectangle(
-                output,
-                (left, top),
-                (right - 1, bottom - 1),
-                (0, 0, 0),
-                -1
-            )
-            continue
-
-        # Create a strongly blurred version
-        kernel_size = min(99, region_height, region_width)
-
-        if kernel_size % 2 == 0:
-            kernel_size -= 1
-
-        kernel_size = max(1, kernel_size)
-
-        blurred_region = cv2.GaussianBlur(
-            face_region,
-            (kernel_size, kernel_size),
-            30
-        )
-
-        # Create a circular mask
-        circle_mask = np.zeros(
-            (region_height, region_width),
-            dtype=np.uint8
-        )
-
-        center = (region_width // 2, region_height // 2)
-
-        # Use the smaller dimension so the mask is circular
-        radius = max(
-            1,
-            min(region_width, region_height) // 2
-        )
-
-        cv2.circle(
-            circle_mask,
-            center,
-            radius,
-            255,
-            -1
-        )
-
-        # Apply blur only inside the circle
-        blurred_output = output[top:bottom, left:right]
-
-        blurred_output[circle_mask > 0] = blurred_region[
-            circle_mask > 0
-        ]
-
-    return output
-
-
-
-def regenerate_post_image(post):
-    """
-    Rebuild the public image using the private original photo
-    and the latest face-consent decisions.
-    """
-
-    if not post.original_photo:
-        raise ValueError("Private original photo is missing.")
-
-    post.original_photo.open("rb")
-
-    try:
-        original_bytes = post.original_photo.read()
-    finally:
-        post.original_photo.close()
-
-    image_array = np.frombuffer(
-        original_bytes,
-        dtype=np.uint8,
-    )
-
-    original = cv2.imdecode(
-        image_array,
-        cv2.IMREAD_COLOR,
-    )
-
-    if original is None:
-        raise ValueError("Could not read the private original photo.")
-
-    # Reapply masking using the latest consent statuses.
-    faces = list(post.detected_faces.all())
-
-    safe_image = mask_face_regions(
-        original,
-        faces,
-    )
-
-    success, encoded_image = cv2.imencode(
-        ".jpg",
-        safe_image,
-    )
-
-    if not success:
-        raise ValueError("Could not generate the safe image.")
-
-    safe_bytes = encoded_image.tobytes()
-
-    new_name = f"post_{post.pk}_{uuid.uuid4().hex}.jpg"
-
-    # Remember previous public file names for cleanup.
-    old_photo_name = post.photo.name
-    old_masked_name = post.masked_photo.name
-
-    # Save the newly generated safe image.
-    post.photo.save(
-        new_name,
-        ContentFile(safe_bytes),
-        save=False,
-    )
-
-    post.masked_photo.save(
-        f"masked_{new_name}",
-        ContentFile(safe_bytes),
-        save=False,
-    )
-
-    post.save(
-        update_fields=[
-            "photo",
-            "masked_photo",
-        ]
-    )
-
-    # Delete old public copies after saving the replacements.
-    for field, old_name in (
-        (post.photo, old_photo_name),
-        (post.masked_photo, old_masked_name),
-    ):
-        if old_name and old_name != field.name:
-            try:
-                field.storage.delete(old_name)
-            except Exception as exc:
-                print(
-                    f"Could not delete old image {old_name}: {exc}"
-                )
-
-    return post
-
+# ---------------------------------------------------------
+# Create / delete posts
+# ---------------------------------------------------------
 
 @login_required
 @require_POST
@@ -682,24 +695,68 @@ def create_post(request):
     caption = request.POST.get("caption", "").strip()[:100]
 
     if not photo:
-        return JsonResponse({
-            "ok": False,
-            "error": "No file received.",
-        }, status=400)
+        return JsonResponse({"ok": False, "error": "No file received."}, status=400)
 
-    if photo.size > 10 * 1024 * 1024:
-        return JsonResponse({
-            "ok": False,
-            "error": "Photo must be 10 MB or smaller.",
-        }, status=400)
+    extension = os.path.splitext(photo.name)[1].lower()
+    content_type = (photo.content_type or "").lower()
+
+    if content_type.startswith("video/"):
+        is_video = True
+        if extension not in VIDEO_EXTENSIONS:
+            return JsonResponse({
+                "ok": False,
+                "error": "Unsupported video format. Use MP4, MOV or WebM.",
+            }, status=400)
+        if photo.size > MAX_VIDEO_SIZE:
+            return JsonResponse({
+                "ok": False,
+                "error": "Video must be 50 MB or smaller.",
+            }, status=400)
+    elif content_type.startswith("image/"):
+        is_video = False
+        if photo.size > MAX_IMAGE_SIZE:
+            return JsonResponse({
+                "ok": False,
+                "error": "Photo must be 10 MB or smaller.",
+            }, status=400)
+    else:
+        return JsonResponse({"ok": False, "error": "Unsupported file type."}, status=400)
 
     try:
         profile = UserProfile.objects.get(LOGIN=request.user)
     except UserProfile.DoesNotExist:
-        return JsonResponse({
-            "ok": False,
-            "error": "No user profile found.",
-        }, status=400)
+        return JsonResponse({"ok": False, "error": "No user profile found."}, status=400)
+
+    # ---------- VIDEO: store as-is, no face processing ----------
+    if is_video:
+        post = None
+        try:
+            post = User_posts(USER=profile, caption=caption)
+            post.photo.save(
+                f"video_{uuid.uuid4().hex}{extension}",
+                photo,
+                save=False,
+            )
+            post.save()
+            return JsonResponse({
+                "ok": True,
+                "message": "Video posted successfully.",
+                "post_id": post.pk,
+            })
+        except Exception as exc:
+            print(f"Video post failed: {exc!r}")
+            traceback.print_exc()
+            if post is not None and post.photo and post.photo.name:
+                try:
+                    post.photo.storage.delete(post.photo.name)
+                except Exception as cleanup_exc:
+                    print(f"File cleanup failed: {cleanup_exc!r}")
+            return JsonResponse({
+                "ok": False,
+                "error": "The video could not be uploaded. Please try again.",
+            }, status=500)
+
+    # ---------- IMAGE: face detection, matching, masking ----------
 
     # Read the uploaded image.
     photo_bytes = photo.read()
@@ -759,7 +816,6 @@ def create_post(request):
             })
 
     except Exception as exc:
-        import traceback
         print(f"Image processing failed: {exc!r}")
         traceback.print_exc()
 
@@ -871,8 +927,7 @@ def create_post(request):
             )
 
             # Save the original image using private storage.
-            extension = os.path.splitext(photo.name)[1].lower()
-            if extension not in (".jpg", ".jpeg", ".png", ".webp"):
+            if extension not in IMAGE_EXTENSIONS:
                 extension = ".jpg"
 
             post.original_photo.save(
@@ -932,7 +987,6 @@ def create_post(request):
         })
 
     except Exception as exc:
-        import traceback
         print(f"Post creation failed: {exc!r}")
         traceback.print_exc()
 
@@ -962,7 +1016,6 @@ def create_post(request):
         }, status=500)
 
 
-
 @login_required(login_url="login")
 @require_POST
 def delete_post(request):
@@ -977,8 +1030,6 @@ def delete_post(request):
         }, status=403)
 
     post_id = request.POST.get("postid", "").strip()
-
- 
 
     if not post_id.isdigit():
         return JsonResponse({
@@ -1034,14 +1085,41 @@ def delete_post(request):
         }, status=500)
 
 
-from transformers import pipeline
+# ---------------------------------------------------------
+# Likes
+# ---------------------------------------------------------
 
-detector = pipeline(
-    "text-classification",
-    model="unitary/toxic-bert",
-    top_k=None
-)
+@login_required
+@require_POST
+def toggle_like(request):
+    post = get_object_or_404(User_posts, id=request.POST.get('postid'))
+    profile = get_object_or_404(UserProfile, LOGIN=request.user)
 
+    like, created = Likes.objects.get_or_create(USER=profile, POST=post)
+    if not created:
+        like.delete()
+
+    return JsonResponse({
+        'ok': True,
+        'liked': created,
+        'count': Likes.objects.filter(POST=post).count(),
+    })
+
+
+@login_required
+def liked_posts(request):
+    liked_posts = Likes.objects.filter(
+        USER=request.user.user_profile
+    ).select_related('POST').order_by('-id')
+
+    return render(request, 'liked_posts.html', {
+        'liked_posts': liked_posts
+    })
+
+
+# ---------------------------------------------------------
+# Comments
+# ---------------------------------------------------------
 
 def add_comment(request):
     if request.method != "POST":
@@ -1111,188 +1189,138 @@ def add_comment(request):
     })
 
 
-
-
 @login_required
 @require_POST
-def toggle_like(request):
-    post = get_object_or_404(User_posts, id=request.POST.get('postid'))
-    profile = get_object_or_404(UserProfile, LOGIN=request.user)
+def delete_comment(request):
+    comment_id = request.POST.get('comment_id')
 
-    like, created = Likes.objects.get_or_create(USER=profile, POST=post)
-    if not created:
-        like.delete()
+    if not comment_id:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Comment ID is required.'
+        }, status=400)
+
+    C_USER = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    comment = get_object_or_404(
+        Comments,
+        id=comment_id
+    )
+
+    # Allow users to delete only their own comments
+    if comment.USER_id != C_USER.id:
+        return JsonResponse({
+            'ok': False,
+            'error': 'You can delete only your own comments.'
+        }, status=403)
+
+    comment.delete()
 
     return JsonResponse({
         'ok': True,
-        'liked': created,
-        'count': Likes.objects.filter(POST=post).count(),
+        'message': 'Comment deleted successfully.'
     })
+
 
 @login_required
+def commented_posts(request):
+    commented_posts = Comments.objects.filter(
+        USER=request.user.user_profile
+    ).select_related('POST').order_by('-date')
+
+    return render(request, 'commented_posts.html', {
+        'commented_posts': commented_posts
+    })
+
+
+
+# ---------------------------------------------------------
+# Saved posts
+# ---------------------------------------------------------
+
+@login_required(login_url="login")
 @require_POST
-def toggle_follow(request, uid):
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
-    target = get_object_or_404(UserProfile, id=uid)
-    if target == me:
-        return JsonResponse({'ok': False}, status=400)
-    obj, created = Follow.objects.get_or_create(FOLLOWER=me, FOLLOWING=target)
+def toggle_save(request):
+    """Save a post, or remove it from saved if it is already saved."""
+    me = UserProfile.objects.filter(LOGIN=request.user).first()
+    if not me:
+        return JsonResponse({"ok": False, "error": "Your account has no profile."}, status=403)
+
+    post_id = request.POST.get("postid", "")
+    if not post_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Invalid post."}, status=400)
+
+    post = User_posts.objects.filter(id=post_id).first()
+    if not post:
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    saved, created = Saved_Posts.objects.get_or_create(USER=me, Post=post)
     if not created:
-        obj.delete()
-    return JsonResponse({'ok': True, 'following': created})
+        saved.delete()
+
+    return JsonResponse({"ok": True, "saved": created})
 
 
 @login_required(login_url="login")
-def chat_inbox(request):
+def saved_posts(request):
+    """Page that lists every post the logged-in user has saved, newest first."""
     me = get_object_or_404(UserProfile, LOGIN=request.user)
- 
-    users = UserProfile.objects.exclude(id=me.id)
- 
-    for user in users:
-        # unread messages from this person, ignoring ones I deleted
-        user.unread_count = ChatMessage.objects.filter(
-            sender=user,
-            receiver=me,
-            is_read=False
-        ).exclude(deleted_for=me).count()
- 
-        # latest message in the conversation that I have not deleted
-        user.last_message = ChatMessage.objects.filter(
-            sender__in=[me, user],
-            receiver__in=[me, user]
-        ).exclude(deleted_for=me).order_by("-timestamp", "-id").first()
- 
-    return render(request, "chat_inbox.html", {
-        "me": me,
-        "users": users,
-    })
- 
- 
-@login_required(login_url="login")
-def chat_room(request, user_id):
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
-    other = get_object_or_404(UserProfile, id=user_id)
- 
-    if other.id == me.id:
-        return redirect("chat_inbox")
- 
-    users = UserProfile.objects.exclude(id=me.id)
- 
-    ChatMessage.objects.filter(
-        sender=other,
-        receiver=me,
-        is_read=False
-    ).update(is_read=True)
- 
-    messages_list = ChatMessage.objects.filter(
-        Q(sender=me, receiver=other) |
-        Q(sender=other, receiver=me)
-    ).exclude(deleted_for=me).select_related("sender", "receiver").order_by("timestamp", "id")
- 
-    return render(request, "chat_room.html", {
-        "me": me,
-        "other": other,
-        "users": users,
-        "chat_messages": messages_list,
-    })
- 
- 
-@login_required(login_url="login")
-@require_POST
-def send_message(request, user_id):
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
-    receiver = get_object_or_404(UserProfile, id=user_id)
- 
-    if receiver.id == me.id:
-        return JsonResponse(
-            {"ok": False, "error": "You cannot message yourself."},
-            status=400
-        )
- 
-    message_text = request.POST.get("message", "").strip()
- 
-    if not message_text:
-        return JsonResponse(
-            {"ok": False, "error": "Message cannot be empty."},
-            status=400
-        )
- 
-    if len(message_text) > 2000:
-        return JsonResponse(
-            {"ok": False, "error": "Message is too long."},
-            status=400
-        )
- 
-    msg = ChatMessage.objects.create(
-        sender=me,
-        receiver=receiver,
-        message=message_text
+
+    saved = (
+        Saved_Posts.objects.filter(USER=me)
+        .select_related("Post", "Post__USER")
+        .order_by("-date", "-id")
     )
- 
-    return JsonResponse({
-        "ok": True,
-        "id": msg.id,
-        "sender_id": me.id,
-        "message": msg.message,
-        "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
-    })
- 
- 
+
+    return render(request, "saved_posts.html", {"saved": saved})
+
+
+# =========================================================
+# 6. USER - EXPLORE, PROFILES, FOLLOW, SUGGESTIONS, REPORTS
+# =========================================================
+
 @login_required(login_url="login")
-def chat_messages(request, user_id):
+def explore(request):
+    q = request.GET.get('q', '').strip()
+    kind = request.GET.get('type', '')
     me = get_object_or_404(UserProfile, LOGIN=request.user)
-    other = get_object_or_404(UserProfile, id=user_id)
- 
-    if other.id == me.id:
-        return JsonResponse(
-            {"ok": False, "error": "Invalid conversation."},
-            status=400
+
+    posts = (User_posts.objects
+        .select_related('USER')
+        .annotate(
+            like_count=Count('likes', distinct=True),
+            comment_count=Count('comments', distinct=True),
         )
- 
-    ChatMessage.objects.filter(
-        sender=other,
-        receiver=me,
-        is_read=False
-    ).update(is_read=True)
- 
-    messages_list = ChatMessage.objects.filter(
-        Q(sender=me, receiver=other) |
-        Q(sender=other, receiver=me)
-    ).exclude(deleted_for=me).select_related("sender").order_by("timestamp", "id")
- 
-    data = [
-        {
-            "id": msg.id,
-            "sender_id": msg.sender_id,
-            "message": msg.message,
-            "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
-        }
-        for msg in messages_list
-    ]
- 
-    return JsonResponse({"ok": True, "messages": data})
- 
- 
-@login_required(login_url="login")
-@require_POST
-def delete_message(request):
-    """Hide a message for the person who deleted it. The other person still sees it."""
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
- 
-    message_id = request.POST.get("message_id", "")
-    if not message_id.isdigit():
-        return JsonResponse({"ok": False, "error": "Invalid message."}, status=400)
- 
-    msg = ChatMessage.objects.filter(
-        Q(sender=me) | Q(receiver=me),
-        id=message_id
-    ).first()
- 
-    if not msg:
-        return JsonResponse({"ok": False, "error": "Message not found."}, status=404)
- 
-    msg.deleted_for.add(me)
-    return JsonResponse({"ok": True})
+        .order_by('-id'))
+
+    people = []
+    if q:
+        # search users by name or username
+        people = (UserProfile.objects
+            .filter(Q(name__icontains=q) | Q(username__icontains=q))
+            .exclude(LOGIN=request.user)[:20])
+        # posts: caption or author's name
+        posts = posts.filter(
+            Q(caption__icontains=q) | Q(USER__name__icontains=q) | Q(USER__username__icontains=q)
+        )
+
+    if kind == 'video':
+        posts = posts.filter(photo__iregex=VIDEO_RE)
+    elif kind == 'photo':
+        posts = posts.exclude(photo__iregex=VIDEO_RE)
+
+    return render(request, 'explore.html', {
+        'q': q,
+        'kind': kind,
+        'people': people,
+        'posts': posts,
+        'liked_ids': set(Likes.objects.filter(USER=me).values_list('POST_id', flat=True)),
+        'following_ids': set(Follow.objects.filter(FOLLOWER=me).values_list('FOLLOWING_id', flat=True)),
+    })
+
 
 @login_required
 def view_profile(request, user_id):
@@ -1327,37 +1355,10 @@ def view_profile(request, user_id):
         "is_requested": is_requested,
         "followers_count": followers_count,
         "following_count": following_count,
-        "follow":follow,
+        "follow": follow,
     }
 
     return render(request, "view_profile.html", context)
-
-
-
- 
-@login_required(login_url="login")
-@require_POST
-def toggle_follow(request, user_id):
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
-    target = get_object_or_404(UserProfile, id=user_id)
- 
-    # you can't follow yourself
-    if target.id == me.id:
-        return redirect("view_profile", user_id=target.id)
- 
-    follow = Follow.objects.filter(FOLLOWER=me, FOLLOWING=target).first()
- 
-    if follow:
-        # already following (accepted) or request pending -> unfollow / cancel
-        follow.delete()
-    else:
-        # new follow starts as a request the other person has to accept
-        Follow.objects.create(FOLLOWER=me, FOLLOWING=target, status="pending")
- 
-    return redirect("view_profile", user_id=target.id)
-
-
-
 
 
 @login_required
@@ -1399,6 +1400,29 @@ def edit_profile(request):
 
     return render(request, "edit_profile.html", {"me": me})
 
+
+@login_required(login_url="login")
+@require_POST
+def toggle_follow(request, user_id):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    target = get_object_or_404(UserProfile, id=user_id)
+
+    # you can't follow yourself
+    if target.id == me.id:
+        return redirect("view_profile", user_id=target.id)
+
+    follow = Follow.objects.filter(FOLLOWER=me, FOLLOWING=target).first()
+
+    if follow:
+        # already following (accepted) or request pending -> unfollow / cancel
+        follow.delete()
+    else:
+        # new follow starts as a request the other person has to accept
+        Follow.objects.create(FOLLOWER=me, FOLLOWING=target, status="pending")
+
+    return redirect("view_profile", user_id=target.id)
+
+
 @login_required(login_url="login")
 def suggestions(request):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
@@ -1418,6 +1442,7 @@ def suggestions(request):
     return render(request, "suggestions.html", {
         "suggested_users": suggested_users
     })
+
 
 @login_required(login_url="login")
 @require_POST
@@ -1468,310 +1493,205 @@ def report_user(request, user_id):
         "message": "Report submitted. Thank you."
     })
 
- 
-
-# =======================================ADMIN====================================
-
-from functools import wraps
- 
- 
-def admin_required(view_func):
-    """Allow only logged-in, active users in the 'admin' group
-    (the same rule your admin_login_post uses)."""
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        user = request.user
-        if not user.is_authenticated:
-            return redirect("admin_login")
-        if not (user.is_active and user.groups.filter(name="admin").exists()):
-            messages.warning(request, "You are not an admin.")
-            return redirect("admin_login")
-        return view_func(request, *args, **kwargs)
-    return wrapper
- 
- 
-# =========================================================
-# The missing view that the Admin Profile form posts to
-# =========================================================
- 
-@admin_required
+@login_required(login_url="login")
 @require_POST
-def admin_update_profile(request):
-    user = request.user
- 
-    username = (request.POST.get("username") or "").strip()
-    email = (request.POST.get("email") or "").strip()
- 
-    if not username:
-        messages.warning(request, "Username cannot be empty.")
-        return redirect("admin_settings")
- 
-    if len(username) > 150:
-        messages.warning(request, "Username is too long.")
-        return redirect("admin_settings")
- 
-    if email:
-        try:
-            validate_email(email)
-        except ValidationError:
-            messages.warning(request, "Please enter a valid email address.")
-            return redirect("admin_settings")
- 
-    if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
-        messages.warning(request, "That username is already taken.")
-        return redirect("admin_settings")
- 
-    user.username = username
-    user.email = email
-    user.save()
- 
-    messages.success(request, "Profile updated successfully!")
-    return redirect("admin_settings")
+def submit_common_report(request):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-def admin_home(request):
-    total_users=User.objects.filter(is_active=1,is_staff=0).count()
-    banned_users=User.objects.filter(is_active=0).count()
-    recent_users = UserProfile.objects.order_by('-created_at', '-id')[:5]
-    active=User.objects.filter(is_active=1,is_staff=0).count()
-    total_posts=User_posts.objects.all().count()
-    pending_reports=Reports.objects.filter(status="pending").count()
-    return render(request,'admin_home.html',{'total_users':total_users,"banned_users":banned_users,"recent_users":recent_users,"active":active,"total_posts":total_posts,"pending_reports":pending_reports})
+    reason = (request.POST.get("reason") or "").strip()[:1000]
 
-def admin_login(request):
-    return render(request,"admin_login.html")
+    if not reason:
+        return JsonResponse({"ok": False, "error": "Please enter a reason."}, status=400)
 
+    # Block duplicate pending reports with the same text
+    if Common_Reports.objects.filter(USER=me, reports=reason, status="pending").exists():
+        return JsonResponse({"ok": False, "error": "You have already submitted this report."}, status=400)
 
+    Common_Reports.objects.create(USER=me, reports=reason)
 
+    AdminNotification.objects.create(
+        kind="report",
+        message=f"New report submitted by {me.username}"
+    )
 
-def admin_login_post(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+    return JsonResponse({"ok": True, "message": "Report submitted. Thank you."})
 
-        user = authenticate(
-            request,
-            username=username,
-            password=password
-        )
+@login_required(login_url="login")
+def user_common_reports(request):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-        print("Username:", username)
-        print("Authentication result:", user)
+    my_reports = Common_Reports.objects.filter(USER=me)
 
-        if user is not None:
-            print("Admin group:", user.groups.filter(name="admin").exists())
+    # remember which ones the admin updated, then mark them as seen
+    unseen_ids = list(my_reports.filter(user_seen=False).values_list("id", flat=True))
+    Common_Reports.objects.filter(USER=me, user_seen=False).update(user_seen=True)
 
-            if user.groups.filter(name="admin").exists():
-                login(request, user)
-                return redirect("admin_home")
-            else:
-                messages.warning(request, "You are not an admin.")
-        else:
-            messages.warning(request, "Wrong username or password.")
-
-    return redirect("admin_login")
-
-def admin_users(request):
-    active = UserProfile.objects.filter(LOGIN__is_active=True)
-    banned = UserProfile.objects.filter(LOGIN__is_active=False).count()
-    total = UserProfile.objects.all().count()
-    return render(request,"admin_users.html",{'active':active,"banned":banned,"total":total})
-
-def admin_banned_users(request):
-    banned=UserProfile.objects.filter(LOGIN__is_active=False)
-    return render(request,'admin_banned_users.html',{'banned':banned})
-
-def admin_reports(request):
-    reports=Reports.objects.all()
-    pending_reports=Reports.objects.filter(status="pending").count()
-    resolved_reports=Reports.objects.filter(status="resolved").count()
-    return render(request,"admin_reports.html",{'reports':reports,"pending_reports":pending_reports,"resolved_reports":resolved_reports})
-
-def review_report(request,id):
-    report=Reports.objects.get(id=id)
-    ob=Reports.objects.get(id=id)
-    if ob.status == "pending":
-        ob.status="inreview"
-        ob.save()
-    return render(request,"review_report.html",{"report":report})
-
-@require_POST
-def resolve_report(request, id):
-    Reports.objects.filter(id=id).update(status="resolved", user_seen=False)
-    return redirect("review_report", id=id)
-
-@require_POST
-def dismiss_report(request, id):
-    Reports.objects.filter(id=id).update(status="dismissed", user_seen=False)
-    return redirect("review_report", id=id)
-
-def admin_settings(request):
-    return render(request,"admin_settings.html")
-
-def admin_ban_user(request,id):
-    ob=User.objects.get(id=id)
-    ob.is_active = 0        
-    ob.save()
-    return redirect('admin_users')
-
-def admin_unban_user(request,id):
-    ob=User.objects.get(id=id)
-    ob.is_active = 1
-    ob.save()
-    return redirect('admin_users')
-
-def view_userprofile(request,id):
-    users=UserProfile.objects.filter(LOGIN_id=id)
-    posts=User_posts.objects.filter(USER__LOGIN_id=id)
-    return render(request,"view_userprofile.html",{"users":users,"posts":posts})
-
-
-
-
-
-@login_required
-def admin_changepassword(request):
-
-    if request.method != "POST":
-        return redirect("admin_settings")
-
-    user = request.user
-
-    old_password = request.POST.get("old_password", "")
-    new_password = request.POST.get("new_password", "")
-    confirm_password = request.POST.get("confirm_password", "")
-
-    # 1. Check current password
-    if not user.check_password(old_password):
-        messages.warning(request, "Current password is incorrect.")
-        return redirect("admin_settings")
-
-    # 2. Check empty fields
-    if not new_password or not confirm_password:
-        messages.warning(request, "All password fields are required.")
-        return redirect("admin_settings")
-
-    # 3. Check whether new passwords match
-    if new_password != confirm_password:
-        messages.warning(
-            request,
-            "New password and confirm password do not match."
-        )
-        return redirect("admin_settings")
-
-    # 4. Prevent reusing the current password
-    if user.check_password(new_password):
-        messages.warning(
-            request,
-            "Your new password must be different from your current password."
-        )
-        return redirect("admin_settings")
-
-    # 5. Validate password strength using Django validators
-    try:
-        validate_password(new_password, user=user)
-    except ValidationError as errors:
-        for error in errors.messages:
-            messages.warning(request, error)
-        return redirect("admin_settings")
-
-    # 6. Save the new password securely
-    user.set_password(new_password)
-    user.save()
-
-    # 7. Keep the admin logged in
-    update_session_auth_hash(request, user)
-
-    messages.success(request, "Password changed successfully!")
-
-    return redirect("admin_settings")
-
-
-NOTIFY_KINDS = ("new_user", "report", "security")
- 
- 
-def notify_admin(kind, message):
-    """Create an admin notification. Never raises, so it can't break
-    registration or login. Identical messages within 1 minute are skipped
-    so repeated failed logins can't flood the bell."""
-    try:
-        message = message[:255]
-        since = timezone.now() - timedelta(minutes=1)
-        if AdminNotification.objects.filter(
-            kind=kind, message=message, created_at__gte=since
-        ).exists():
-            return
-        AdminNotification.objects.create(kind=kind, message=message)
-    except Exception:
-        logger.exception("Could not create admin notification")
- 
- 
-def _get_prefs(user):
-    prefs, _ = AdminNotificationPreference.objects.get_or_create(admin=user)
-    return prefs
- 
- 
-@admin_required
-def admin_settings(request):
-    return render(request, "admin_settings.html", {"prefs": _get_prefs(request.user)})
- 
- 
-@admin_required
-@require_POST
-def admin_save_notification_pref(request):
-    key = request.POST.get("key", "")
-    value = request.POST.get("value") == "true"
- 
-    if key not in NOTIFY_KINDS:
-        return JsonResponse({"ok": False, "error": "Invalid setting."}, status=400)
- 
-    prefs = _get_prefs(request.user)
-    setattr(prefs, key, value)
-    prefs.save(update_fields=[key])
-    return JsonResponse({"ok": True})
- 
- 
-@login_required
-def admin_notifications(request):
-    if not request.user.is_staff:
-        return JsonResponse({"error": "Forbidden"}, status=403)
-
-    notifications = AdminNotification.objects.all()[:50]
-
-    unread_count = AdminNotification.objects.filter(
-        is_read=False
-    ).count()
-
-    items = [
-        {
-            "kind": notification.kind,
-            "message": notification.message,
-            "is_read": notification.is_read,
-            "time": localtime(notification.created_at).strftime(
-                "%b %d, %Y %I:%M %p"
-            ),
-        }
-        for notification in notifications
-    ]
-
-    return JsonResponse({
-        "unread": unread_count,
-        "items": items,
+    return render(request, "user_common_reports.html", {
+        "reports": my_reports,
+        "unseen_ids": unseen_ids,
     })
- 
-@login_required
-@require_POST
-@csrf_protect
-def admin_notifications_read(request):
-    if not request.user.is_staff:
-        return JsonResponse({"error": "Forbidden"}, status=403)
 
-    AdminNotification.objects.filter(
+# =========================================================
+# 7. USER - CHAT
+# =========================================================
+
+@login_required(login_url="login")
+def chat_inbox(request):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    users = UserProfile.objects.exclude(id=me.id)
+
+    for user in users:
+        # unread messages from this person, ignoring ones I deleted
+        user.unread_count = ChatMessage.objects.filter(
+            sender=user,
+            receiver=me,
+            is_read=False
+        ).exclude(deleted_for=me).count()
+
+        # latest message in the conversation that I have not deleted
+        user.last_message = ChatMessage.objects.filter(
+            sender__in=[me, user],
+            receiver__in=[me, user]
+        ).exclude(deleted_for=me).order_by("-timestamp", "-id").first()
+
+    return render(request, "chat_inbox.html", {
+        "me": me,
+        "users": users,
+    })
+
+
+@login_required(login_url="login")
+def chat_room(request, user_id):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    other = get_object_or_404(UserProfile, id=user_id)
+
+    if other.id == me.id:
+        return redirect("chat_inbox")
+
+    users = UserProfile.objects.exclude(id=me.id)
+
+    ChatMessage.objects.filter(
+        sender=other,
+        receiver=me,
         is_read=False
     ).update(is_read=True)
 
-    return JsonResponse({"success": True})
+    messages_list = ChatMessage.objects.filter(
+        Q(sender=me, receiver=other) |
+        Q(sender=other, receiver=me)
+    ).exclude(deleted_for=me).select_related("sender", "receiver").order_by("timestamp", "id")
+
+    return render(request, "chat_room.html", {
+        "me": me,
+        "other": other,
+        "users": users,
+        "chat_messages": messages_list,
+    })
 
 
+@login_required(login_url="login")
+@require_POST
+def send_message(request, user_id):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    receiver = get_object_or_404(UserProfile, id=user_id)
+
+    if receiver.id == me.id:
+        return JsonResponse(
+            {"ok": False, "error": "You cannot message yourself."},
+            status=400
+        )
+
+    message_text = request.POST.get("message", "").strip()
+
+    if not message_text:
+        return JsonResponse(
+            {"ok": False, "error": "Message cannot be empty."},
+            status=400
+        )
+
+    if len(message_text) > 2000:
+        return JsonResponse(
+            {"ok": False, "error": "Message is too long."},
+            status=400
+        )
+
+    msg = ChatMessage.objects.create(
+        sender=me,
+        receiver=receiver,
+        message=message_text
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "id": msg.id,
+        "sender_id": me.id,
+        "message": msg.message,
+        "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
+    })
+
+
+@login_required(login_url="login")
+def chat_messages(request, user_id):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    other = get_object_or_404(UserProfile, id=user_id)
+
+    if other.id == me.id:
+        return JsonResponse(
+            {"ok": False, "error": "Invalid conversation."},
+            status=400
+        )
+
+    ChatMessage.objects.filter(
+        sender=other,
+        receiver=me,
+        is_read=False
+    ).update(is_read=True)
+
+    messages_list = ChatMessage.objects.filter(
+        Q(sender=me, receiver=other) |
+        Q(sender=other, receiver=me)
+    ).exclude(deleted_for=me).select_related("sender").order_by("timestamp", "id")
+
+    data = [
+        {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "message": msg.message,
+            "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
+        }
+        for msg in messages_list
+    ]
+
+    return JsonResponse({"ok": True, "messages": data})
+
+
+@login_required(login_url="login")
+@require_POST
+def delete_message(request):
+    """Hide a message for the person who deleted it. The other person still sees it."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+
+    message_id = request.POST.get("message_id", "")
+    if not message_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Invalid message."}, status=400)
+
+    msg = ChatMessage.objects.filter(
+        Q(sender=me) | Q(receiver=me),
+        id=message_id
+    ).first()
+
+    if not msg:
+        return JsonResponse({"ok": False, "error": "Message not found."}, status=404)
+
+    msg.deleted_for.add(me)
+    return JsonResponse({"ok": True})
+
+
+# =========================================================
+# 8. USER - NOTIFICATIONS
+#    (face-consent requests, follow requests, report updates)
+# =========================================================
 
 @login_required
 def user_notifications(request):
@@ -1810,15 +1730,53 @@ def user_notifications(request):
     })
 
 
+@login_required
+def notifications(request):
+    profile = get_object_or_404(
+        UserProfile,
+        LOGIN=request.user
+    )
+
+    face_notifications = UserNotification.objects.filter(
+        recipient=profile
+    ).select_related('sender', 'post')
+
+    pending_face_count = face_notifications.filter(
+        status='pending'
+    ).count()
+
+    follow_requests = Follow.objects.filter(
+        FOLLOWING=profile,
+        status='pending'
+    ).select_related('FOLLOWER')
+
+    my_reports = Reports.objects.filter(
+        USER=profile
+    )
+
+    return render(
+        request,
+        'notifications.html',
+        {
+            'notifications': face_notifications,
+            'pending_face_count': pending_face_count,
+            'follow_requests': follow_requests,
+            'my_reports': my_reports,
+        }
+    )
+
+
 def accept_follow_request(request, id):
     if request.method == 'POST':
         Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).update(status='accepted')
     return redirect('user_notification')
 
+
 def decline_follow_request(request, id):
     if request.method == 'POST':
         Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).delete()
     return redirect('user_notification')
+
 
 @login_required
 @require_POST
@@ -1887,75 +1845,31 @@ def respond_to_notification(request, notification_id):
 
     return redirect("user_notifications")
 
-@login_required
-def notifications(request):
-    profile = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
-    )
-
-    face_notifications = UserNotification.objects.filter(
-        recipient=profile
-    ).select_related('sender', 'post')
-
-    pending_face_count = face_notifications.filter(
-        status='pending'
-    ).count()
-
-    follow_requests = Follow.objects.filter(
-        FOLLOWING=profile,
-        status='pending'
-    ).select_related('FOLLOWER')
-
-    my_reports = Reports.objects.filter(
-        USER=profile
-    )
-
-    return render(
-        request,
-        'notifications.html',
-        {
-            'notifications': face_notifications,
-            'pending_face_count': pending_face_count,
-            'follow_requests': follow_requests,
-            'my_reports': my_reports,
-        }
-    )
 
 @login_required
 @require_POST
-def delete_comment(request):
-    comment_id = request.POST.get('comment_id')
-
-    if not comment_id:
-        return JsonResponse({
-            'ok': False,
-            'error': 'Comment ID is required.'
-        }, status=400)
-
-    C_USER = get_object_or_404(
-        UserProfile,
-        LOGIN=request.user
+def delete_face_notification(request, id):
+    notification = get_object_or_404(
+        UserNotification,
+        id=id,
+        recipient=request.user.user_profile
     )
 
-    comment = get_object_or_404(
-        Comments,
-        id=comment_id
-    )
+    notification.delete()
 
-    # Allow users to delete only their own comments
-    if comment.USER_id != C_USER.id:
-        return JsonResponse({
-            'ok': False,
-            'error': 'You can delete only your own comments.'
-        }, status=403)
+    messages.success(request, "Face detection request deleted successfully.")
+    return redirect("user_notifications")
 
-    comment.delete()
 
-    return JsonResponse({
-        'ok': True,
-        'message': 'Comment deleted successfully.'
-    })
+def delete_report_notification(request, id):
+    report = get_object_or_404(Reports, id=id)
+    report.delete()
+    return redirect("user_notifications")
+
+
+# =========================================================
+# 9. USER - ACCOUNT SETTINGS
+# =========================================================
 
 @login_required
 def settings_view(request):
@@ -1967,7 +1881,6 @@ def settings_view(request):
     return render(request, 'user_settings.html', {
         'sidebar_user': profile,
     })
-
 
 
 @login_required
@@ -2011,22 +1924,401 @@ def change_password(request):
     return render(request, "change_password.html")
 
 
-@login_required
-def liked_posts(request):
-    liked_posts = Likes.objects.filter(
-        USER=request.user.user_profile
-    ).select_related('POST').order_by('-id')
 
-    return render(request, 'liked_posts.html', {
-        'liked_posts': liked_posts
+# =========================================================
+# 10. ADMIN
+# =========================================================
+
+# ---------------------------------------------------------
+# Admin authentication
+# ---------------------------------------------------------
+
+def admin_login(request):
+    return render(request, "admin_login.html")
+
+
+def admin_login_post(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password
+        )
+
+        print("Username:", username)
+        print("Authentication result:", user)
+
+        if user is not None:
+            print("Admin group:", user.groups.filter(name="admin").exists())
+
+            if user.groups.filter(name="admin").exists():
+                login(request, user)
+                return redirect("admin_home")
+            else:
+                messages.warning(request, "You are not an admin.")
+        else:
+            messages.warning(request, "Wrong username or password.")
+
+    return redirect("admin_login")
+
+
+# ---------------------------------------------------------
+# Admin dashboard
+# ---------------------------------------------------------
+
+def admin_home(request):
+    total_users = User.objects.filter(is_active=1, is_staff=0).count()
+    banned_users = User.objects.filter(is_active=0).count()
+    recent_users = UserProfile.objects.order_by('-created_at', '-id')[:5]
+    active = User.objects.filter(is_active=1, is_staff=0).count()
+    total_posts = User_posts.objects.all().count()
+    pending_reports = Reports.objects.filter(status="pending").count()
+    return render(request, 'admin_home.html', {
+        'total_users': total_users,
+        "banned_users": banned_users,
+        "recent_users": recent_users,
+        "active": active,
+        "total_posts": total_posts,
+        "pending_reports": pending_reports,
     })
 
-@login_required
-def commented_posts(request):
-    commented_posts = Comments.objects.filter(
-        USER=request.user.user_profile
-    ).select_related('POST').order_by('-date')
 
-    return render(request, 'commented_posts.html', {
-        'commented_posts': commented_posts
+# ---------------------------------------------------------
+# Admin - user management
+# ---------------------------------------------------------
+
+def admin_users(request):
+    active = UserProfile.objects.filter(LOGIN__is_active=True)
+    banned = UserProfile.objects.filter(LOGIN__is_active=False).count()
+    total = UserProfile.objects.all().count()
+    return render(request, "admin_users.html", {'active': active, "banned": banned, "total": total})
+
+
+def admin_banned_users(request):
+    banned = UserProfile.objects.filter(LOGIN__is_active=False)
+    return render(request, 'admin_banned_users.html', {'banned': banned})
+
+
+from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+
+from .models import Reports
+
+
+from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+from .models import Reports
+
+
+@admin_required
+@require_POST
+def admin_ban_user(request, id):
+    report = get_object_or_404(Reports, id=id)
+
+ 
+    report.VICTIM.LOGIN.is_active = False
+    report.VICTIM.LOGIN.save(update_fields=["is_active"])
+
+   
+    report.status = "banned"
+    report.save(update_fields=["status"])
+
+    return redirect("admin_users")
+
+
+@admin_required
+@require_POST
+def admin_unban_user(request, id):
+    report = get_object_or_404(Reports, id=id)
+
+    report.VICTIM.LOGIN.is_active = True
+    report.VICTIM.LOGIN.save(update_fields=["is_active"])
+
+
+    report.status = "resolved"
+    report.save(update_fields=["status"])
+
+    return redirect("admin_users")
+
+
+def view_userprofile(request, id):
+    report = get_object_or_404(Reports, id=id)
+
+    profile = report.VICTIM
+
+    posts = User_posts.objects.filter(USER=profile)
+
+    return render(request, 'view_userprofile.html', {
+        'users': [profile],
+        'posts': posts,
     })
+
+
+# ---------------------------------------------------------
+# Admin - reports
+# ---------------------------------------------------------
+
+from django.db.models import Prefetch   # add to your imports
+
+@admin_required
+def admin_reports(request):
+    reported_users = (
+        UserProfile.objects
+        .filter(reports_received__isnull=False)
+        .select_related("LOGIN")
+        .annotate(
+            report_count=Count("reports_received", distinct=True),
+            pending_count=Count(
+                "reports_received",
+                filter=Q(reports_received__status="pending"),
+                distinct=True,
+            ),
+        )
+        .prefetch_related(
+            Prefetch(
+                "reports_received",
+                queryset=Reports.objects.select_related("USER").order_by("-date"),
+            )
+        )
+        .order_by("-report_count", "name")
+    )
+    
+
+    return render(request, "admin_reports.html", {
+        "reported_users": reported_users,
+        "pending_reports": Reports.objects.filter(status="pending").count(),
+        "resolved_reports": Reports.objects.filter(status="resolved").count(),
+    })
+
+
+def review_report(request, id):
+    report = Reports.objects.get(id=id)
+    ob = Reports.objects.get(id=id)
+    if ob.status == "pending":
+        ob.status = "inreview"
+        ob.save()
+    return render(request, "review_report.html", {"report": report})
+
+
+@require_POST
+def resolve_report(request, id):
+    Reports.objects.filter(id=id).update(status="resolved", user_seen=False)
+    return redirect("review_report", id=id)
+
+
+@require_POST
+def dismiss_report(request, id):
+    Reports.objects.filter(id=id).update(status="dismissed", user_seen=False)
+    return redirect("review_report", id=id)
+
+@admin_required
+def admin_common_reports(request):
+    reports = Common_Reports.objects.select_related("USER")
+
+    return render(request, "admin_common_reports.html", {
+        "reports": reports,
+        "pending_count": reports.filter(status="pending").count(),
+        "resolved_count": reports.filter(status="resolved").count(),
+    })
+
+
+@admin_required
+def review_common_report(request, id):
+    report = get_object_or_404(Common_Reports, id=id)
+
+    changed = []
+    if report.status == "pending":
+        report.status = "inreview"
+        changed.append("status")
+    if not report.admin_seen:
+        report.admin_seen = True
+        changed.append("admin_seen")
+    if changed:
+        report.save(update_fields=changed)
+
+    return render(request, "review_common_report.html", {"report": report})
+
+
+@admin_required
+@require_POST
+def update_common_report(request, id):
+    action = request.POST.get("action")
+
+    if action not in ("resolved", "dismissed"):
+        messages.warning(request, "Invalid action.")
+        return redirect("review_common_report", id=id)
+
+    # user_seen=False so the reporter sees there is an update
+    Common_Reports.objects.filter(id=id).update(status=action, user_seen=False)
+
+    messages.success(request, f"Report marked as {action}.")
+    return redirect("review_common_report", id=id)
+
+
+# ---------------------------------------------------------
+# Admin - settings, profile, password
+# ---------------------------------------------------------
+
+@admin_required
+def admin_settings(request):
+    return render(request, "admin_settings.html", {"prefs": _get_prefs(request.user)})
+
+
+@admin_required
+@require_POST
+def admin_update_profile(request):
+    user = request.user
+
+    username = (request.POST.get("username") or "").strip()
+    email = (request.POST.get("email") or "").strip()
+
+    if not username:
+        messages.warning(request, "Username cannot be empty.")
+        return redirect("admin_settings")
+
+    if len(username) > 150:
+        messages.warning(request, "Username is too long.")
+        return redirect("admin_settings")
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.warning(request, "Please enter a valid email address.")
+            return redirect("admin_settings")
+
+    if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
+        messages.warning(request, "That username is already taken.")
+        return redirect("admin_settings")
+
+    user.username = username
+    user.email = email
+    user.save()
+
+    messages.success(request, "Profile updated successfully!")
+    return redirect("admin_settings")
+
+
+@login_required
+def admin_changepassword(request):
+
+    if request.method != "POST":
+        return redirect("admin_settings")
+
+    user = request.user
+
+    old_password = request.POST.get("old_password", "")
+    new_password = request.POST.get("new_password", "")
+    confirm_password = request.POST.get("confirm_password", "")
+
+    # 1. Check current password
+    if not user.check_password(old_password):
+        messages.warning(request, "Current password is incorrect.")
+        return redirect("admin_settings")
+
+    # 2. Check empty fields
+    if not new_password or not confirm_password:
+        messages.warning(request, "All password fields are required.")
+        return redirect("admin_settings")
+
+    # 3. Check whether new passwords match
+    if new_password != confirm_password:
+        messages.warning(
+            request,
+            "New password and confirm password do not match."
+        )
+        return redirect("admin_settings")
+
+    # 4. Prevent reusing the current password
+    if user.check_password(new_password):
+        messages.warning(
+            request,
+            "Your new password must be different from your current password."
+        )
+        return redirect("admin_settings")
+
+    # 5. Validate password strength using Django validators
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as errors:
+        for error in errors.messages:
+            messages.warning(request, error)
+        return redirect("admin_settings")
+
+    # 6. Save the new password securely
+    user.set_password(new_password)
+    user.save()
+
+    # 7. Keep the admin logged in
+    update_session_auth_hash(request, user)
+
+    messages.success(request, "Password changed successfully!")
+
+    return redirect("admin_settings")
+
+
+@admin_required
+@require_POST
+def admin_save_notification_pref(request):
+    key = request.POST.get("key", "")
+    value = request.POST.get("value") == "true"
+
+    if key not in NOTIFY_KINDS:
+        return JsonResponse({"ok": False, "error": "Invalid setting."}, status=400)
+
+    prefs = _get_prefs(request.user)
+    setattr(prefs, key, value)
+    prefs.save(update_fields=[key])
+    return JsonResponse({"ok": True})
+
+
+# ---------------------------------------------------------
+# Admin - notification bell
+# ---------------------------------------------------------
+
+@login_required
+def admin_notifications(request):
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    notifications = AdminNotification.objects.all()[:50]
+
+    unread_count = AdminNotification.objects.filter(
+        is_read=False
+    ).count()
+
+    items = [
+        {
+            "kind": notification.kind,
+            "message": notification.message,
+            "is_read": notification.is_read,
+            "time": localtime(notification.created_at).strftime(
+                "%b %d, %Y %I:%M %p"
+            ),
+        }
+        for notification in notifications
+    ]
+
+    return JsonResponse({
+        "unread": unread_count,
+        "items": items,
+    })
+
+
+@login_required
+@require_POST
+@csrf_protect
+def admin_notifications_read(request):
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    AdminNotification.objects.filter(
+        is_read=False
+    ).update(is_read=True)
+
+    return JsonResponse({"success": True})

@@ -10,6 +10,6 @@ def user_sidebar(request):
     return {
         'sidebar_user': me,
         'notification_count': Follow.objects.filter(FOLLOWING=me, status='pending').count(),
-        'reports_count': Reports.objects.filter(user_seen=False).count(),
+        
         'unread_count': ChatMessage.objects.filter(receiver=me, is_read=False).exclude(deleted_for=me).count(),
     }

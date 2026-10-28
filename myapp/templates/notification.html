@@ -378,59 +378,78 @@
 
                     <!-- Accept / Reject -->
 
-                    {% if n.status == 'pending' %}
+                   {% if n.status == 'pending' %}
 
-                        <div class="row-actions">
+    <div class="row-actions">
 
-                            <form method="POST"
-                                  action="{% url 'respond_to_notification' n.id %}">
+        <form method="POST"
+              action="{% url 'respond_to_notification' n.id %}">
+            {% csrf_token %}
+            <button type="submit"
+                    name="action"
+                    value="accept"
+                    class="btn btn-accept">
+                ✓ Accept
+            </button>
+        </form>
 
-                                {% csrf_token %}
+        <form method="POST"
+              action="{% url 'respond_to_notification' n.id %}">
+            {% csrf_token %}
+            <button type="submit"
+                    name="action"
+                    value="reject"
+                    class="btn btn-decline">
+                ✕ Reject
+            </button>
+        </form>
 
-                                <button type="submit"
-                                        name="action"
-                                        value="accept"
-                                        class="btn btn-accept">
+        <form method="POST"
+              action="{% url 'delete_face_notification' n.id %}"
+              onsubmit="return confirm('Are you sure you want to delete this request?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-decline">
+                🗑 Delete
+            </button>
+        </form>
 
-                                    ✓ Accept
+    </div>
 
-                                </button>
+{% elif n.status == 'accepted' %}
 
-                            </form>
+    <div class="detail">
+        ✓ You accepted this request.
+    </div>
 
+    <div class="row-actions">
+        <form method="POST"
+              action="/myapp/delete_face_notification/{{n.id}}"
+              onsubmit="return confirm('Are you sure you want to delete this request?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-decline">
+                🗑 Delete
+            </button>
+        </form>
+    </div>
 
-                            <form method="POST"
-                                  action="{% url 'respond_to_notification' n.id %}">
+{% elif n.status == 'rejected' %}
 
-                                {% csrf_token %}
+    <div class="detail">
+        ✕ You rejected this request.
+    </div>
 
-                                <button type="submit"
-                                        name="action"
-                                        value="reject"
-                                        class="btn btn-decline">
+    <div class="row-actions">
+        <form method="POST"
+              action="/myapp/delete_face_notification/{{n.id}}"
+              onsubmit="return confirm('Are you sure you want to delete this request?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-decline">
+                🗑 Delete
+            </button>
+        </form>
+    </div>
 
-                                    ✕ Reject
-
-                                </button>
-
-                            </form>
-
-                        </div>
-
-                    {% elif n.status == 'accepted' %}
-
-                        <div class="detail">
-                            ✓ You accepted this request.
-                        </div>
-
-                    {% elif n.status == 'rejected' %}
-
-                        <div class="detail">
-                            ✕ You rejected this request.
-                        </div>
-
-                    {% endif %}
-
+{% endif %}
                 </div>
 
             </article>
@@ -595,6 +614,16 @@
                         <div class="detail">
                             Your reason: {{ r.reports }}
                         </div>
+                        <div class="row-actions">
+        <form method="POST"
+              action="/myapp/delete_report_notification/{{r.id}}/"
+              onsubmit="return confirm('Are you sure you want to delete this request?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-decline">
+                🗑 Delete
+            </button>
+        </form>
+    </div>
 
                     {% endif %}
 

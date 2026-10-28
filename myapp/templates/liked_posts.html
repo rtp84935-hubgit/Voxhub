@@ -205,8 +205,8 @@
                     <article class="post-card">
 
                         <div class="post-media">
-                            {% if post.image %}
-                                <img src="{{ post.image.url }}"
+                            {% if post.photo %}
+                                <img src="{{ post.photo.url }}"
                                      alt="Post by {{ post.USER }}"
                                      loading="lazy">
                             {% elif post.video %}
@@ -225,7 +225,7 @@
 
                             <div class="post-author">
                                 <div class="post-avatar">
-                                    {{ post.USER|first|upper }}
+                                    {{ post.USER.name|first|upper }}
                                 </div>
 
                                 <div class="post-author-info">

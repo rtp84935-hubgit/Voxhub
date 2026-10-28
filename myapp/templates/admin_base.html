@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Admin{% endblock %} | VoxHub</title>
-  
+
   {% block extra_head %}{% endblock %}
 </head>
 <style>
@@ -46,6 +46,7 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow-y: auto;
 }
 
 .main {
@@ -78,6 +79,17 @@ a { text-decoration: none; color: inherit; }
 }
 .side-nav a:hover { background: #101a2e; }
 .side-nav a.active { background: var(--active-bg); color: var(--blue-link); }
+
+/* Reports section */
+.side-label {
+  margin: 14px 0 2px;
+  padding: 0 20px;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
 .logout {
   display: flex;
@@ -191,6 +203,15 @@ a { text-decoration: none; color: inherit; }
 .pill { padding: 4px 12px; border-radius: 999px; font-size: .85rem; }
 .pill-active { background: #0f3a2a; color: #34d399; }
 .pill-banned { background: #4a1620; color: #f87171; }
+.pill-pending { background: #4a3a0f; color: #fbbf24; }
+.pill-inreview { background: #11284f; color: #60a5fa; }
+.pill-resolved { background: #0f3a2a; color: #34d399; }
+.pill-dismissed { background: #232b3b; color: #9aa7bf; }
+
+/* ---------- Flash messages ---------- */
+.flash { padding: 12px 16px; border-radius: 10px; margin-bottom: 18px; font-size: .95rem; }
+.flash.success { background: #0f3a2a; color: #34d399; }
+.flash.warning, .flash.error { background: #4a3a0f; color: #fbbf24; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1200px) {
@@ -213,28 +234,40 @@ a { text-decoration: none; color: inherit; }
       <div>
         <a class="brand" href="{% url 'admin_home' %}">Vox<span>Hub</span></a>
 
+        {% with page=request.resolver_match.url_name %}
         <nav class="side-nav">
           <a href="{% url 'admin_home' %}"
-             class="{% if request.resolver_match.url_name == 'admin_home' %}active{% endif %}">
+             class="{% if page == 'admin_home' %}active{% endif %}">
             <span class="ico">🏠</span> Dashboard
           </a>
           <a href="{% url 'admin_users' %}"
-             class="{% if request.resolver_match.url_name == 'admin_users' %}active{% endif %}">
+             class="{% if page == 'admin_users' %}active{% endif %}">
             <span class="ico">👥</span> View All Users
           </a>
           <a href="{% url 'admin_banned_users' %}"
-             class="{% if request.resolver_match.url_name == 'admin_banned_users' %}active{% endif %}">
+             class="{% if page == 'admin_banned_users' %}active{% endif %}">
             <span class="ico">🚫</span> Ban / Unban Users
           </a>
+
+          <!-- ===== REPORTS SECTION ===== -->
+          <div class="side-label">Reports</div>
           <a href="{% url 'admin_reports' %}"
-             class="{% if request.resolver_match.url_name == 'admin_reports' %}active{% endif %}">
-            <span class="ico">🚩</span> Reports
+             class="{% if page == 'admin_reports' or page == 'review_report' %}active{% endif %}">
+            <span class="ico">🚩</span> User Reports
           </a>
+          <a href="{% url 'admin_common_reports' %}"
+             class="{% if page == 'admin_common_reports' or page == 'review_common_report' %}active{% endif %}">
+            <span class="ico">📋</span> Common Reports
+          </a>
+          <!-- ===== END REPORTS SECTION ===== -->
+
+          <div class="side-label">System</div>
           <a href="{% url 'admin_settings' %}"
-             class="{% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
+             class="{% if page == 'admin_settings' %}active{% endif %}">
             <span class="ico">⚙️</span> Settings
           </a>
         </nav>
+        {% endwith %}
       </div>
 
       <a class="logout" href="{% url 'logout' %}">

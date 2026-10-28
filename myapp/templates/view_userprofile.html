@@ -1,254 +1,261 @@
+
 {% extends 'admin_base.html' %}
 
-{% block title %}{{ profile.name }}{% endblock %}
+{% block title %}User Profile{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* Page-specific styles only. Sidebar, topbar and layout come from admin_base.html */
+.pf-page { color: #e8edf7; }
 
-    .pf-page { color: #e8edf7; }
+.pf-back {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #8c98ad;
+    font-size: 14px;
+    text-decoration: none;
+}
+.pf-back:hover { color: #3b82f6; }
 
-    .pf-back {
-        display: inline-block;
-        margin-bottom: 20px;
-        color: #8c98ad;
-        font-size: 14px;
-    }
-    .pf-back:hover { color: #3b82f6; }
+.message {
+    padding: 13px 16px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    background: #172a25;
+    border: 1px solid #285b49;
+    color: #86efac;
+}
+.message.error { background: #321b23; border-color: #713444; color: #fda4af; }
+.message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+.message.info { background: #17283b; border-color: #315477; color: #93c5fd; }
 
-    .message {
-        padding: 13px 16px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        font-size: 13px;
-        background: #172a25;
-        border: 1px solid #285b49;
-        color: #86efac;
-    }
-    .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
-    .message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
-    .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+.pf-card {
+    background: #0d1522;
+    border: 1px solid #203047;
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+}
 
-    /* Profile header card */
-    .pf-card {
-        background: #0d1522;
-        border: 1px solid #203047;
-        border-radius: 16px;
-        padding: 28px;
-        margin-bottom: 24px;
-    }
+.pf-head {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
 
-    .pf-head {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-    }
+.pf-avatar {
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #34314e;
+    background: #192131;
+}
 
-    .pf-avatar {
-        width: 110px;
-        height: 110px;
-        flex-shrink: 0;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 3px solid #34314e;
-        background: #192131;
-    }
+.pf-avatar-placeholder {
+    display: grid;
+    place-items: center;
+    font-size: 44px;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(135deg, #8b5cf6, #2563eb);
+}
 
-    .pf-avatar-placeholder {
-        display: grid;
-        place-items: center;
-        font-size: 44px;
-        font-weight: bold;
-        color: white;
-        background: linear-gradient(135deg, #8b5cf6, #2563eb);
-    }
+.pf-identity { flex: 1; min-width: 200px; }
+.pf-identity h2 { font-size: 26px; margin-bottom: 6px; }
+.pf-username { color: #91a4bc; font-size: 15px; margin-bottom: 12px; }
 
-    .pf-identity { flex: 1; min-width: 200px; }
-    .pf-identity h2 { font-size: 26px; margin-bottom: 6px; }
-    .pf-username { color: #91a4bc; font-size: 15px; margin-bottom: 12px; }
+.pf-status {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.pf-status.active { background: #073b31; color: #20d9a3; }
+.pf-status.banned { background: #451d28; color: #ff747c; }
 
-    .pf-status {
-        display: inline-block;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .pf-status.active { background: #073b31; color: #20d9a3; }
-    .pf-status.banned { background: #451d28; color: #ff747c; }
+.pf-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-actions form { margin: 0; }
 
-    .pf-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .pf-actions form { margin: 0; }
+.pf-btn {
+    display: inline-block;
+    padding: 11px 18px;
+    border-radius: 9px;
+    border: 1px solid #273247;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+}
+.pf-btn:hover { filter: brightness(1.2); }
+.pf-btn-ban { background: #351a25; color: #fb7185; border-color: #713044; }
+.pf-btn-unban { background: #103128; color: #34d399; border-color: #205b48; }
 
-    .pf-btn {
-        display: inline-block;
-        padding: 11px 18px;
-        border-radius: 9px;
-        border: 1px solid #273247;
-        font-size: 14px;
-        font-family: inherit;
-        cursor: pointer;
-    }
-    .pf-btn:hover { filter: brightness(1.2); }
-    .pf-btn-ban   { background: #351a25; color: #fb7185; border-color: #713044; }
-    .pf-btn-unban { background: #103128; color: #34d399; border-color: #205b48; }
+.pf-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid #1e2b3e;
+}
 
-    /* Details */
-    .pf-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 28px;
-        padding-top: 24px;
-        border-top: 1px solid #1e2b3e;
-    }
+.pf-item .pf-label { color: #91a4bc; font-size: 12px; margin-bottom: 6px; }
+.pf-item .pf-value { font-size: 15px; overflow-wrap: anywhere; }
 
-    .pf-item .pf-label { color: #91a4bc; font-size: 12px; margin-bottom: 6px; }
-    .pf-item .pf-value { font-size: 15px; overflow-wrap: anywhere; }
+.pf-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.pf-section-head h3 { font-size: 20px; }
+.pf-count { color: #91a4bc; font-size: 14px; }
 
-    /* Posts */
-    .pf-section-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    .pf-section-head h3 { font-size: 20px; }
-    .pf-count { color: #91a4bc; font-size: 14px; }
+.pf-posts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+}
 
-    .pf-posts {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-        gap: 16px;
-    }
+.pf-post {
+    background: #0b111c;
+    border: 1px solid #203047;
+    border-radius: 12px;
+    overflow: hidden;
+}
 
-    .pf-post {
-        background: #0b111c;
-        border: 1px solid #203047;
-        border-radius: 12px;
-        overflow: hidden;
-    }
+.pf-post img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #192131;
+}
 
-    .pf-post img {
-        display: block;
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        object-fit: cover;
-        background: #192131;
-    }
+.pf-post p {
+    padding: 12px;
+    font-size: 13px;
+    color: #d9e5f4;
+    overflow-wrap: anywhere;
+}
 
-    .pf-post p {
-        padding: 12px;
-        font-size: 13px;
-        color: #d9e5f4;
-        overflow-wrap: anywhere;
-    }
+.pf-empty { color: #91a4bc; padding: 10px 0; }
 
-    .pf-empty { color: #91a4bc; padding: 10px 0; }
-
-    @media (max-width: 800px) {
-        .pf-grid { grid-template-columns: 1fr; }
-        .pf-card { padding: 20px; }
-    }
+@media (max-width: 800px) {
+    .pf-grid { grid-template-columns: 1fr; }
+    .pf-card { padding: 20px; }
+}
 </style>
 {% endblock %}
 
-
 {% block page_heading %}
-    <h1>User Profile</h1>
-    <p>Account details and posts for this member.</p>
+<h1>User Profile</h1>
+<p>Account details and posts for this member.</p>
 {% endblock %}
-
 
 {% block content %}
 <div class="pf-page">
 
-    <a href="{% url 'admin_users' %}" class="pf-back">← Back to all users</a>
+    <a href="{% url 'admin_users' %}" class="pf-back">
+        ← Back to all users
+    </a>
 
     {% if messages %}
         {% for message in messages %}
             <div class="message
-                {% if message.tags == 'error' %}error
-                {% elif message.tags == 'warning' %}warning
-                {% elif message.tags == 'info' %}info
+                {% if 'error' in message.tags %}error
+                {% elif 'warning' in message.tags %}warning
+                {% elif 'info' in message.tags %}info
                 {% endif %}">
                 {{ message }}
             </div>
         {% endfor %}
     {% endif %}
 
-    <!-- Profile header -->
-    <section class="pf-card">
+    {% for profile in users %}
 
-        <div class="pf-head">
-            {% for profile in users %}
+        <section class="pf-card">
+            <div class="pf-head">
 
-            {% if profile.profile_image %}
-                <img src="{{ profile.profile_image.url }}" class="pf-avatar" alt="Profile photo">
-            {% else %}
-                <div class="pf-avatar pf-avatar-placeholder">{{ profile.name|first|upper }}</div>
-            {% endif %}
-
-            <div class="pf-identity">
-                <h2>{{ profile.name }}</h2>
-                <div class="pf-username">@{{ profile.username }}</div>
-
-                {% if profile.active == "active" %}
-                    <span class="pf-status active">Active</span>
+                {% if profile.profile_image %}
+                    <img src="{{ profile.profile_image.url }}"
+                         class="pf-avatar"
+                         alt="Profile photo">
                 {% else %}
-                    <span class="pf-status banned">Banned</span>
+                    <div class="pf-avatar pf-avatar-placeholder">
+                        {{ profile.name|first|upper }}
+                    </div>
                 {% endif %}
+
+                <div class="pf-identity">
+                    <h2>{{ profile.name }}</h2>
+                    <div class="pf-username">@{{ profile.username }}</div>
+
+                    {% if profile.LOGIN.is_active %}
+                        <span class="pf-status active">Active</span>
+                    {% else %}
+                        <span class="pf-status banned">Banned</span>
+                    {% endif %}
+                </div>
+
+                <div class="pf-actions">
+                    {% if profile.LOGIN.is_active %}
+                        <form method="POST"
+                              action="{% url 'admin_ban_user' profile.LOGIN.id %}"
+                              onsubmit="return confirm('Are you sure you want to ban this user?');">
+                            {% csrf_token %}
+                            <button type="submit" class="pf-btn pf-btn-ban">
+                                Ban user
+                            </button>
+                        </form>
+                    {% else %}
+                        <form method="POST"
+                              action="{% url 'admin_unban_user' profile.LOGIN.id %}"
+                              onsubmit="return confirm('Restore this user account?');">
+                            {% csrf_token %}
+                            <button type="submit" class="pf-btn pf-btn-unban">
+                                Unban user
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+
             </div>
 
-            <div class="pf-actions">
-                {% if profile.active == "active" %}
-                    <form
-                        method="POST"
-                        action="{% url 'admin_ban_user' profile.LOGIN.id %}"
-                        onsubmit="return confirm('Are you sure you want to ban this user?');"
-                    >
-                        {% csrf_token %}
-                        <button type="submit" class="pf-btn pf-btn-ban">Ban user</button>
-                    </form>
-                {% else %}
-                    <form
-                        method="POST"
-                        action="{% url 'admin_unban_user' profile.LOGIN.id %}"
-                        onsubmit="return confirm('Restore this user account?');"
-                    >
-                        {% csrf_token %}
-                        <button type="submit" class="pf-btn pf-btn-unban">Unban user</button>
-                    </form>
-                {% endif %}
-            </div>
+            <div class="pf-grid">
+                <div class="pf-item">
+                    <div class="pf-label">Email</div>
+                    <div class="pf-value">{{ profile.email|default:"—" }}</div>
+                </div>
 
-        </div>
+                <div class="pf-item">
+                    <div class="pf-label">Phone</div>
+                    <div class="pf-value">{{ profile.phone_number|default:"—" }}</div>
+                </div>
 
-        <div class="pf-grid">
-            <div class="pf-item">
-                <div class="pf-label">Email</div>
-                <div class="pf-value">{{ profile.email|default:"—" }}</div>
-            </div>
-
-            <div class="pf-item">
-                <div class="pf-label">Phone</div>
-                <div class="pf-value">{{ profile.phone_number|default:"—" }}</div>
-            </div>
-
-            <div class="pf-item">
-                <div class="pf-label">Account status</div>
-                <div class="pf-value">
-                    {% if profile.LOGIN.is_active %}Enabled{% else %}Suspended{% endif %}
+                <div class="pf-item">
+                    <div class="pf-label">Account status</div>
+                    <div class="pf-value">
+                        {% if profile.LOGIN.is_active %}
+                            Enabled
+                        {% else %}
+                            Suspended
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-    </section>
+    {% empty %}
+        <section class="pf-card">
+            <p class="pf-empty">User profile not found.</p>
+        </section>
+    {% endfor %}
 
-    <!-- Posts -->
     <section class="pf-card">
-
         <div class="pf-section-head">
             <h3>Posts</h3>
             <span class="pf-count">{{ posts|length }} total</span>
@@ -258,7 +265,10 @@
             <div class="pf-posts">
                 {% for post in posts %}
                     <div class="pf-post">
-                        <img src="{{ post.photo.url }}" alt="Post by {{ profile.username }}">
+                        {% if post.photo %}
+                            <img src="{{ post.photo.url }}" alt="User post">
+                        {% endif %}
+
                         {% if post.caption %}
                             <p>{{ post.caption }}</p>
                         {% endif %}
@@ -268,7 +278,6 @@
         {% else %}
             <p class="pf-empty">This user has not posted anything yet.</p>
         {% endif %}
-{% endfor %}
     </section>
 
 </div>

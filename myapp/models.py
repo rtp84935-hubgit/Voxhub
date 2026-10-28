@@ -15,6 +15,7 @@ PRIVATE_POST_STORAGE = FileSystemStorage(
     base_url=None,
 )
 
+
 class UserProfile(models.Model):
     LOGIN=models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_profile")
 
@@ -73,7 +74,7 @@ class VoiceProfile(models.Model):
     def __str__(self):
         return self.username
 
-
+VIDEO_EXTENSIONS = (".mp4", ".mov", ".webm", ".m4v")
 class User_posts(models.Model):
     USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
 
@@ -94,9 +95,12 @@ class User_posts(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     
     @property
+    def is_video(self):
+        return os.path.splitext(self.photo.name or "")[1].lower() in VIDEO_EXTENSIONS
+
+    @property
     def display_photo(self):
         return self.masked_photo or self.photo
-
     def __str__(self):
         return f"Post by {self.USER.username}"
 
@@ -230,7 +234,28 @@ class Reports(models.Model):
     reports = models.CharField(max_length=100)
     status = models.CharField(max_length=10, default="pending")
     date = models.DateTimeField(auto_now_add=True)
-    user_seen = models.BooleanField(default=True)
+    
+
+class Common_Reports(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("inreview", "In review"),
+        ("resolved", "Resolved"),
+        ("dismissed", "Dismissed"),
+    ]
+
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    reports = models.CharField(max_length=1000)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending", db_index=True)
+    date = models.DateTimeField(auto_now_add=True)
+    admin_seen = models.BooleanField(default=False)   # new reports start unseen by admin
+    user_seen = models.BooleanField(default=True)     # set to False when admin updates it
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Report by {self.USER.username} ({self.status})"
     
 
 class Saved_Posts(models.Model):

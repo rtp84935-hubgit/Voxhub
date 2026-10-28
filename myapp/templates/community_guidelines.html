@@ -1,0 +1,545 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Community Guidelines | VoxHub{% endblock %}
+{% block app_class %}no-right{% endblock %}
+
+{% block extra_head %}
+<style>
+.guidelines-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px 0 65px;
+    color: var(--text);
+}
+
+.guidelines-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 38px;
+    margin-bottom: 25px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 90% 10%, rgba(169,156,255,.19), transparent 35%),
+        linear-gradient(135deg, var(--surface), var(--surface-2));
+}
+
+.guidelines-eyebrow {
+    color: var(--accent-2);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.guidelines-hero h1 {
+    margin: 14px 0;
+    font-size: clamp(30px, 5vw, 44px);
+    line-height: 1.2;
+    font-weight: 900;
+    letter-spacing: -1px;
+}
+
+.guidelines-hero h1 span {
+    background: linear-gradient(120deg, var(--accent), #a99cff, #f472b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.guidelines-hero p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.9;
+}
+
+.guidelines-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 22px;
+}
+
+.guideline-badge {
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: rgba(255,255,255,.025);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.guidelines-layout {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.guidelines-nav {
+    position: sticky;
+    top: 20px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: var(--surface);
+}
+
+.guidelines-nav h3 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+}
+
+.guidelines-nav a {
+    display: block;
+    padding: 10px;
+    margin: 3px 0;
+    border-radius: 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    transition: .2s;
+}
+
+.guidelines-nav a:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.guidelines-content {
+    min-width: 0;
+}
+
+.guideline-section {
+    scroll-margin-top: 25px;
+    padding: 25px;
+    margin-bottom: 17px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+}
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 17px;
+}
+
+.section-icon {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--surface-2);
+    font-size: 19px;
+}
+
+.section-heading h2 {
+    margin: 2px 0 6px;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.section-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.guideline-section > p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.guideline-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.guideline-list li {
+    position: relative;
+    padding-left: 25px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.guideline-list li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    top: 1px;
+    color: #34d399;
+    font-weight: 900;
+}
+
+.guideline-list strong {
+    color: var(--text);
+}
+
+.guideline-warning li::before {
+    content: "×";
+    color: #fb7185;
+    font-size: 17px;
+    top: -1px;
+}
+
+.guideline-callout {
+    padding: 15px 17px;
+    margin-top: 18px;
+    border: 1px solid rgba(169,156,255,.25);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    background: rgba(169,156,255,.06);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.9;
+}
+
+.guideline-callout strong {
+    color: var(--text);
+}
+
+.guidelines-footer {
+    padding: 25px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    text-align: center;
+    background: linear-gradient(135deg, var(--surface), var(--surface-2));
+}
+
+.guidelines-footer h2 {
+    margin: 0 0 9px;
+    font-size: 21px;
+}
+
+.guidelines-footer p {
+    max-width: 600px;
+    margin: 0 auto 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.guidelines-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 11px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(120deg, var(--accent), #6354e8);
+    color: white;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+    transition: .2s;
+}
+
+.guidelines-button:hover {
+    opacity: .9;
+    transform: translateY(-1px);
+}
+
+@media(max-width:760px) {
+    .guidelines-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .guidelines-nav {
+        position: static;
+    }
+
+    .guidelines-nav-links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 3px;
+    }
+
+    .guidelines-hero {
+        padding: 27px 22px;
+    }
+
+    .guideline-section {
+        padding: 20px;
+    }
+}
+
+@media(max-width:420px) {
+    .guidelines-nav-links {
+        grid-template-columns: 1fr;
+    }
+
+    .guideline-section {
+        padding: 17px;
+    }
+
+    .section-heading {
+        gap: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="guidelines-page">
+
+    <header class="guidelines-hero">
+        <div class="guidelines-eyebrow">✦ THE VOXHUB COMMUNITY</div>
+
+        <h1>
+            Our Community,<br>
+            <span>Our Responsibility.</span>
+        </h1>
+
+        <p>
+            VoxHub is a place to share your experiences, express your ideas,
+            discover people, and build meaningful connections. These guidelines
+            help make our community safer, more respectful, and welcoming for everyone.
+        </p>
+
+        <div class="guidelines-badges">
+            <span class="guideline-badge">🤝 Respect Everyone</span>
+            <span class="guideline-badge">🛡️ Protect Privacy</span>
+            <span class="guideline-badge">💜 Share Responsibly</span>
+        </div>
+    </header>
+
+    <div class="guidelines-layout">
+
+        <aside class="guidelines-nav">
+            <h3>On this page</h3>
+
+            <nav class="guidelines-nav-links">
+                <a href="#respect">01 · Respect</a>
+                <a href="#content">02 · Content</a>
+                <a href="#privacy">03 · Privacy</a>
+                <a href="#face-detection">04 · Face Detection</a>
+                <a href="#ai">05 · AI Moderation</a>
+                <a href="#interactions">06 · Interactions</a>
+                <a href="#reporting">07 · Reporting</a>
+                <a href="#enforcement">08 · Enforcement</a>
+            </nav>
+        </aside>
+
+        <main class="guidelines-content">
+
+            <!-- RESPECT -->
+
+            <section class="guideline-section" id="respect">
+                <div class="section-heading">
+                    <div class="section-icon">🤝</div>
+                    <div>
+                        <h2>1. Treat Everyone with Respect</h2>
+                        <p>A healthy community begins with how we treat one another.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Be respectful when expressing opinions, even when others disagree with you.</li>
+                    <li><strong>No harassment or bullying.</strong> Do not threaten, intimidate, repeatedly target, or humiliate other users.</li>
+                    <li><strong>No hate speech.</strong> Do not attack or dehumanize people based on protected characteristics.</li>
+                    <li>Respect different experiences, backgrounds, and perspectives.</li>
+                    <li>Do not encourage others to harass, threaten, or target another person.</li>
+                </ul>
+            </section>
+
+            <!-- CONTENT -->
+
+            <section class="guideline-section" id="content">
+                <div class="section-heading">
+                    <div class="section-icon">📸</div>
+                    <div>
+                        <h2>2. Share Content Responsibly</h2>
+                        <p>Think about the impact of what you post, comment on, and share.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Share content that you have the right to upload or distribute.</li>
+                    <li><strong>No harmful threats or encouragement of violence.</strong></li>
+                    <li>Do not upload sexually exploitative content or any sexual content involving minors.</li>
+                    <li>Do not publish content intended to scam, defraud, or deliberately deceive other users.</li>
+                    <li>Do not share malicious links, phishing attempts, or content designed to compromise another person's account or device.</li>
+                    <li>Do not impersonate another person or misrepresent your identity to deceive others.</li>
+                    <li>Provide context when sharing sensitive or potentially misleading information.</li>
+                </ul>
+
+                <div class="guideline-callout">
+                    <strong>Remember:</strong> Public visibility does not automatically give you permission to reuse someone else's private content, personal information, or copyrighted work.
+                </div>
+            </section>
+
+            <!-- PRIVACY -->
+
+            <section class="guideline-section" id="privacy">
+                <div class="section-heading">
+                    <div class="section-icon">🔒</div>
+                    <div>
+                        <h2>3. Protect Privacy and Personal Information</h2>
+                        <p>Everyone deserves control over their personal information.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Never publish another person's home address, phone number, passwords, private messages, or other sensitive information without proper authorization.</li>
+                    <li>Do not use VoxHub to stalk, threaten, or monitor someone without their consent.</li>
+                    <li>Keep your login credentials private and use a strong, unique password.</li>
+                    <li>Do not create fake accounts to evade restrictions or target other users.</li>
+                    <li>If you discover a privacy or security issue, report it through the appropriate channel rather than exploiting it.</li>
+                </ul>
+            </section>
+
+            <!-- FACE DETECTION -->
+
+            <section class="guideline-section" id="face-detection">
+                <div class="section-heading">
+                    <div class="section-icon">🧑‍🤝‍🧑</div>
+                    <div>
+                        <h2>4. Face Detection and Consent</h2>
+                        <p>Our face-related features must be used responsibly.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Use face detection features only for their intended purpose.</li>
+                    <li>Do not use these features to harass, threaten, stalk, or embarrass another person.</li>
+                    <li>Respect people's privacy when uploading images or videos containing their faces.</li>
+                    <li>Respond honestly to requests concerning your appearance in uploaded content.</li>
+                    <li>Do not attempt to bypass face-detection safeguards or misuse information produced by the system.</li>
+                    <li>Report incorrect face detections or suspected misuse so they can be reviewed.</li>
+                </ul>
+
+                <div class="guideline-callout">
+                    <strong>Important:</strong> Automated face detection can make mistakes. A detection result should not, by itself, be treated as proof of identity, consent, or wrongdoing.
+                </div>
+            </section>
+
+            <!-- AI MODERATION -->
+
+            <section class="guideline-section" id="ai">
+                <div class="section-heading">
+                    <div class="section-icon">🤖</div>
+                    <div>
+                        <h2>5. AI Moderation and Automated Decisions</h2>
+                        <p>AI can help identify potentially harmful content, but it is not perfect.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Comments and other supported content may be checked by automated moderation systems.</li>
+                    <li>Do not deliberately attempt to evade moderation by disguising threats, harassment, or prohibited content.</li>
+                    <li>Automated systems may misunderstand context, sarcasm, language, or intent.</li>
+                    <li>If you believe content was incorrectly flagged or an action was taken by mistake, contact the platform administrator through the available support process.</li>
+                    <li>Do not treat an AI-generated result as a definitive judgment about a person's character or intentions.</li>
+                </ul>
+
+                <div class="guideline-callout">
+                    <strong>Our approach:</strong> AI moderation should support a safer community. Where appropriate and available, reports and disputed moderation decisions should receive additional review.
+                </div>
+            </section>
+
+            <!-- INTERACTIONS -->
+
+            <section class="guideline-section" id="interactions">
+                <div class="section-heading">
+                    <div class="section-icon">💬</div>
+                    <div>
+                        <h2>6. Follow, Comment, and Message Responsibly</h2>
+                        <p>Make every interaction respectful and intentional.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Keep comments relevant and avoid repetitive, disruptive messages.</li>
+                    <li>Respect follow requests and other users' decisions about who they interact with.</li>
+                    <li>Do not send threatening, abusive, or unwanted messages repeatedly.</li>
+                    <li>Do not use fake engagement, spam, or coordinated activity to manipulate the community.</li>
+                    <li>Respect blocks, restrictions, and other available privacy controls.</li>
+                    <li>Do not exploit bugs or platform features to disrupt other users' experiences.</li>
+                </ul>
+            </section>
+
+            <!-- REPORTING -->
+
+            <section class="guideline-section" id="reporting">
+                <div class="section-heading">
+                    <div class="section-icon">🚩</div>
+                    <div>
+                        <h2>7. Report Problems Honestly</h2>
+                        <p>Reports help the community identify content that may violate these guidelines.</p>
+                    </div>
+                </div>
+
+                <ul class="guideline-list">
+                    <li>Report content or behavior that you genuinely believe violates these guidelines.</li>
+                    <li>Provide an accurate reason and relevant details when submitting a report.</li>
+                    <li>Do not submit false, malicious, or deliberately misleading reports to target another user.</li>
+                    <li>Do not organize mass-reporting campaigns to silence people simply because you disagree with them.</li>
+                    <li>Avoid publicly sharing private information about the person you report.</li>
+                    <li>Allow administrators time to review reports and take appropriate action.</li>
+                </ul>
+            </section>
+
+            <!-- ENFORCEMENT -->
+
+            <section class="guideline-section" id="enforcement">
+                <div class="section-heading">
+                    <div class="section-icon">⚖️</div>
+                    <div>
+                        <h2>8. Violations and Account Enforcement</h2>
+                        <p>Actions should reflect the nature and seriousness of a violation.</p>
+                    </div>
+                </div>
+
+                <p>
+                    Depending on the circumstances, the platform may take action
+                    when content or behavior violates these guidelines.
+                </p>
+
+                <ul class="guideline-list">
+                    <li>Remove or restrict content that violates applicable platform rules.</li>
+                    <li>Issue a warning or request that the user correct their behavior.</li>
+                    <li>Temporarily restrict selected features or account access.</li>
+                    <li>Suspend or permanently disable accounts for serious or repeated violations.</li>
+                    <li>Escalate credible threats or other serious matters where required or appropriate under applicable law.</li>
+                </ul>
+
+                <div class="guideline-callout">
+                    <strong>Fair enforcement:</strong> The response should consider the seriousness of the conduct, its impact, relevant context, and repeated violations. Where available, users should have a way to raise concerns about enforcement decisions.
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <footer class="guidelines-footer">
+        <h2>Let's make VoxHub better together 💜</h2>
+
+        <p>
+            Every post, comment, and interaction helps shape our community.
+            Be thoughtful, respect others, and speak up when something is wrong.
+            A safer platform starts with all of us.
+        </p>
+
+        <a href="/myapp/" class="guidelines-button">
+            Back to VoxHub →
+        </a>
+    </footer>
+
+</div>
+{% endblock %}

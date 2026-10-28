@@ -1,0 +1,802 @@
+{% extends 'user_base.html' %}
+
+{% block title %}About VoxHub{% endblock %}
+{% block app_class %}no-right{% endblock %}
+
+{% block extra_head %}
+<style>
+.about-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px 0 65px;
+    color: var(--text);
+}
+
+/* HERO */
+
+.about-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 48px 38px;
+    border: 1px solid var(--line);
+    border-radius: 25px;
+    background:
+        radial-gradient(circle at 85% 15%, rgba(169,156,255,.2), transparent 32%),
+        radial-gradient(circle at 10% 100%, rgba(25,211,174,.10), transparent 35%),
+        linear-gradient(135deg, var(--surface), var(--surface-2));
+}
+
+.about-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-2);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.about-hero h1 {
+    margin: 20px 0 16px;
+    font-size: clamp(36px, 6vw, 55px);
+    line-height: 1.12;
+    font-weight: 900;
+    letter-spacing: -1.8px;
+}
+
+.about-hero h1 span {
+    display: block;
+    background: linear-gradient(120deg, var(--accent), #a99cff, #f472b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.about-hero > p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 2;
+}
+
+.about-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 11px;
+    margin-top: 26px;
+}
+
+.about-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 17px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    background: var(--surface);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+    transition: .2s;
+}
+
+.about-btn.primary {
+    border-color: transparent;
+    color: white;
+    background: linear-gradient(120deg, var(--accent), #6354e8);
+}
+
+.about-btn:hover {
+    transform: translateY(-2px);
+    opacity: .92;
+}
+
+/* SECTION HEADINGS */
+
+.about-section {
+    margin-top: 40px;
+}
+
+.about-section-heading {
+    margin-bottom: 20px;
+}
+
+.about-section-heading .eyebrow {
+    color: var(--accent-2);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.about-section-heading h2 {
+    margin: 9px 0;
+    font-size: clamp(23px, 4vw, 30px);
+    font-weight: 850;
+    letter-spacing: -.5px;
+}
+
+.about-section-heading p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+/* MISSION */
+
+.about-mission {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 17px;
+}
+
+.mission-card {
+    padding: 25px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+}
+
+.mission-icon {
+    display: grid;
+    place-items: center;
+    width: 47px;
+    height: 47px;
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface-2);
+    font-size: 21px;
+}
+
+.mission-card h3 {
+    margin: 0 0 10px;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.mission-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+/* FEATURES */
+
+.about-features {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.feature-card {
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: var(--surface);
+    transition: .22s ease;
+}
+
+.feature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+}
+
+.feature-top {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 13px;
+}
+
+.feature-icon {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+    font-size: 19px;
+}
+
+.feature-card h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.feature-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.9;
+}
+
+/* VALUES */
+
+.about-values {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.value-card {
+    padding: 20px 17px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: var(--surface);
+}
+
+.value-card .value-icon {
+    margin-bottom: 12px;
+    font-size: 24px;
+}
+
+.value-card h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.value-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* TECHNOLOGY */
+
+.about-tech {
+    padding: 26px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(169,156,255,.10), transparent 40%),
+        var(--surface);
+}
+
+.about-tech h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+}
+
+.about-tech > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.tech-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 19px;
+}
+
+.tech-tag {
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* FINAL CTA */
+
+.about-footer {
+    position: relative;
+    overflow: hidden;
+    margin-top: 40px;
+    padding: 34px 25px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    text-align: center;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(169,156,255,.15), transparent 65%),
+        var(--surface);
+}
+
+.about-footer h2 {
+    margin: 0 0 12px;
+    font-size: clamp(22px, 4vw, 29px);
+    font-weight: 850;
+}
+
+.about-footer p {
+    max-width: 570px;
+    margin: 0 auto 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+@media(max-width:700px) {
+    .about-hero {
+        padding: 32px 23px;
+    }
+
+    .about-mission,
+    .about-features {
+        grid-template-columns: 1fr;
+    }
+
+    .about-values {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media(max-width:480px) {
+    .about-page {
+        padding-top: 8px;
+    }
+
+    .about-hero {
+        padding: 27px 19px;
+        border-radius: 19px;
+    }
+
+    .mission-card,
+    .feature-card,
+    .about-tech {
+        padding: 19px;
+    }
+
+    .about-section {
+        margin-top: 32px;
+    }
+}
+/* CONTACT SECTION */
+
+.about-contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.about-contact-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 21px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    transition: .2s ease;
+}
+
+.about-contact-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.about-contact-icon {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+    font-size: 19px;
+}
+
+.about-contact-info {
+    min-width: 0;
+}
+
+.about-contact-info h3 {
+    margin: 2px 0 7px;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.about-contact-info p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.about-contact-info a {
+    color: var(--accent-2);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.about-contact-info a:hover {
+    text-decoration: underline;
+}
+
+.about-contact-note {
+    margin-top: 16px;
+    padding: 16px 18px;
+    border: 1px solid rgba(169,156,255,.22);
+    border-radius: 12px;
+    background: rgba(169,156,255,.05);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.9;
+}
+
+.about-contact-note strong {
+    color: var(--text);
+}
+
+@media(max-width:600px) {
+    .about-contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .about-contact-card {
+        padding: 17px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-page">
+
+    <!-- HERO -->
+
+    <header class="about-hero">
+        <div class="about-eyebrow">
+            ✦ GET TO KNOW US
+        </div>
+
+        <h1>
+            Welcome to
+            <span>VoxHub.</span>
+        </h1>
+
+        <p>
+            A social space built to bring people together through stories,
+            photos, videos, conversations, and meaningful connections.
+            VoxHub combines social networking with AI-powered features
+            to create a more personal and responsible online experience.
+        </p>
+
+        <div class="about-hero-actions">
+            <a href="/myapp/" class="about-btn primary">
+                Explore VoxHub →
+            </a>
+
+            <a href="{% url 'community_guidelines' %}" class="about-btn">
+                📜 Community Guidelines
+            </a>
+        </div>
+    </header>
+
+    <!-- MISSION -->
+
+    <section class="about-section">
+        <div class="about-section-heading">
+            <div class="eyebrow">OUR PURPOSE</div>
+            <h2>More than just a social platform.</h2>
+            <p>
+                VoxHub aims to make online interactions more engaging,
+                personal, and responsible by bringing social features
+                and intelligent technology together.
+            </p>
+        </div>
+
+        <div class="about-mission">
+
+            <article class="mission-card">
+                <div class="mission-icon">🌍</div>
+                <h3>Our Mission</h3>
+                <p>
+                    To provide a welcoming digital space where people can
+                    express themselves, share their experiences, discover
+                    content, and connect with others through simple,
+                    accessible social features.
+                </p>
+            </article>
+
+            <article class="mission-card">
+                <div class="mission-icon">🚀</div>
+                <h3>Our Vision</h3>
+                <p>
+                    To explore how social networking and artificial
+                    intelligence can work together to support meaningful
+                    interactions, improve platform safety, and create
+                    a more thoughtful online community.
+                </p>
+            </article>
+
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+
+    <section class="about-section">
+        <div class="about-section-heading">
+            <div class="eyebrow">WHAT YOU CAN DO</div>
+            <h2>Everything that connects us.</h2>
+            <p>
+                Discover the features that make VoxHub a space for sharing,
+                communicating, and interacting.
+            </p>
+        </div>
+
+        <div class="about-features">
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">📸</div>
+                    <h3>Photo & Video Sharing</h3>
+                </div>
+                <p>
+                    Share moments, upload media, and explore posts
+                    from people in your community.
+                </p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">💬</div>
+                    <h3>Social Interactions</h3>
+                </div>
+                <p>
+                    Like posts, leave comments, follow people, and
+                    participate in conversations across the platform.
+                </p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">🎙️</div>
+                    <h3>AI-Powered Voice Login</h3>
+                </div>
+                <p>
+                    VoxHub includes a speaker-recognition login feature
+                    designed to compare a voice sample with an enrolled
+                    voice profile.
+                </p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>AI Comment Moderation</h3>
+                </div>
+                <p>
+                    Automated toxicity detection can help identify
+                    potentially harmful comments and support a more
+                    respectful community.
+                </p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">🧑‍🤝‍🧑</div>
+                    <h3>Face Detection Requests</h3>
+                </div>
+                <p>
+                    Face-related detection features help identify possible
+                    appearances in uploaded content and support a process
+                    for responding to those detections.
+                </p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-top">
+                    <div class="feature-icon">🚩</div>
+                    <h3>Reporting & Moderation</h3>
+                </div>
+                <p>
+                    Users can report potentially inappropriate content
+                    so administrators can review concerns and take
+                    appropriate action.
+                </p>
+            </article>
+
+        </div>
+    </section>
+
+    <!-- VALUES -->
+
+    <section class="about-section">
+        <div class="about-section-heading">
+            <div class="eyebrow">WHAT WE VALUE</div>
+            <h2>Built around better interactions.</h2>
+            <p>
+                A positive social experience depends on technology
+                and the way people choose to use it.
+            </p>
+        </div>
+
+        <div class="about-values">
+
+            <article class="value-card">
+                <div class="value-icon">🤝</div>
+                <h3>Respect</h3>
+                <p>
+                    Encourage thoughtful conversations and treat
+                    other community members with dignity.
+                </p>
+            </article>
+
+            <article class="value-card">
+                <div class="value-icon">🔒</div>
+                <h3>Privacy</h3>
+                <p>
+                    Recognize the importance of personal information
+                    and responsible handling of user content.
+                </p>
+            </article>
+
+            <article class="value-card">
+                <div class="value-icon">⚖️</div>
+                <h3>Responsibility</h3>
+                <p>
+                    Promote responsible sharing, honest reporting,
+                    and appropriate use of AI-powered features.
+                </p>
+            </article>
+
+        </div>
+    </section>
+
+    <!-- TECHNOLOGY -->
+
+    <section class="about-section">
+        <div class="about-section-heading">
+            <div class="eyebrow">TECHNOLOGY</div>
+            <h2>Social networking meets AI.</h2>
+        </div>
+
+        <div class="about-tech">
+            <h3>Technology behind VoxHub ⚡</h3>
+
+            <p>
+                VoxHub is developed using web technologies and
+                machine-learning tools to support its social features,
+                user authentication, content management, and moderation
+                workflows. AI-powered components assist with specific
+                tasks, but automated predictions can be imperfect and
+                should be used with appropriate safeguards.
+            </p>
+
+            <div class="tech-tags">
+                <span class="tech-tag">Python</span>
+                <span class="tech-tag">Django</span>
+                <span class="tech-tag">HTML & CSS</span>
+                <span class="tech-tag">JavaScript</span>
+                <span class="tech-tag">MySQL</span>
+                <span class="tech-tag">Machine Learning</span>
+                <span class="tech-tag">Computer Vision</span>
+                <span class="tech-tag">Speaker Recognition</span>
+            </div>
+        </div>
+    </section>
+<!-- CONTACT US -->
+
+<section class="about-section" id="contact">
+    <div class="about-section-heading">
+        <div class="eyebrow">GET IN TOUCH</div>
+        <h2>Contact VoxHub.</h2>
+        <p>
+            Have a question, found a problem, or want to share feedback?
+            We'd love to hear from you.
+        </p>
+    </div>
+
+    <div class="about-contact-grid">
+
+        <!-- EMAIL -->
+
+        <article class="about-contact-card">
+            <div class="about-contact-icon">✉️</div>
+
+            <div class="about-contact-info">
+                <h3>Email Support</h3>
+                <p>
+                    For questions, feedback, or general assistance.
+                </p>
+                <p style="margin-top:8px;">
+                    <a href="mailto:helpdeskvoxhub@gmail.com">
+                        helpdeskvoxhub@gmail.com
+                    </a>
+                </p>
+            </div>
+        </article>
+
+        <!-- REPORTS -->
+
+        <article class="about-contact-card">
+            <div class="about-contact-icon">🚩</div>
+
+            <div class="about-contact-info">
+                <h3>Report a Problem</h3>
+                <p>
+                    Report inappropriate posts, suspicious activity,
+                    or behavior that may violate our guidelines.
+                </p>
+                <p style="margin-top:8px;">
+                    <a href="/myapp/user_home/">
+                        Visit VoxHub →
+                    </a>
+                </p>
+            </div>
+        </article>
+
+        <!-- TECHNICAL SUPPORT -->
+
+        <article class="about-contact-card">
+            <div class="about-contact-icon">🛠️</div>
+
+            <div class="about-contact-info">
+                <h3>Technical Support</h3>
+                <p>
+                    Experiencing a login issue, an unexpected error,
+                    or a problem with a VoxHub feature?
+                </p>
+                <p style="margin-top:8px;">
+                    <a href="mailto:helpdeskvoxhub@gmail.com">
+                        Contact Technical Support →
+                    </a>
+                </p>
+            </div>
+        </article>
+
+        <!-- COMMUNITY -->
+
+        <article class="about-contact-card">
+            <div class="about-contact-icon">💜</div>
+
+            <div class="about-contact-info">
+                <h3>Community & Safety</h3>
+                <p>
+                    Learn how to interact respectfully and help
+                    maintain a safer community.
+                </p>
+                <p style="margin-top:8px;">
+                    <a href="{% url 'community_guidelines' %}">
+                        Read Community Guidelines →
+                    </a>
+                </p>
+            </div>
+        </article>
+
+    </div>
+
+    <div class="about-contact-note">
+        <strong>Privacy reminder:</strong>
+        Never send your password, login credentials, or sensitive
+        personal information in a support request.
+    </div>
+</section>
+    <!-- COMMUNITY -->
+
+    <footer class="about-footer">
+        <h2>Be part of the VoxHub community 💜</h2>
+
+        <p>
+            Share your moments, discover new perspectives, and
+            connect with people. Every positive interaction helps
+            make the community a better place.
+        </p>
+
+        <a href="/myapp/user_home/" class="about-btn primary">
+            Back to VoxHub →
+        </a>
+    </footer>
+
+</div>
+{% endblock %}

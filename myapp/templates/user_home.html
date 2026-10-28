@@ -34,13 +34,20 @@
 .pb .cap b{margin-right:6px}
 .vc{color:var(--muted);font-size:13px;margin-top:6px;padding:0}
 .vc:hover{color:var(--text)}
-.cmts{margin-top:8px}.cmts p{margin:0 0 6px}.cmts b{margin-right:6px}
+.cmts{margin-top:8px}
 .cf{display:flex;gap:10px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 .cf input{flex:1;background:none;border:0;font-size:14px}
 .cf input:focus{outline:none}.cf input::placeholder{color:#5d6590}
 .cf button{color:var(--accent);font-weight:800;font-size:14px;opacity:.5}
 .cf input:not(:placeholder-shown)+button{opacity:1}
 .no-posts{text-align:center;color:var(--muted)}
+
+/* comments */
+.comment-item{display:flex;align-items:flex-start;gap:6px;margin:0 0 6px;overflow-wrap:anywhere}
+.comment-item b{flex-shrink:0}
+.comment-item .ctext{flex:1;min-width:0}
+.delete-comment{margin-left:auto;padding:2px 5px;border-radius:6px;font-size:13px;opacity:.65;flex-shrink:0}
+.delete-comment:hover{opacity:1;background:rgba(244,114,182,.15)}
 
 /* django messages */
 .comment-message{padding:10px 12px;margin-bottom:10px;border-radius:8px;font-size:13px}
@@ -78,36 +85,6 @@
 .mact button{flex:1;padding:12px;border-radius:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-2)}
 .mact .go{border:0;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
 .mact .go:disabled{opacity:.45;cursor:not-allowed}
-
-.comment-item {
-    margin-bottom: 8px;
-    overflow-wrap: anywhere;
-}
-
-.comment-item p {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    margin: 0 0 6px;
-}
-
-.comment-item p b {
-    flex-shrink: 0;
-}
-
-.delete-comment {
-    margin-left: auto;
-    padding: 2px 5px;
-    border-radius: 6px;
-    font-size: 13px;
-    opacity: 0.65;
-    flex-shrink: 0;
-}
-
-.delete-comment:hover {
-    opacity: 1;
-    background: rgba(244, 114, 182, 0.15);
-}
 </style>
 {% endblock %}
 
@@ -128,7 +105,7 @@
         <div class="av">
           {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}">{% else %}{{ p.USER.username|first|upper }}{% endif %}
         </div>
-        <div><a href="/myapp/profile/{{ p.USER.id }}/"><b>{{ p.USER.username }}</b></a></div>
+        <div><a href="/myapp/profile/{{ p.USER.id }}/"><b>{% if sidebar_user and p.USER.id == sidebar_user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b></a></div>
         {% if sidebar_user and p.USER.id == sidebar_user.id %}
         <button class="del-post" type="button" aria-label="Delete post" title="Delete post">🗑</button>
         {% endif %}
@@ -152,32 +129,20 @@
 
       <div class="pb">
         <div class="likes">{{ p.like_count }} likes</div>
-        <div class="cap"><b>{{ p.USER.username }}</b>{{ p.caption }}</div>
+        <div class="cap"><b>{% if sidebar_user and p.USER.id == sidebar_user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b>{{ p.caption }}</div>
 
         {% with cs=p.comments_set.all %}
         <button class="vc">View all {{ cs|length }} comments</button>
         <div class="cmts hide">
-        
-{% for c in cs %}
-<div class="comment-item" data-comment-id="{{ c.id }}">
-    <p>
-        <b>{{ c.USER.username }}</b>
-        {{ c.comment }}
-
-        {% if sidebar_user and c.USER.id == sidebar_user.id %}
-        <button
-            type="button"
-            class="delete-comment"
-            data-comment-id="{{ c.id }}"
-            title="Delete comment"
-            aria-label="Delete comment">
-            🗑️
-        </button>
-        {% endif %}
-    </p>
-</div>
-{% endfor %}
-
+          {% for c in cs %}
+          <div class="comment-item" data-comment-id="{{ c.id }}">
+            <b>{% if sidebar_user and c.USER.id == sidebar_user.id %}You{% else %}{{ c.USER.username }}{% endif %}</b>
+            <span class="ctext">{{ c.comment }}</span>
+            {% if sidebar_user and c.USER.id == sidebar_user.id %}
+            <button type="button" class="delete-comment" title="Delete comment" aria-label="Delete comment">🗑</button>
+            {% endif %}
+          </div>
+          {% endfor %}
         </div>
         {% endwith %}
 
@@ -243,7 +208,47 @@
 
 {% block extra_js %}
 <script>
-const esc = (s) => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---------- helpers for comments ----------
+function commentHTML(id, username, text) {
+  return '<div class="comment-item" data-comment-id="' + id + '">' +
+    '<b>You</b>' +
+    '<span class="ctext">' + esc(text) + '</span>' +
+    '<button type="button" class="delete-comment" title="Delete comment" aria-label="Delete comment">🗑</button>' +
+    '</div>';
+}
+
+function updateCommentCount(post) {
+  const n = post.querySelectorAll(".cmts .comment-item").length;
+  post.querySelector(".vc").textContent = "View all " + n + " comments";
+}
+
+function deleteComment(btn, post) {
+  if (!confirm("Delete this comment?")) return;
+  const item = btn.closest(".comment-item");
+  const fd = new FormData();
+  fd.append("comment_id", item.dataset.commentId);
+  btn.disabled = true;
+
+  fetch("/myapp/delete_comment/", {
+    method: "POST", body: fd, credentials: "same-origin",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  })
+  .then(async r => {
+    let d = {};
+    try { d = await r.json(); } catch (_) {}
+    if (!r.ok || !d.ok) {
+      toast(d.error || "Failed to delete comment");
+      btn.disabled = false;
+      return;
+    }
+    item.remove();
+    updateCommentCount(post);
+    toast("Comment deleted");
+  })
+  .catch(err => { console.error(err); toast("Network error"); btn.disabled = false; });
+}
 
 // ---------- likes ----------
 function toggleLike(post, onlyLike) {
@@ -321,9 +326,13 @@ function deletePost(post) {
   .catch(err => { console.error(err); toast("Network error"); });
 }
 
+// ---------- feed clicks (single listener) ----------
 $("feed").addEventListener("click", (e) => {
   const post = e.target.closest(".post"); if (!post) return;
-  if (e.target.closest(".like")) toggleLike(post);
+  const delC = e.target.closest(".delete-comment");
+
+  if (delC) deleteComment(delC, post);
+  else if (e.target.closest(".like")) toggleLike(post);
   else if (e.target.closest(".save")) toggleSave(post);
   else if (e.target.closest(".del-post")) deletePost(post);
   else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
@@ -344,7 +353,7 @@ $("feed").addEventListener("dblclick", (e) => {
   pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
 });
 
-// ---------- comments ----------
+// ---------- add comment ----------
 $("feed").addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.target, post = form.closest(".post");
@@ -357,9 +366,9 @@ $("feed").addEventListener("submit", (e) => {
       try { d = await r.json(); } catch (_) {}
       if (r.ok && d.ok) {
         const box = post.querySelector(".cmts");
-        box.insertAdjacentHTML("beforeend", '<p><b>' + esc(d.username) + '</b>' + esc(d.comment) + '</p>');
+        box.insertAdjacentHTML("beforeend", commentHTML(d.id, d.username, d.comment));
         box.classList.remove("hide");
-        post.querySelector(".vc").textContent = "View all " + box.children.length + " comments";
+        updateCommentCount(post);
         input.value = "";
       } else {
         toast(d.error || "Comment failed (" + r.status + ")");
@@ -416,58 +425,24 @@ if (location.search.includes("create=1")) {
   openModal();
   history.replaceState(null, "", location.pathname + location.hash);
 }
+const MAX_IMG = 10 * 1024 * 1024, MAX_VID = 50 * 1024 * 1024;
 
-$("feed").addEventListener("click", async (e) => {
-    const btn = e.target.closest(".delete-comment");
-    if (!btn) return;
+$("file").addEventListener("change", function () {
+  const f = this.files[0]; if (!f) return;
+  const isVideo = f.type.startsWith("video");
 
-    if (!confirm("Delete this comment?")) return;
+  if (f.size > (isVideo ? MAX_VID : MAX_IMG)) {
+    toast(isVideo ? "Video must be 50 MB or smaller" : "Photo must be 10 MB or smaller");
+    this.value = "";
+    $("share").disabled = true;
+    return;
+  }
 
-    const commentItem = btn.closest(".comment-item");
-    const post = btn.closest(".post");
-
-    const fd = new FormData();
-    fd.append("comment_id", btn.dataset.commentId);
-
-    btn.disabled = true;
-
-    try {
-        const response = await fetch("/myapp/delete_comment/", {
-            method: "POST",
-            body: fd,
-            credentials: "same-origin",
-            headers: {
-                "X-CSRFToken": "{{ csrf_token }}"
-            }
-        });
-
-        let data = {};
-        try {
-            data = await response.json();
-        } catch (_) {}
-
-        if (!response.ok || !data.ok) {
-            toast(data.error || "Failed to delete comment.");
-            btn.disabled = false;
-            return;
-        }
-
-        commentItem.remove();
-
-        const commentsBox = post.querySelector(".cmts");
-        const count = commentsBox.children.length;
-
-        post.querySelector(".vc").textContent =
-            "View all " + count + " comments";
-
-        toast("Comment deleted successfully.");
-
-    } catch (error) {
-        console.error("Delete comment error:", error);
-        toast("Network error. Please try again.");
-        btn.disabled = false;
-    }
+  const url = URL.createObjectURL(f);
+  $("dropTxt").innerHTML = isVideo
+    ? '<video src="' + url + '" muted></video>'
+    : '<img src="' + url + '" alt="Preview">';
+  $("share").disabled = false;
 });
-
 </script>
 {% endblock %}
