@@ -1,646 +1,359 @@
-
 {% extends 'user_base.html' %}
 
 {% block title %}Notifications · VoxHub{% endblock %}
 
 {% block extra_head %}
 <style>
-    .np {
-        --red: #fb7185;
-        --yellow: #fbbf24;
-        --green: #34d399;
-        --purple: #a99cff;
+.nt {
+    --red: #fb7185; --yellow: #fbbf24; --green: #34d399; --blue: #60a5fa; --purple: #a99cff;
+    max-width: 720px; margin: 0 auto;
+}
+.nt [hidden] { display: none !important; }
+.nt h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.nt .sub { margin: 6px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
-        max-width: 680px;
-        margin: 0 auto;
-    }
+/* Messages */
+.nt .message {
+    padding: 13px 16px; margin-bottom: 18px; border-radius: 10px; font-size: 13px; line-height: 1.6;
+    background: #172a25; border: 1px solid #285b49; color: #86efac;
+}
+.nt .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+.nt .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+.nt .message.warning { background: #302819; border-color: #705624; color: #fcd34d; }
 
-    .np h1 {
-        margin: 0;
-        font-size: 26px;
-        font-weight: 800;
-    }
+/* Action-needed banner */
+.nt .banner {
+    display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 18px;
+    border: 1px solid rgba(251,191,36,.35); border-radius: 14px; background: rgba(251,191,36,.08);
+}
+.nt .banner.clear { border-color: var(--line); background: var(--surface); }
+.nt .banner-num {
+    min-width: 38px; height: 38px; display: grid; place-items: center; flex-shrink: 0;
+    border-radius: 50%; background: rgba(251,191,36,.18); color: var(--yellow); font-weight: 800;
+}
+.nt .banner.clear .banner-num { background: rgba(52,211,153,.15); color: var(--green); }
+.nt .banner strong { display: block; font-size: 14px; }
+.nt .banner span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
 
-    .np .sub {
-        margin: 6px 0 22px;
-        color: var(--muted);
-        font-size: 13px;
-    }
+/* Tabs */
+.nt .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.nt .tab {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px;
+    border: 1px solid var(--line); border-radius: 999px; background: transparent;
+    color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.nt .tab:hover { color: inherit; }
+.nt .tab[aria-selected="true"] { border-color: var(--accent); background: rgba(124,108,255,.16); color: inherit; }
+.nt .tab-n { padding: 1px 7px; border-radius: 20px; background: var(--surface-2); font-size: 10px; font-weight: 800; }
+.nt .tab-n.hot { background: rgba(251,191,36,.18); color: var(--yellow); }
 
-    /* Django messages */
+/* Sections */
+.nt .section-title { display: flex; align-items: center; gap: 10px; margin: 24px 0 4px; font-size: 15px; font-weight: 800; }
+.nt .section-help { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.nt .count { padding: 3px 9px; border-radius: 20px; background: rgba(251,191,36,.14); color: var(--yellow); font-size: 11px; }
 
-    .np .message {
-        padding: 13px 16px;
-        border-radius: 10px;
-        margin-bottom: 18px;
-        font-size: 13px;
-        background: #172a25;
-        border: 1px solid #285b49;
-        color: #86efac;
-    }
+.nt .list { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.nt .note { display: flex; gap: 14px; padding: 18px 20px; border-top: 1px solid var(--line); }
+.nt .note:first-child { border-top: 0; }
+.nt .note.unread { background: rgba(169,156,255,.06); box-shadow: inset 3px 0 0 var(--accent); }
+.nt .note.action { box-shadow: inset 3px 0 0 var(--yellow); }
 
-    .np .message.error {
-        background: #321b23;
-        border-color: #713444;
-        color: #fda4af;
-    }
+.nt .avatar {
+    width: 42px; height: 42px; display: grid; place-items: center; flex-shrink: 0; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2); font-size: 16px; font-weight: 800;
+}
+.nt .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-    .np .message.info {
-        background: #17283b;
-        border-color: #315477;
-        color: #93c5fd;
-    }
+.nt .body { flex: 1; min-width: 0; }
+.nt .title { font-weight: 700; line-height: 1.6; overflow-wrap: anywhere; }
+.nt .title a { color: var(--purple); text-decoration: none; }
+.nt .title a:hover { text-decoration: underline; }
+.nt .time { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.nt .detail { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.nt .detail b { color: inherit; }
 
-    .np .message.warning {
-        background: #302819;
-        border-color: #705624;
-        color: #fcd34d;
-    }
+.nt .tag { display: inline-block; margin-left: 6px; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 800; vertical-align: middle; }
+.nt .tag.pending   { background: rgba(251,191,36,.12); color: var(--yellow); }
+.nt .tag.inreview  { background: rgba(96,165,250,.12); color: var(--blue); }
+.nt .tag.resolved, .nt .tag.accepted { background: rgba(52,211,153,.12); color: var(--green); }
+.nt .tag.dismissed { background: rgba(154,167,191,.15); color: #9aa7bf; }
+.nt .tag.rejected  { background: rgba(251,113,133,.12); color: var(--red); }
 
-    /* Section headings */
+/* Face request */
+.nt .face-box { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
+.nt .post-preview { display: block; width: 120px; flex-shrink: 0; }
+.nt .post-preview img { display: block; width: 100%; height: 120px; object-fit: cover; border: 1px solid var(--line); border-radius: 12px; }
+.nt .choice { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.nt .choice p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.nt .choice p b { color: var(--green); }
+.nt .choice p b.no { color: var(--red); }
 
-    .np .section-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 15px;
-        font-weight: 800;
-        margin: 26px 0 12px;
-    }
+.nt .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.nt .row-actions form { margin: 0; }
+.nt .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px;
+    border: 1px solid var(--line); border-radius: 9px; background: transparent;
+    color: inherit; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: filter .2s;
+}
+.nt .btn:hover { filter: brightness(1.25); }
+.nt .btn-accept  { color: var(--green); background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.28); }
+.nt .btn-decline { color: var(--red); background: rgba(251,113,133,.08); border-color: rgba(251,113,133,.28); }
+.nt .btn-quiet   { color: var(--muted); }
 
-    .np .count {
-        background: rgba(251, 191, 36, .14);
-        color: var(--yellow);
-        font-size: 11px;
-        padding: 3px 9px;
-        border-radius: 20px;
-    }
+.nt .empty { padding: 34px 20px; color: var(--muted); font-size: 13px; line-height: 1.7; text-align: center; }
+.nt .empty .ico-big { display: block; margin-bottom: 8px; font-size: 26px; }
 
-    /* Notification list */
-
-    .np .list {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        overflow: hidden;
-    }
-
-    .np .note {
-        display: flex;
-        gap: 14px;
-        padding: 18px 20px;
-        border-top: 1px solid var(--line);
-    }
-
-    .np .note:first-child {
-        border-top: 0;
-    }
-
-    .np .note.unread {
-        background: rgba(169, 156, 255, .045);
-    }
-
-    .np .icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--surface-2);
-        border: 1px solid var(--line);
-        font-size: 16px;
-    }
-
-    .np .body {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .np .title {
-        font-weight: 700;
-        line-height: 1.5;
-        overflow-wrap: anywhere;
-    }
-
-    .np .title a {
-        color: var(--purple);
-        text-decoration: none;
-    }
-
-    .np .title a:hover {
-        text-decoration: underline;
-    }
-
-    .np .detail {
-        color: var(--muted);
-        font-size: 13px;
-        margin-top: 4px;
-        line-height: 1.6;
-        overflow-wrap: anywhere;
-    }
-
-    /* Status tags */
-
-    .np .tag {
-        display: inline-block;
-        padding: 4px 9px;
-        border-radius: 20px;
-        font-size: 10px;
-        font-weight: 800;
-        margin-left: 6px;
-        vertical-align: middle;
-    }
-
-    .np .tag.pending {
-        background: rgba(251, 191, 36, .12);
-        color: var(--yellow);
-    }
-
-    .np .tag.resolved,
-    .np .tag.accepted {
-        background: rgba(52, 211, 153, .12);
-        color: var(--green);
-    }
-
-    .np .tag.dismissed,
-    .np .tag.rejected {
-        background: rgba(251, 113, 133, .12);
-        color: var(--red);
-    }
-
-    /* Action buttons */
-
-    .np .row-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 12px;
-    }
-
-    .np .row-actions form {
-        margin: 0;
-    }
-
-    .np .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        padding: 9px 14px;
-        border-radius: 9px;
-        font-size: 12px;
-        font-weight: 700;
-        border: 1px solid var(--line);
-        cursor: pointer;
-        transition: filter .2s;
-    }
-
-    .np .btn:hover {
-        filter: brightness(1.25);
-    }
-
-    .np .btn-accept {
-        color: var(--green);
-        background: rgba(52, 211, 153, .08);
-        border-color: rgba(52, 211, 153, .28);
-    }
-
-    .np .btn-decline {
-        color: var(--red);
-        background: rgba(251, 113, 133, .08);
-        border-color: rgba(251, 113, 133, .28);
-    }
-
-    /* Post preview */
-
-    .np .post-preview {
-        display: block;
-        margin-top: 12px;
-        max-width: 220px;
-    }
-
-    .np .post-preview img {
-        display: block;
-        width: 100%;
-        max-height: 220px;
-        object-fit: cover;
-        border-radius: 12px;
-        border: 1px solid var(--line);
-    }
-
-    .np .post-link {
-        display: inline-block;
-        margin-top: 8px;
-        color: var(--purple);
-        font-size: 12px;
-        text-decoration: none;
-    }
-
-    .np .post-link:hover {
-        text-decoration: underline;
-    }
-
-    /* Empty state */
-
-    .np .empty {
-        text-align: center;
-        padding: 34px 20px;
-        color: var(--muted);
-        line-height: 1.7;
-        font-size: 13px;
-    }
-
-    .np .empty .ico-big {
-        display: block;
-        font-size: 26px;
-        margin-bottom: 8px;
-    }
-
-    @media (max-width: 520px) {
-        .np h1 {
-            font-size: 23px;
-        }
-
-        .np .note {
-            padding: 15px 12px;
-            gap: 10px;
-        }
-
-        .np .icon {
-            width: 34px;
-            height: 34px;
-            font-size: 14px;
-        }
-
-        .np .btn {
-            padding: 8px 11px;
-        }
-    }
+@media (max-width: 560px) {
+    .nt h1 { font-size: 23px; }
+    .nt .note { padding: 15px 12px; gap: 10px; }
+    .nt .avatar { width: 36px; height: 36px; font-size: 14px; }
+    .nt .face-box { flex-direction: column; }
+    .nt .post-preview { width: 100%; }
+    .nt .post-preview img { height: 180px; }
+}
 </style>
 {% endblock %}
 
 
 {% block content %}
-<div class="np">
+<div class="nt">
 
     <h1>Notifications</h1>
-
-    <p class="sub">
-        Face detection requests, follow requests and updates on your reports.
-    </p>
-
-
-    <!-- Django messages -->
+    <p class="sub">Requests that need your answer, and updates on the reports you sent.</p>
 
     {% for message in messages %}
-        <div class="message
-            {% if message.tags %}
-                {{ message.tags }}
-            {% endif %}">
-            {{ message }}
-        </div>
+        <div class="message {{ message.tags }}" role="status">{{ message }}</div>
     {% endfor %}
 
-
-    <!-- ================================================== -->
-    <!-- FACE DETECTION NOTIFICATIONS                       -->
-    <!-- ================================================== -->
-
-    <div class="section-title">
-        Face Detection Requests
-
-        {% if pending_face_count %}
-            <span class="count">{{ pending_face_count }}</span>
-        {% endif %}
-    </div>
-
-    <section class="list">
-
-        {% for n in notifications %}
-
-            <article class="note {% if not n.is_read %}unread{% endif %}">
-
-                <div class="icon">📸</div>
-
-                <div class="body">
-
-                    <div class="title">
-
-                        <a href="/myapp/profile/{{ n.sender.id }}/">
-                            {{ n.sender.name }}
-                        </a>
-
-                        uploaded a post containing your face.
-
-                        {% if n.status == 'pending' %}
-                            <span class="tag pending">Pending</span>
-
-                        {% elif n.status == 'accepted' %}
-                            <span class="tag accepted">Accepted</span>
-
-                        {% elif n.status == 'rejected' %}
-                            <span class="tag rejected">Rejected</span>
-                        {% endif %}
-
-                    </div>
-
-                    <div class="detail">
-                        {{ n.message }}
-                    </div>
-
-
-                    <!-- Blurred post image -->
-
-                    {% if n.post.masked_photo %}
-
-                        <a href="{{ n.post.masked_photo.url }}"
-                           class="post-preview"
-                           target="_blank"
-                           rel="noopener noreferrer">
-
-                            <img src="{{ n.post.masked_photo.url }}"
-                                 alt="Blurred post image"
-                                 loading="lazy">
-
-                        </a>
-
-                        <a href="{{ n.post.masked_photo.url }}"
-                           class="post-link"
-                           target="_blank"
-                           rel="noopener noreferrer">
-                            View post image
-                        </a>
-
-                    {% endif %}
-
-
-                    <!-- Accept / Reject -->
-
-                   {% if n.status == 'pending' %}
-
-    <div class="row-actions">
-
-        <form method="POST"
-              action="{% url 'respond_to_notification' n.id %}">
-            {% csrf_token %}
-            <button type="submit"
-                    name="action"
-                    value="accept"
-                    class="btn btn-accept">
-                ✓ Accept
-            </button>
-        </form>
-
-        <form method="POST"
-              action="{% url 'respond_to_notification' n.id %}">
-            {% csrf_token %}
-            <button type="submit"
-                    name="action"
-                    value="reject"
-                    class="btn btn-decline">
-                ✕ Reject
-            </button>
-        </form>
-
-        <form method="POST"
-              action="{% url 'delete_face_notification' n.id %}"
-              onsubmit="return confirm('Are you sure you want to delete this request?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-decline">
-                🗑 Delete
-            </button>
-        </form>
-
-    </div>
-
-{% elif n.status == 'accepted' %}
-
-    <div class="detail">
-        ✓ You accepted this request.
-    </div>
-
-    <div class="row-actions">
-        <form method="POST"
-              action="/myapp/delete_face_notification/{{n.id}}"
-              onsubmit="return confirm('Are you sure you want to delete this request?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-decline">
-                🗑 Delete
-            </button>
-        </form>
-    </div>
-
-{% elif n.status == 'rejected' %}
-
-    <div class="detail">
-        ✕ You rejected this request.
-    </div>
-
-    <div class="row-actions">
-        <form method="POST"
-              action="/myapp/delete_face_notification/{{n.id}}"
-              onsubmit="return confirm('Are you sure you want to delete this request?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-decline">
-                🗑 Delete
-            </button>
-        </form>
-    </div>
-
-{% endif %}
-                </div>
-
-            </article>
-
-        {% empty %}
-
-            <div class="empty">
-                <span class="ico-big">📸</span>
-                No face detection notifications yet.
+    <!-- What needs me right now -->
+    {% if action_needed %}
+        <div class="banner">
+            <div class="banner-num">{{ action_needed }}</div>
+            <div>
+                <strong>{{ action_needed }} request{{ action_needed|pluralize }} waiting for you</strong>
+                <span>Answer the highlighted items below.</span>
             </div>
-
-        {% endfor %}
-
-    </section>
-
-
-    <!-- ================================================== -->
-    <!-- FOLLOW REQUESTS                                    -->
-    <!-- ================================================== -->
-
-    <div class="section-title">
-
-        Follow Requests
-
-        {% if follow_requests %}
-            <span class="count">{{ follow_requests|length }}</span>
-        {% endif %}
-
-    </div>
-
-    <section class="list">
-
-        {% for f in follow_requests %}
-
-            <article class="note">
-
-                <div class="icon">👤</div>
-
-                <div class="body">
-
-                    <div class="title">
-
-                        <a href="/myapp/profile/{{ f.FOLLOWER.id }}/">
-                            {{ f.FOLLOWER.name }}
-                        </a>
-
-                        wants to follow you.
-
-                    </div>
-
-                    <div class="row-actions">
-
-                        <form method="POST"
-                              action="{% url 'accept_follow_request' f.id %}">
-
-                            {% csrf_token %}
-
-                            <button type="submit"
-                                    class="btn btn-accept">
-                                ✓ Accept
-                            </button>
-
-                        </form>
-
-
-                        <form method="POST"
-                              action="{% url 'decline_follow_request' f.id %}">
-
-                            {% csrf_token %}
-
-                            <button type="submit"
-                                    class="btn btn-decline">
-                                ✕ Decline
-                            </button>
-
-                        </form>
-
-                    </div>
-
-                </div>
-
-            </article>
-
-        {% empty %}
-
-            <div class="empty">
-                <span class="ico-big">🔔</span>
-                No pending follow requests.
+        </div>
+    {% else %}
+        <div class="banner clear">
+            <div class="banner-num">✓</div>
+            <div>
+                <strong>You're all caught up</strong>
+                <span>Nothing needs your answer right now.</span>
             </div>
+        </div>
+    {% endif %}
 
-        {% endfor %}
-
-    </section>
-
-
-    <!-- ================================================== -->
-    <!-- REPORT UPDATES                                     -->
-    <!-- ================================================== -->
-
-    <div class="section-title">
-        Your Reports
+    <div class="tabs" role="tablist" aria-label="Notification types">
+        <button type="button" class="tab" role="tab" data-tab="all" aria-selected="true">All</button>
+        <button type="button" class="tab" role="tab" data-tab="face" aria-selected="false">
+            Face requests {% if pending_face_count %}<span class="tab-n hot">{{ pending_face_count }}</span>{% endif %}
+        </button>
+        <button type="button" class="tab" role="tab" data-tab="follow" aria-selected="false">
+            Follow requests {% if follow_requests %}<span class="tab-n hot">{{ follow_requests|length }}</span>{% endif %}
+        </button>
+        <button type="button" class="tab" role="tab" data-tab="reports" aria-selected="false">
+            My reports {% if my_reports %}<span class="tab-n">{{ my_reports|length }}</span>{% endif %}
+        </button>
     </div>
 
-    <section class="list">
 
-        {% for r in my_reports %}
+    <!-- ============================================ -->
+    <!-- FACE REQUESTS                                -->
+    <!-- ============================================ -->
+    <div data-section="face">
+        <div class="section-title">
+            Face requests
+            {% if pending_face_count %}<span class="count">{{ pending_face_count }}</span>{% endif %}
+        </div>
+        <p class="section-help">
+            Someone posted a photo that may contain your face. Until you answer, your face stays blurred.
+        </p>
 
-            <article class="note">
-
-                <div class="icon">🚩</div>
-
-                <div class="body">
-
-                    <div class="title">
-
-                        Report #{{ r.id }}
-
-                        {% if r.status == 'pending' %}
-
-                            <span class="tag pending">Pending</span>
-
-                        {% elif r.status == 'resolved' %}
-
-                            <span class="tag resolved">Resolved</span>
-
-                        {% elif r.status == 'dismissed' %}
-
-                            <span class="tag dismissed">Dismissed</span>
-
+        <section class="list">
+            {% for n in notifications %}
+                <article class="note {% if n.status == 'pending' %}action{% elif n.id in unread_ids %}unread{% endif %}">
+                    <div class="avatar">
+                        {% if n.sender.profile_image %}
+                            <img src="{{ n.sender.profile_image.url }}" alt="" loading="lazy">
                         {% else %}
-
-                            <span class="tag">
-                                {{ r.status|title }}
-                            </span>
-
+                            {{ n.sender.username|slice:":1"|upper }}
                         {% endif %}
-
                     </div>
 
+                    <div class="body">
+                        <div class="title">
+                            <a href="{% url 'view_profile' n.sender.id %}">{{ n.sender.name }}</a>
+                            posted a photo that may show your face.
+                            {% if n.status == 'pending' %}<span class="tag pending">Needs your answer</span>
+                            {% elif n.status == 'accepted' %}<span class="tag accepted">Accepted</span>
+                            {% elif n.status == 'rejected' %}<span class="tag rejected">Rejected</span>{% endif %}
+                            <span class="time">{{ n.created_at|timesince }} ago</span>
+                        </div>
 
-                    <div class="detail">
+                        {% if n.post.masked_photo %}
+                            <div class="face-box">
+                                <a href="{{ n.post.masked_photo.url }}" class="post-preview" target="_blank" rel="noopener noreferrer">
+                                    <img src="{{ n.post.masked_photo.url }}" alt="Post with faces blurred" loading="lazy">
+                                </a>
 
-                        {% if r.status == 'pending' %}
-
-                            An admin will review it soon.
-
-                        {% elif r.status == 'resolved' %}
-
-                            An admin reviewed it and took action.
-
-                        {% elif r.status == 'dismissed' %}
-
-                            An admin reviewed it and found no violation.
-
+                                <div class="choice">
+                                    {% if n.status == 'pending' %}
+                                        <p><b>Accept</b>: your face becomes visible in this post.</p>
+                                        <p><b class="no">Reject</b>: your face stays blurred.</p>
+                                        <div class="row-actions" style="margin-top:4px">
+                                            <form method="POST" action="{% url 'respond_to_notification' n.id %}">
+                                                {% csrf_token %}
+                                                <button type="submit" name="action" value="accept" class="btn btn-accept">✓ Accept</button>
+                                            </form>
+                                            <form method="POST" action="{% url 'respond_to_notification' n.id %}">
+                                                {% csrf_token %}
+                                                <button type="submit" name="action" value="reject" class="btn btn-decline">✕ Reject</button>
+                                            </form>
+                                        </div>
+                                    {% elif n.status == 'accepted' %}
+                                        <p>You accepted. Your face can appear in this post.</p>
+                                    {% else %}
+                                        <p>You rejected. Your face stays blurred in this post.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
                         {% endif %}
 
+                        {% if n.status != 'pending' %}
+                            <div class="row-actions">
+                                <form method="POST" action="{% url 'delete_face_notification' n.id %}"
+                                      onsubmit="return confirm('Remove this notification? Your choice for the post stays in effect.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-quiet">Remove</button>
+                                </form>
+                            </div>
+                        {% endif %}
                     </div>
+                </article>
+            {% empty %}
+                <div class="empty"><span class="ico-big">📸</span>No face requests.</div>
+            {% endfor %}
+        </section>
+    </div>
 
 
-                    {% if r.reports %}
+    <!-- ============================================ -->
+    <!-- FOLLOW REQUESTS                              -->
+    <!-- ============================================ -->
+    <div data-section="follow">
+        <div class="section-title">
+            Follow requests
+            {% if follow_requests %}<span class="count">{{ follow_requests|length }}</span>{% endif %}
+        </div>
+        <p class="section-help">Accepted followers can see you in their following list.</p>
 
-                        <div class="detail">
-                            Your reason: {{ r.reports }}
+        <section class="list">
+            {% for f in follow_requests %}
+                <article class="note action">
+                    <div class="avatar">
+                        {% if f.FOLLOWER.profile_image %}
+                            <img src="{{ f.FOLLOWER.profile_image.url }}" alt="" loading="lazy">
+                        {% else %}
+                            {{ f.FOLLOWER.username|slice:":1"|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="body">
+                        <div class="title">
+                            <a href="{% url 'view_profile' f.FOLLOWER.id %}">{{ f.FOLLOWER.name }}</a>
+                            wants to follow you.
+                            <span class="time">@{{ f.FOLLOWER.username }}</span>
                         </div>
                         <div class="row-actions">
-        <form method="POST"
-              action="/myapp/delete_report_notification/{{r.id}}/"
-              onsubmit="return confirm('Are you sure you want to delete this request?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-decline">
-                🗑 Delete
-            </button>
-        </form>
+                            <form method="POST" action="{% url 'accept_follow_request' f.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-accept">✓ Accept</button>
+                            </form>
+                            <form method="POST" action="{% url 'decline_follow_request' f.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-decline">✕ Decline</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty"><span class="ico-big">👤</span>No pending follow requests.</div>
+            {% endfor %}
+        </section>
     </div>
 
-                    {% endif %}
 
-                </div>
+    <!-- ============================================ -->
+    <!-- MY REPORTS                                   -->
+    <!-- ============================================ -->
+    <div data-section="reports">
+        <div class="section-title">My reports</div>
+        <p class="section-help">Accounts you reported, and what the admin decided.</p>
 
-            </article>
+        <section class="list">
+            {% for r in my_reports %}
+                <article class="note">
+                    <div class="avatar">
+                        {% if r.VICTIM.profile_image %}
+                            <img src="{{ r.VICTIM.profile_image.url }}" alt="" loading="lazy">
+                        {% else %}
+                            🚩
+                        {% endif %}
+                    </div>
+                    <div class="body">
+                        <div class="title">
+                            You reported
+                            <a href="{% url 'view_profile' r.VICTIM.id %}">{{ r.VICTIM.name }}</a>
+                            <span class="tag {{ r.status }}">{{ r.get_status_display }}</span>
+                            <span class="time">{{ r.date|date:"d M Y, H:i" }}</span>
+                        </div>
 
-        {% empty %}
+                        <div class="detail">
+                            {% if r.status == 'pending' %}Waiting for an admin to look at it.
+                            {% elif r.status == 'inreview' %}An admin is reviewing it now.
+                            {% elif r.status == 'resolved' %}An admin reviewed it and took action.
+                            {% elif r.status == 'dismissed' %}An admin reviewed it and found no violation.
+                            {% endif %}
+                        </div>
 
-            <div class="empty">
-                <span class="ico-big">🚩</span>
-                You haven't submitted any reports.
-            </div>
+                        {% if r.reports %}
+                            <div class="detail">Your reason: <b>{{ r.reports }}</b></div>
+                        {% endif %}
 
-        {% endfor %}
-
-    </section>
+                        {% if r.status == 'resolved' or r.status == 'dismissed' %}
+                            <div class="row-actions">
+                                <form method="POST" action="{% url 'delete_report_notification' r.id %}"
+                                      onsubmit="return confirm('Remove this report from your list?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-quiet">Remove</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty"><span class="ico-big">🚩</span>You haven't reported anyone.</div>
+            {% endfor %}
+        </section>
+    </div>
 
 </div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+    const tabs = document.querySelectorAll('.nt .tab');
+    const sections = document.querySelectorAll('.nt [data-section]');
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            const key = tab.dataset.tab;
+            tabs.forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
+            sections.forEach(s => { s.hidden = key !== 'all' && s.dataset.section !== key; });
+        });
+    });
+})();
+</script>
 {% endblock %}

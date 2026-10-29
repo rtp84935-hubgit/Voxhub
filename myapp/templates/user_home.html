@@ -7,180 +7,304 @@
 
 {% block extra_head %}
 <style>
-/* avatars */
-.av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 auto;overflow:hidden;background:linear-gradient(135deg,#7c6cff,#22d3ee)}
-.av img{width:100%;height:100%;object-fit:cover;display:block}
+/* ---------- avatars ---------- */
+.hv-av {
+    display: grid; place-items: center; flex: 0 0 auto; overflow: hidden;
+    border-radius: 50%; color: #fff; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.hv-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-/* posts */
-.feed{max-width:480px;margin:auto}
-.post{background:var(--surface);border:1px solid var(--line);border-radius:18px;margin-bottom:22px;overflow:hidden}
-.ph{display:flex;align-items:center;gap:12px;padding:12px 14px}
-.ph .av{width:38px;height:38px;font-size:14px}
-.ph b{display:block;line-height:1.2;font-size:14px}
-.del-post{margin-left:auto;font-size:18px;padding:6px 9px;border-radius:10px;line-height:1;opacity:.7;transition:background .15s,opacity .15s}
-.del-post:hover{background:rgba(244,114,182,.15);opacity:1}
-.media{position:relative;aspect-ratio:1/1;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;user-select:none}
-.media img,.media video{width:100%;height:100%;object-fit:cover;display:block}
-.pop{position:absolute;font-size:90px;pointer-events:none;opacity:0;transform:scale(.4);filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
-.pop.go{animation:pop .7s ease-out}
-@keyframes pop{20%{opacity:1;transform:scale(1.1)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
-.pa{display:flex;align-items:center;gap:4px;padding:8px 10px 0}
-.pa button{font-size:23px;padding:6px 9px;border-radius:10px;line-height:1;transition:transform .12s,background .15s}
-.pa button:hover{background:var(--surface-2)}
-.pa .like.on{color:var(--pink);transform:scale(1.08)}
-.pa .save{margin-left:auto}.pa .save.on{color:var(--accent-2)}
-.pb{padding:4px 16px 14px;font-size:14px}
-.pb .likes{font-weight:800;margin-bottom:4px}
-.pb .cap b{margin-right:6px}
-.vc{color:var(--muted);font-size:13px;margin-top:6px;padding:0}
-.vc:hover{color:var(--text)}
-.cmts{margin-top:8px}
-.cf{display:flex;gap:10px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
-.cf input{flex:1;background:none;border:0;font-size:14px}
-.cf input:focus{outline:none}.cf input::placeholder{color:#5d6590}
-.cf button{color:var(--accent);font-weight:800;font-size:14px;opacity:.5}
-.cf input:not(:placeholder-shown)+button{opacity:1}
-.no-posts{text-align:center;color:var(--muted)}
+/* ---------- Django messages ---------- */
+.hv-flash {
+    margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6;
+    border: 1px solid rgba(52,211,153,.35); background: rgba(52,211,153,.1); color: var(--ok);
+}
+.hv-flash.error   { border-color: rgba(251,113,133,.4); background: rgba(251,113,133,.1); color: #fb7185; }
+.hv-flash.warning { border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.1); color: #f59e0b; }
 
-/* comments */
-.comment-item{display:flex;align-items:flex-start;gap:6px;margin:0 0 6px;overflow-wrap:anywhere}
-.comment-item b{flex-shrink:0}
-.comment-item .ctext{flex:1;min-width:0}
-.delete-comment{margin-left:auto;padding:2px 5px;border-radius:6px;font-size:13px;opacity:.65;flex-shrink:0}
-.delete-comment:hover{opacity:1;background:rgba(244,114,182,.15)}
+/* ---------- feed ---------- */
+.hv-feed { max-width: 500px; margin: 0 auto; }
 
-/* django messages */
-.comment-message{padding:10px 12px;margin-bottom:10px;border-radius:8px;font-size:13px}
-.comment-message.warning{background:#fff3cd;color:#856404;border:1px solid #ffe69c}
-.comment-message.error{background:#f8d7da;color:#842029;border:1px solid #f5c2c7}
-.comment-message.success{background:#d1e7dd;color:#0f5132;border:1px solid #a3cfbb}
+.hv-post {
+    margin-bottom: 20px; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 20px; background: var(--surface);
+}
 
-/* right column */
-.row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.row .av{width:42px;height:42px;font-size:14px}
-.row b{display:block;font-size:14px;line-height:1.2}
-.row span{font-size:12px;color:var(--muted)}
-.right h4{margin:22px 0 14px;font-size:14px;color:var(--muted)}
-.suggestion{display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:10px;border:1px solid rgba(124,108,255,.12);border-radius:16px;background:linear-gradient(135deg,rgba(124,108,255,.07),rgba(34,211,238,.025));transition:.25s ease}
-.suggestion:hover{background:rgba(124,108,255,.12);border-color:rgba(124,108,255,.4);transform:translateY(-2px)}
-.suggestion .av{width:46px;height:46px;font-size:17px}
-.s-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
-.s-info b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.s-info span{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.s-link{padding:8px 13px;border-radius:9px;background:linear-gradient(135deg,#7c6cff,#6554e8);color:#fff;font-size:11px;font-weight:750;white-space:nowrap;transition:.2s ease}
-.s-link:hover{transform:scale(1.05)}
-.no-sugg{color:var(--muted);font-size:13px}
+.hv-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.hv-head .hv-av { width: 40px; height: 40px; font-size: 14px; }
+.hv-who { min-width: 0; line-height: 1.25; }
+.hv-who a { font-size: 14px; font-weight: 800; }
+.hv-who a:hover { color: var(--accent); }
+.hv-who time { display: block; color: var(--muted); font-size: 11px; }
 
-/* create-post modal */
-.modal{position:fixed;inset:0;z-index:50;background:rgba(5,7,15,.75);backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}
-.mbox{width:460px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
-.mbox h3{margin:0 0 14px;text-align:center}
-.drop{display:grid;place-items:center;aspect-ratio:4/3;border:2px dashed var(--line);border-radius:14px;background:var(--surface-2);color:var(--muted);text-align:center;cursor:pointer;overflow:hidden;font-weight:600}
-.drop:hover{border-color:var(--accent)}
-.drop img,.drop video{width:100%;height:100%;object-fit:cover}
-.drop big{display:block;font-size:40px}
-.mbox textarea{width:100%;margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);resize:none;font-size:14px}
-.mbox textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
-.mact{display:flex;gap:10px;margin-top:14px}
-.mact button{flex:1;padding:12px;border-radius:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-2)}
-.mact .go{border:0;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2));color:#fff}
-.mact .go:disabled{opacity:.45;cursor:not-allowed}
+.hv-icon-btn {
+    width: 38px; height: 38px; display: grid; place-items: center; flex-shrink: 0;
+    border-radius: 11px; color: var(--muted); transition: background .15s, color .15s, transform .12s;
+}
+.hv-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.hv-icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.hv-del { margin-left: auto; }
+.hv-del:hover { color: #fb7185; background: rgba(251,113,133,.12); }
+
+.hv-media {
+    position: relative; display: grid; place-items: center; overflow: hidden;
+    aspect-ratio: 1 / 1; background: var(--surface-2); user-select: none;
+}
+.hv-media img, .hv-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hv-pop {
+    position: absolute; width: 96px; height: 96px; color: #fff; pointer-events: none;
+    opacity: 0; transform: scale(.4); filter: drop-shadow(0 6px 16px rgba(0,0,0,.5));
+}
+.hv-pop svg { width: 100%; height: 100%; fill: var(--pink); stroke: var(--pink); }
+.hv-pop.go { animation: hvpop .7s ease-out; }
+@keyframes hvpop { 20% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
+
+.hv-actions { display: flex; align-items: center; gap: 2px; padding: 8px 8px 0; }
+.hv-like.on { color: var(--pink); }
+.hv-like.on svg { fill: currentColor; }
+.hv-save { margin-left: auto; }
+.hv-save.on { color: var(--accent-2); }
+.hv-save.on svg { fill: currentColor; }
+
+.hv-body { padding: 4px 16px 14px; font-size: 14px; }
+.hv-likes { margin-bottom: 4px; font-weight: 800; }
+.hv-cap { line-height: 1.55; overflow-wrap: anywhere; }
+.hv-cap b { margin-right: 6px; }
+
+.hv-vc { margin-top: 6px; padding: 0; color: var(--muted); font-size: 13px; }
+.hv-vc:hover { color: var(--text); }
+.hv-cmts { margin-top: 8px; }
+.hv-c { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; line-height: 1.5; overflow-wrap: anywhere; }
+.hv-c b { flex-shrink: 0; }
+.hv-c .t { flex: 1; min-width: 0; }
+.hv-c .x { flex-shrink: 0; padding: 1px 6px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.hv-c .x:hover { color: #fb7185; background: rgba(251,113,133,.12); }
+
+.hv-cf { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.hv-cf input { flex: 1; border: 0; background: none; font-size: 14px; }
+.hv-cf input:focus { outline: none; }
+.hv-cf button { color: var(--accent); font-size: 14px; font-weight: 800; opacity: .45; }
+.hv-cf input:not(:placeholder-shown) + button { opacity: 1; }
+.hv-cf button:disabled { cursor: default; }
+
+/* empty + load more */
+.hv-empty {
+    padding: 44px 24px; border: 1px dashed var(--line); border-radius: 20px;
+    color: var(--muted); text-align: center; line-height: 1.7;
+}
+.hv-empty strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 16px; }
+.hv-more { display: block; margin: 4px auto 0; padding: 11px 26px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-weight: 700; }
+.hv-more:hover { border-color: var(--accent); }
+.hv-more:disabled { opacity: .5; cursor: default; }
+
+.hv-btn-primary {
+    margin-top: 14px; padding: 11px 22px; border-radius: 12px; color: #fff; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), #4f8dff 60%, var(--accent-2));
+}
+
+/* ---------- right column ---------- */
+.hv-me { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.hv-me .hv-av { width: 46px; height: 46px; font-size: 16px; }
+.hv-me b { display: block; font-size: 14px; line-height: 1.25; }
+.hv-me span { color: var(--muted); font-size: 12px; }
+.right h4 { margin: 24px 0 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+
+.hv-sug {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+    transition: border-color .2s, transform .2s;
+}
+.hv-sug:hover { border-color: var(--accent-border); transform: translateY(-1px); }
+.hv-sug .hv-av { width: 42px; height: 42px; font-size: 15px; }
+.hv-sug-info { flex: 1; min-width: 0; line-height: 1.3; }
+.hv-sug-info b { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.hv-sug-info span { color: var(--muted); font-size: 11px; }
+.hv-sug-link { padding: 7px 13px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 800; }
+.hv-sug-link:hover { background: var(--accent); color: #fff; }
+.hv-no-sug { color: var(--muted); font-size: 13px; }
+
+/* ---------- create-post modal ---------- */
+.hv-modal {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+    background: rgba(5,7,15,.75); backdrop-filter: blur(4px);
+}
+.hv-modal[hidden] { display: none; }
+.hv-box {
+    width: 460px; max-width: 100%; padding: 22px;
+    border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 30px 80px rgba(0,0,0,.5);
+}
+.hv-box h3 { margin: 0 0 14px; text-align: center; }
+.hv-drop {
+    display: grid; place-items: center; overflow: hidden; aspect-ratio: 4 / 3; cursor: pointer;
+    border: 2px dashed var(--line); border-radius: 16px; background: var(--surface-2);
+    color: var(--muted); font-weight: 600; text-align: center; line-height: 1.6;
+}
+.hv-drop:hover, .hv-drop:focus-within { border-color: var(--accent); }
+.hv-drop img, .hv-drop video { width: 100%; height: 100%; object-fit: cover; }
+.hv-drop svg { display: block; width: 38px; height: 38px; margin: 0 auto 8px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.hv-drop small { display: block; font-weight: 500; opacity: .8; }
+
+.hv-box textarea {
+    width: 100%; margin-top: 14px; padding: 12px 14px; resize: none;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 14px;
+}
+.hv-box textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.hv-capcount { margin-top: 4px; color: var(--muted); font-size: 11px; text-align: right; }
+.hv-note {
+    margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft);
+    color: var(--muted); font-size: 12px; line-height: 1.6;
+}
+.hv-mact { display: flex; gap: 10px; margin-top: 14px; }
+.hv-mact button { flex: 1; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-weight: 800; }
+.hv-mact .go { border: 0; color: #fff; background: linear-gradient(135deg, var(--accent), #4f8dff 60%, var(--accent-2)); }
+.hv-mact button:disabled { opacity: .45; cursor: not-allowed; }
 </style>
 {% endblock %}
 
 
 {% block content %}
-<section id="homeView">
-  <div class="feed" id="feed">
 
-    {% if messages %}
-      {% for message in messages %}
-        <div class="comment-message {{ message.tags }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
+<!-- Icons used on this page (the common ones come from the base template) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="h-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+  <symbol id="h-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+  <symbol id="h-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="h-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+  <symbol id="h-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+</svg>
+
+<section id="homeView">
+  <div class="hv-feed" id="hvFeed">
+
+    {% for message in messages %}
+      <div class="hv-flash {{ message.tags }}" role="status">{{ message }}</div>
+    {% endfor %}
 
     {% for p in posts %}
-    <article class="post" id="post-{{ p.id }}" data-id="{{ p.id }}">
-      <div class="ph">
-        <div class="av">
-          {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="{{ p.USER.name }}">{% else %}{{ p.USER.username|first|upper }}{% endif %}
+    {% with mine=p.USER.LOGIN_id %}
+    <article class="hv-post" id="post-{{ p.id }}" data-id="{{ p.id }}">
+
+      <div class="hv-head">
+        <a class="hv-av" href="{% url 'view_profile' p.USER.id %}" aria-label="{{ p.USER.username }}">
+          {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="" loading="lazy">{% else %}{{ p.USER.username|first|upper }}{% endif %}
+        </a>
+        <div class="hv-who">
+          <a href="{% url 'view_profile' p.USER.id %}">{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</a>
+          <time datetime="{{ p.date|date:'c' }}">{{ p.date|timesince }} ago</time>
         </div>
-        <div><a href="/myapp/profile/{{ p.USER.id }}/"><b>{% if sidebar_user and p.USER.id == sidebar_user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b></a></div>
-        {% if sidebar_user and p.USER.id == sidebar_user.id %}
-        <button class="del-post" type="button" aria-label="Delete post" title="Delete post">🗑</button>
+        {% if mine == request.user.id %}
+        <button class="hv-icon-btn hv-del" type="button" aria-label="Delete post" title="Delete post">
+          <svg><use href="#h-trash"/></svg>
+        </button>
         {% endif %}
       </div>
 
-      <div class="media">
+      <div class="hv-media">
         {% if p.is_video %}
-          <video src="{{ p.photo.url }}" controls playsinline></video>
+          <video src="{{ p.photo.url }}" controls playsinline preload="metadata"></video>
         {% else %}
-          <img src="{{ p.display_photo.url }}" alt="Post photo">
+          <img src="{{ p.display_photo.url }}" alt="Photo by {{ p.USER.username }}" loading="lazy">
         {% endif %}
-        <span class="pop">♥</span>
+        <span class="hv-pop"><svg><use href="#h-heart"/></svg></span>
       </div>
 
-      <div class="pa">
-        <button class="like{% if p.liked %} on{% endif %}" aria-label="Like">{% if p.liked %}♥{% else %}♡{% endif %}</button>
-        <button class="cbtn" aria-label="Comment">💬</button>
-        <button class="share" aria-label="Share">➤</button>
-        <button class="save{% if p.id in saved_ids %} on{% endif %}" aria-label="Save">🔖</button>
+      <div class="hv-actions">
+        <button class="hv-icon-btn hv-like{% if p.liked %} on{% endif %}" type="button" aria-label="Like" aria-pressed="{% if p.liked %}true{% else %}false{% endif %}">
+          <svg><use href="#h-heart"/></svg>
+        </button>
+        <button class="hv-icon-btn hv-cbtn" type="button" aria-label="Comment"><svg><use href="#i-chat"/></svg></button>
+        <button class="hv-icon-btn hv-share" type="button" aria-label="Copy link"><svg><use href="#h-send"/></svg></button>
+        <button class="hv-icon-btn hv-save{% if p.saved %} on{% endif %}" type="button" aria-label="Save" aria-pressed="{% if p.saved %}true{% else %}false{% endif %}">
+          <svg><use href="#h-bookmark"/></svg>
+        </button>
       </div>
 
-      <div class="pb">
-        <div class="likes">{{ p.like_count }} likes</div>
-        <div class="cap"><b>{% if sidebar_user and p.USER.id == sidebar_user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b>{{ p.caption }}</div>
+      <div class="hv-body">
+        <div class="hv-likes">{{ p.like_count }} like{{ p.like_count|pluralize }}</div>
+        {% if p.caption %}<div class="hv-cap"><b>{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b>{{ p.caption }}</div>{% endif %}
 
         {% with cs=p.comments_set.all %}
-        <button class="vc">View all {{ cs|length }} comments</button>
-        <div class="cmts hide">
+        <button class="hv-vc" type="button" {% if not cs %}hidden{% endif %}>View all {{ cs|length }} comment{{ cs|length|pluralize }}</button>
+        <div class="hv-cmts" hidden>
           {% for c in cs %}
-          <div class="comment-item" data-comment-id="{{ c.id }}">
-            <b>{% if sidebar_user and c.USER.id == sidebar_user.id %}You{% else %}{{ c.USER.username }}{% endif %}</b>
-            <span class="ctext">{{ c.comment }}</span>
-            {% if sidebar_user and c.USER.id == sidebar_user.id %}
-            <button type="button" class="delete-comment" title="Delete comment" aria-label="Delete comment">🗑</button>
+          <div class="hv-c" data-comment-id="{{ c.id }}">
+            <b>{% if c.USER.LOGIN_id == request.user.id %}You{% else %}{{ c.USER.username }}{% endif %}</b>
+            <span class="t">{{ c.comment }}</span>
+            {% if c.USER.LOGIN_id == request.user.id %}
+            <button type="button" class="x" title="Delete comment" aria-label="Delete comment">✕</button>
             {% endif %}
           </div>
           {% endfor %}
         </div>
         {% endwith %}
 
-        <form class="cf" action="{% url 'add_comment' %}" method="post">
+        <form class="hv-cf" action="{% url 'add_comment' %}" method="post">
           {% csrf_token %}
           <input type="hidden" name="postid" value="{{ p.id }}">
-          <input type="text" name="comment" maxlength="100" placeholder="Add a comment..." autocomplete="off" required>
+          <input type="text" name="comment" maxlength="100" placeholder="Add a comment..." autocomplete="off" aria-label="Add a comment" required>
           <button type="submit">Post</button>
         </form>
       </div>
     </article>
+    {% endwith %}
     {% empty %}
-    <p class="no-posts" id="noPosts">No posts yet</p>
+    <div class="hv-empty" id="hvEmpty">
+      <strong>No posts yet</strong>
+      Share the first photo or video.
+      <br><button type="button" class="hv-btn-primary js-create">Create a post</button>
+    </div>
     {% endfor %}
+
+    {% if page_obj.has_next %}
+      <button type="button" class="hv-more" id="hvMore" data-next="{{ page_obj.next_page_number }}">Load more</button>
+    {% endif %}
 
   </div>
 </section>
 
-<div class="modal hide" id="modal"><div class="mbox">
-  <h3>Create new post</h3>
-  <label class="drop" id="drop"><span id="dropTxt"><big>📷</big>Choose a photo or video</span><input type="file" id="file" name="photo" accept="image/*,video/*" hidden></label>
-  <textarea id="capIn" name="caption" rows="3" placeholder="Write a caption..."></textarea>
-  <div class="mact"><button type="button" id="cancel">Cancel</button><button type="button" class="go" id="share" disabled>Share</button></div>
-</div></div>
+<!-- Create post -->
+<div class="hv-modal" id="hvModal" role="dialog" aria-modal="true" aria-labelledby="hvModalTitle" hidden>
+  <div class="hv-box">
+    <h3 id="hvModalTitle">Create new post</h3>
+
+    <label class="hv-drop" id="hvDrop">
+      <span id="hvDropTxt">
+        <svg><use href="#h-image"/></svg>
+        Choose a photo or video
+        <small>Photos up to 10 MB, videos up to 50 MB</small>
+      </span>
+      <input type="file" id="hvFile" accept="image/*,video/*" hidden>
+    </label>
+
+    <textarea id="hvCap" rows="3" maxlength="100" placeholder="Write a caption..."></textarea>
+    <div class="hv-capcount"><span id="hvCapN">0</span>/100</div>
+
+    <p class="hv-note">
+      Photos are checked for faces. If someone registered on VoxHub appears in your photo,
+      they get a request, and their face stays blurred until they accept.
+    </p>
+
+    <div class="hv-mact">
+      <button type="button" id="hvCancel">Cancel</button>
+      <button type="button" class="go" id="hvShare" disabled>Share</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 
 {% block right_col %}
 <aside class="right">
 
-  {% if sidebar_user %}
-  <div class="row">
-    <div class="av">
-      {% if sidebar_user.profile_image %}<img src="{{ sidebar_user.profile_image.url }}" alt="{{ sidebar_user.name }}">{% else %}{{ sidebar_user.username|first|upper }}{% endif %}
-    </div>
+  {% if nav_me %}
+  <div class="hv-me">
+    <a class="hv-av" href="{% url 'view_profile' nav_me.id %}" style="width:46px;height:46px" aria-label="Your profile">
+      {% if nav_me.profile_image %}<img src="{{ nav_me.profile_image.url }}" alt="">{% else %}{{ nav_me.username|first|upper }}{% endif %}
+    </a>
     <div>
-      <a href="/myapp/profile/{{ sidebar_user.id }}/"><b>{{ sidebar_user.name }}</b></a>
-      <span>{{ sidebar_user.username }}</span>
+      <a href="{% url 'view_profile' nav_me.id %}"><b>{{ nav_me.name }}</b></a>
+      <span>@{{ nav_me.username }}</span>
     </div>
   </div>
   {% endif %}
@@ -188,18 +312,18 @@
   <h4>Suggested for you</h4>
 
   {% for u in suggested_users %}
-  <div class="suggestion">
-    <a class="av" href="{% url 'view_profile' u.id %}">
-      {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="{{ u.username }}">{% else %}{{ u.username|first|upper }}{% endif %}
+  <div class="hv-sug">
+    <a class="hv-av" href="{% url 'view_profile' u.id %}" aria-label="{{ u.username }}">
+      {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="" loading="lazy">{% else %}{{ u.username|first|upper }}{% endif %}
     </a>
-    <div class="s-info">
+    <div class="hv-sug-info">
       <b>{{ u.name }}</b>
       <span>@{{ u.username }}</span>
     </div>
-    <a class="s-link" href="{% url 'view_profile' u.id %}">View</a>
+    <a class="hv-sug-link" href="{% url 'view_profile' u.id %}">View</a>
   </div>
   {% empty %}
-  <p class="no-sugg">No new suggestions available.</p>
+  <p class="hv-no-sug">You're following everyone for now.</p>
   {% endfor %}
 
 </aside>
@@ -208,241 +332,205 @@
 
 {% block extra_js %}
 <script>
-const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+(function () {
+  const CSRF = "{{ csrf_token }}";
+  const URL_LIKE = "{% url 'toggle_like' %}";
+  const URL_SAVE = "{% url 'toggle_save' %}";
+  const URL_DEL_POST = "{% url 'delete_post' %}";
+  const URL_DEL_COMMENT = "{% url 'delete_comment' %}";
+  const URL_CREATE = "{% url 'create_post' %}";
+  const MAX_IMG = 10 * 1024 * 1024, MAX_VID = 50 * 1024 * 1024;
 
-// ---------- helpers for comments ----------
-function commentHTML(id, username, text) {
-  return '<div class="comment-item" data-comment-id="' + id + '">' +
-    '<b>You</b>' +
-    '<span class="ctext">' + esc(text) + '</span>' +
-    '<button type="button" class="delete-comment" title="Delete comment" aria-label="Delete comment">🗑</button>' +
-    '</div>';
-}
+  const feed = $("hvFeed");
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
 
-function updateCommentCount(post) {
-  const n = post.querySelectorAll(".cmts .comment-item").length;
-  post.querySelector(".vc").textContent = "View all " + n + " comments";
-}
-
-function deleteComment(btn, post) {
-  if (!confirm("Delete this comment?")) return;
-  const item = btn.closest(".comment-item");
-  const fd = new FormData();
-  fd.append("comment_id", item.dataset.commentId);
-  btn.disabled = true;
-
-  fetch("/myapp/delete_comment/", {
-    method: "POST", body: fd, credentials: "same-origin",
-    headers: { "X-CSRFToken": "{{ csrf_token }}" }
-  })
-  .then(async r => {
-    let d = {};
-    try { d = await r.json(); } catch (_) {}
-    if (!r.ok || !d.ok) {
-      toast(d.error || "Failed to delete comment");
-      btn.disabled = false;
-      return;
+  // One place for every POST: always returns {ok, data, status}
+  async function send(url, fd) {
+    try {
+      const r = await fetch(url, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRFToken": CSRF } });
+      let d = {};
+      try { d = await r.json(); } catch (_) {}
+      return { ok: r.ok && d.ok, data: d, status: r.status };
+    } catch (_) {
+      return { ok: false, data: { error: "Network error. Please try again." }, status: 0 };
     }
+  }
+  const form = (obj) => { const fd = new FormData(); Object.keys(obj).forEach(k => fd.append(k, obj[k])); return fd; };
+
+  // ---------- likes ----------
+  async function toggleLike(post, onlyLike) {
+    const btn = post.querySelector(".hv-like");
+    if (onlyLike && btn.classList.contains("on")) return;      // double-tap never unlikes
+    const res = await send(URL_LIKE, form({ postid: post.dataset.id }));
+    if (!res.ok) return toast(res.data.error || "Could not like (" + res.status + ")");
+    btn.classList.toggle("on", res.data.liked);
+    btn.setAttribute("aria-pressed", res.data.liked);
+    post.querySelector(".hv-likes").textContent = plural(res.data.count, "like");
+  }
+
+  // ---------- save ----------
+  async function toggleSave(post) {
+    const btn = post.querySelector(".hv-save");
+    const res = await send(URL_SAVE, form({ postid: post.dataset.id }));
+    if (!res.ok) return toast(res.data.error || "Could not save (" + res.status + ")");
+    btn.classList.toggle("on", res.data.saved);
+    btn.setAttribute("aria-pressed", res.data.saved);
+    toast(res.data.saved ? "Saved" : "Removed from saved");
+  }
+
+  // ---------- delete post ----------
+  async function deletePost(post) {
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    const res = await send(URL_DEL_POST, form({ postid: post.dataset.id }));
+    if (!res.ok) return toast(res.data.error || "Could not delete (" + res.status + ")");
+    post.remove();
+    toast("Post deleted");
+    if (!feed.querySelector(".hv-post")) location.reload();     // show the empty state
+  }
+
+  // ---------- comments ----------
+  function updateCommentCount(post) {
+    const n = post.querySelectorAll(".hv-cmts .hv-c").length;
+    const vc = post.querySelector(".hv-vc");
+    vc.textContent = "View all " + plural(n, "comment");
+    vc.hidden = n === 0;
+  }
+
+  async function deleteComment(btn, post) {
+    if (!confirm("Delete this comment?")) return;
+    const item = btn.closest(".hv-c");
+    btn.disabled = true;
+    const res = await send(URL_DEL_COMMENT, form({ comment_id: item.dataset.commentId }));
+    if (!res.ok) { btn.disabled = false; return toast(res.data.error || "Could not delete comment"); }
     item.remove();
     updateCommentCount(post);
     toast("Comment deleted");
-  })
-  .catch(err => { console.error(err); toast("Network error"); btn.disabled = false; });
-}
-
-// ---------- likes ----------
-function toggleLike(post, onlyLike) {
-  const btn = post.querySelector(".like");
-  if (onlyLike && btn.classList.contains("on")) return;   // double-tap never unlikes
-  const fd = new FormData();
-  fd.append("postid", post.dataset.id);
-
-  fetch("{% url 'toggle_like' %}", {
-    method: "POST", body: fd, credentials: "same-origin",
-    headers: { "X-CSRFToken": "{{ csrf_token }}" }
-  })
-  .then(async r => {
-    const text = await r.text();
-    let d = {};
-    try { d = JSON.parse(text); } catch (_) {}
-    if (!d.ok) { toast(d.error || "Like failed (" + r.status + ")"); return; }
-    btn.classList.toggle("on", d.liked);
-    btn.textContent = d.liked ? "♥" : "♡";
-    post.querySelector(".likes").textContent = d.count + " likes";
-  })
-  .catch(err => { console.error(err); toast("Network error"); });
-}
-
-// ---------- save ----------
-function toggleSave(post) {
-  const btn = post.querySelector(".save");
-  const fd = new FormData();
-  fd.append("postid", post.dataset.id);
-
-  fetch("{% url 'toggle_save' %}", {
-    method: "POST", body: fd, credentials: "same-origin",
-    headers: { "X-CSRFToken": "{{ csrf_token }}" }
-  })
-  .then(async r => {
-    const text = await r.text();
-    let d = {};
-    try { d = JSON.parse(text); } catch (_) {}
-    if (!d.ok) {
-      console.error("Save failed", r.status, r.url, text.slice(0, 300));
-      toast(d.error || "Save failed (" + r.status + ")");
-      return;
-    }
-    btn.classList.toggle("on", d.saved);
-    toast(d.saved ? "Saved" : "Removed from saved");
-  })
-  .catch(err => { console.error(err); toast("Network error"); });
-}
-
-// ---------- delete your own post ----------
-function deletePost(post) {
-  if (!confirm("Delete this post? This cannot be undone.")) return;
-  const fd = new FormData();
-  fd.append("postid", post.dataset.id);
-
-  fetch("/myapp/delete_post/", {
-    method: "POST", body: fd, credentials: "same-origin",
-    headers: { "X-CSRFToken": "{{ csrf_token }}" }
-  })
-  .then(async r => {
-    const text = await r.text();
-    let d = {};
-    try { d = JSON.parse(text); } catch (_) {}
-    if (!d.ok) {
-      console.error("Delete failed", r.status, r.url, text.slice(0, 300));
-      toast(d.error || "Delete failed (" + r.status + ")");
-      return;
-    }
-    post.remove();
-    toast("Post deleted");
-    if (!document.querySelector("#feed .post")) {
-      $("feed").insertAdjacentHTML("beforeend", '<p class="no-posts" id="noPosts">No posts yet</p>');
-    }
-  })
-  .catch(err => { console.error(err); toast("Network error"); });
-}
-
-// ---------- feed clicks (single listener) ----------
-$("feed").addEventListener("click", (e) => {
-  const post = e.target.closest(".post"); if (!post) return;
-  const delC = e.target.closest(".delete-comment");
-
-  if (delC) deleteComment(delC, post);
-  else if (e.target.closest(".like")) toggleLike(post);
-  else if (e.target.closest(".save")) toggleSave(post);
-  else if (e.target.closest(".del-post")) deletePost(post);
-  else if (e.target.closest(".vc") || e.target.closest(".cbtn")) {
-    post.querySelector(".cmts").classList.toggle("hide");
-    post.querySelector(".cf input").focus();
   }
-  else if (e.target.closest(".share")) {
-    const link = location.origin + location.pathname + "#" + post.id;
-    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast("Link copied"), () => toast("Link: " + link));
-  }
-});
 
-// double-tap the media to like
-$("feed").addEventListener("dblclick", (e) => {
-  const m = e.target.closest(".media"); if (!m || e.target.closest("video")) return;
-  const post = m.closest(".post"), pop = m.querySelector(".pop");
-  toggleLike(post, true);
-  pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
-});
+  feed.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target, post = f.closest(".hv-post");
+    const input = f.querySelector("input[name=comment]"), btn = f.querySelector("button");
+    if (!input.value.trim()) return;
 
-// ---------- add comment ----------
-$("feed").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const form = e.target, post = form.closest(".post");
-  const input = form.querySelector("input[name=comment]");
-  if (!input.value.trim()) return;
+    btn.disabled = true;
+    const res = await send(f.action, new FormData(f));
+    btn.disabled = false;
 
-  fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" })
-    .then(async r => {
-      let d = {};
-      try { d = await r.json(); } catch (_) {}
-      if (r.ok && d.ok) {
-        const box = post.querySelector(".cmts");
-        box.insertAdjacentHTML("beforeend", commentHTML(d.id, d.username, d.comment));
-        box.classList.remove("hide");
-        updateCommentCount(post);
-        input.value = "";
-      } else {
-        toast(d.error || "Comment failed (" + r.status + ")");
+    if (!res.ok) return toast(res.data.error || "Comment failed (" + res.status + ")");
+
+    const box = post.querySelector(".hv-cmts");
+    box.insertAdjacentHTML("beforeend",
+      '<div class="hv-c" data-comment-id="' + res.data.id + '"><b>You</b>' +
+      '<span class="t">' + esc(res.data.comment) + '</span>' +
+      '<button type="button" class="x" title="Delete comment" aria-label="Delete comment">✕</button></div>');
+    box.hidden = false;
+    updateCommentCount(post);
+    input.value = "";
+  });
+
+  // ---------- feed clicks (one listener, also works for "Load more" posts) ----------
+  feed.addEventListener("click", (e) => {
+    const post = e.target.closest(".hv-post");
+    if (!post) return;
+
+    if (e.target.closest(".hv-cmts .x")) deleteComment(e.target.closest(".x"), post);
+    else if (e.target.closest(".hv-like")) toggleLike(post);
+    else if (e.target.closest(".hv-save")) toggleSave(post);
+    else if (e.target.closest(".hv-del")) deletePost(post);
+    else if (e.target.closest(".hv-vc")) post.querySelector(".hv-cmts").hidden = !post.querySelector(".hv-cmts").hidden;
+    else if (e.target.closest(".hv-cbtn")) post.querySelector(".hv-cf input").focus();
+    else if (e.target.closest(".hv-share")) {
+      const link = location.origin + location.pathname + "#" + post.id;
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
+        .then(() => toast("Link copied"), () => toast("Link: " + link));
+    }
+  });
+
+  // double-tap a photo to like
+  feed.addEventListener("dblclick", (e) => {
+    const m = e.target.closest(".hv-media");
+    if (!m || e.target.closest("video")) return;
+    const pop = m.querySelector(".hv-pop");
+    toggleLike(m.closest(".hv-post"), true);
+    pop.classList.remove("go"); void pop.offsetWidth; pop.classList.add("go");
+  });
+
+  // ---------- load more ----------
+  const more = $("hvMore");
+  if (more) {
+    more.addEventListener("click", async () => {
+      more.disabled = true; more.textContent = "Loading...";
+      try {
+        const r = await fetch("?page=" + more.dataset.next, { credentials: "same-origin" });
+        const doc = new DOMParser().parseFromString(await r.text(), "text/html");
+        doc.querySelectorAll("#hvFeed .hv-post").forEach(p => feed.insertBefore(p, more));
+        const next = doc.getElementById("hvMore");
+        if (next) { more.dataset.next = next.dataset.next; more.disabled = false; more.textContent = "Load more"; }
+        else more.remove();
+      } catch (_) {
+        toast("Could not load more posts");
+        more.disabled = false; more.textContent = "Load more";
       }
-    })
-    .catch(() => toast("Network error"));
-});
-
-// ---------- create post ----------
-const openModal = () => $("modal").classList.remove("hide");
-const closeModal = () => {
-  $("modal").classList.add("hide"); $("file").value = ""; $("capIn").value = "";
-  $("dropTxt").innerHTML = "<big>📷</big>Choose a photo or video"; $("share").disabled = true;
-};
-$("cancel").addEventListener("click", closeModal);
-$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
-
-$("file").addEventListener("change", function () {
-  const f = this.files[0]; if (!f) return;
-  const url = URL.createObjectURL(f), isVideo = f.type.startsWith("video");
-  $("dropTxt").innerHTML = isVideo ? '<video src="' + url + '" muted></video>' : '<img src="' + url + '" alt="Preview">';
-  $("share").disabled = false;
-});
-
-$("share").addEventListener("click", () => {
-  const f = $("file").files[0];
-  if (!f) return;
-  const fd = new FormData();
-  fd.append("photo", f);
-  fd.append("caption", $("capIn").value.trim());
-  $("share").disabled = true;
-  fetch("{% url 'create_post' %}", {
-    method: "POST",
-    body: fd,
-    headers: { "X-CSRFToken": "{{ csrf_token }}" },
-    credentials: "same-origin"
-  })
-  .then(async r => {
-    let data = {};
-    try { data = await r.json(); } catch (e) {}
-    if (r.ok && data.ok) { location.reload(); }
-    else {
-      console.error("Upload failed", r.status, data);
-      toast(data.error || ("Upload failed (" + r.status + ")"));
-      $("share").disabled = false;
-    }
-  })
-  .catch(err => { console.error(err); toast("Network error"); $("share").disabled = false; });
-});
-
-// the sidebar's Create link opens this page with ?create=1
-if (location.search.includes("create=1")) {
-  openModal();
-  history.replaceState(null, "", location.pathname + location.hash);
-}
-const MAX_IMG = 10 * 1024 * 1024, MAX_VID = 50 * 1024 * 1024;
-
-$("file").addEventListener("change", function () {
-  const f = this.files[0]; if (!f) return;
-  const isVideo = f.type.startsWith("video");
-
-  if (f.size > (isVideo ? MAX_VID : MAX_IMG)) {
-    toast(isVideo ? "Video must be 50 MB or smaller" : "Photo must be 10 MB or smaller");
-    this.value = "";
-    $("share").disabled = true;
-    return;
+    });
   }
 
-  const url = URL.createObjectURL(f);
-  $("dropTxt").innerHTML = isVideo
-    ? '<video src="' + url + '" muted></video>'
-    : '<img src="' + url + '" alt="Preview">';
-  $("share").disabled = false;
-});
+  // ---------- create post ----------
+  const modal = $("hvModal"), fileIn = $("hvFile"), capIn = $("hvCap"), shareBtn = $("hvShare"), cancelBtn = $("hvCancel");
+  const dropHTML = $("hvDropTxt").innerHTML;
+  let busy = false;
+
+  function openModal() { modal.hidden = false; }
+  function closeModal() {
+    if (busy) return;
+    modal.hidden = true;
+    fileIn.value = ""; capIn.value = ""; $("hvCapN").textContent = "0";
+    $("hvDropTxt").innerHTML = dropHTML; shareBtn.disabled = true;
+  }
+
+  document.querySelectorAll(".js-create").forEach(b => b.addEventListener("click", openModal));
+  cancelBtn.addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+  capIn.addEventListener("input", () => { $("hvCapN").textContent = capIn.value.length; });
+
+  fileIn.addEventListener("change", function () {
+    const f = this.files[0];
+    if (!f) return;
+    const isVideo = f.type.startsWith("video");
+
+    if (f.size > (isVideo ? MAX_VID : MAX_IMG)) {
+      toast(isVideo ? "Video must be 50 MB or smaller" : "Photo must be 10 MB or smaller");
+      this.value = ""; shareBtn.disabled = true;
+      return;
+    }
+
+    const url = URL.createObjectURL(f);
+    $("hvDropTxt").innerHTML = isVideo ? '<video src="' + url + '" muted></video>' : '<img src="' + url + '" alt="Preview">';
+    shareBtn.disabled = false;
+  });
+
+  shareBtn.addEventListener("click", async () => {
+    const f = fileIn.files[0];
+    if (!f || busy) return;
+
+    busy = true; shareBtn.disabled = true; cancelBtn.disabled = true;
+    shareBtn.textContent = f.type.startsWith("video") ? "Uploading..." : "Checking faces...";
+
+    const res = await send(URL_CREATE, form({ photo: f, caption: capIn.value.trim() }));
+
+    if (res.ok) { location.reload(); return; }
+
+    toast(res.data.error || "Upload failed (" + res.status + ")");
+    busy = false; shareBtn.disabled = false; cancelBtn.disabled = false; shareBtn.textContent = "Share";
+  });
+
+  // the sidebar's Create link opens this page with ?create=1
+  if (location.search.includes("create=1")) {
+    openModal();
+    history.replaceState(null, "", location.pathname + location.hash);
+  }
+})();
 </script>
 {% endblock %}

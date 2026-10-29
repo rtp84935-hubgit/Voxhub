@@ -46,6 +46,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
@@ -101,6 +102,14 @@ OPEN_STATUSES = ("pending", "inreview")   # Reports.status values that still nee
 HIGH_RISK_REPORTERS = 10                  # different people with open reports -> "high"
 MEDIUM_RISK_REPORTERS = 5                 # -> "medium"
 MAX_REPORTS_PER_DAY = 10                  # per reporter, stops report spamming
+
+# ---- complaints (general problems sent to the admin) ----
+COMPLAINT_MIN_LENGTH = 10                 # characters
+MAX_COMPLAINTS_PER_DAY = 5                # per user
+
+# ---- home feed ----
+FEED_PAGE_SIZE = 8                        # posts per page ("Load more" fetches the next page)
+HOME_SUGGESTIONS = 5                      # people shown in the right column
 
 # ---- loaded once at import time (not on every request) ----
 _face_cascade = cv2.CascadeClassifier(
@@ -699,29 +708,46 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def user_home(request):
-    profile = UserProfile.objects.filter(LOGIN=request.user)
+    me = UserProfile.objects.filter(LOGIN=request.user).first()
 
-    # filter() never returns None, so check for an empty queryset instead
-    if not profile.exists():
+    if me is None:
         logout(request)
         return redirect("login")
 
-    other_users = UserProfile.objects.exclude(LOGIN=request.user)
-
-    posts = (User_posts.objects
-        .select_related('USER')
-        .prefetch_related('comments_set__USER')
-        .annotate(
-            like_count=Count('likes', distinct=True),
-            liked=Exists(Likes.objects.filter(POST=OuterRef('pk'), USER__LOGIN=request.user)),
+    posts = (
+        User_posts.objects
+        .select_related("USER")
+        .prefetch_related(
+            Prefetch(
+                "comments_set",
+                queryset=Comments.objects.select_related("USER").order_by("date", "id"),
+            )
         )
-        .order_by('-id'))
+        .annotate(
+            like_count=Count("likes", distinct=True),
+            liked=Exists(Likes.objects.filter(POST=OuterRef("pk"), USER=me)),
+            saved=Exists(Saved_Posts.objects.filter(Post=OuterRef("pk"), USER=me)),
+        )
+        .order_by("-id")
+    )
 
-    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    # "Load more" asks for ?page=2, ?page=3 ...
+    page_obj = Paginator(posts, FEED_PAGE_SIZE).get_page(request.GET.get("page"))
 
-    unread_count = ChatMessage.objects.filter(receiver=me, is_read=False).count()
+    # Right column: people I am not following and have not already requested
+    already = Follow.objects.filter(FOLLOWER=me).values_list("FOLLOWING_id", flat=True)
+    suggested_users = (
+        UserProfile.objects
+        .exclude(id=me.id)
+        .exclude(id__in=already)
+        .order_by("?")[:HOME_SUGGESTIONS]
+    )
 
-    return render(request, "user_home.html", {"me": profile, "others": other_users, "posts": posts, "unread_count": unread_count})
+    return render(request, "user_home.html", {
+        "posts": page_obj,
+        "page_obj": page_obj,
+        "suggested_users": suggested_users,
+    })
 
 
 # ---------------------------------------------------------
@@ -1161,6 +1187,8 @@ def liked_posts(request):
 # Comments
 # ---------------------------------------------------------
 
+@login_required(login_url="login")
+@require_POST
 def add_comment(request):
     if request.method != "POST":
         return JsonResponse({
@@ -1215,7 +1243,7 @@ def add_comment(request):
         }, status=400)
 
     # Save only after the comment passes moderation
-    Comments.objects.create(
+    new_comment = Comments.objects.create(
         comment=comment,
         date=timezone.now(),
         USER=C_USER,
@@ -1224,6 +1252,7 @@ def add_comment(request):
 
     return JsonResponse({
         'ok': True,
+        'id': new_comment.id,          # the page needs it so the new comment can be deleted
         'username': C_USER.username,
         'comment': comment
     })
@@ -1364,10 +1393,25 @@ def explore(request):
 
 @login_required
 def view_profile(request, user_id):
-    profile = get_object_or_404(UserProfile, id=user_id)
+    profile = get_object_or_404(UserProfile.objects.select_related("LOGIN"), id=user_id)
     me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-    posts = User_posts.objects.filter(USER=profile).order_by("-id")
+    is_own_profile = profile.id == me.id
+
+    # A banned account's posts are hidden (and it cannot be followed or reported again)
+    is_suspended = not profile.LOGIN.is_active
+
+    posts = (
+        User_posts.objects
+        .filter(USER=profile)
+        .annotate(
+            like_count=Count("likes", distinct=True),
+            comment_count=Count("comments", distinct=True),
+        )
+        .order_by("-id")
+    )
+    if is_suspended:
+        posts = posts.none()
 
     # The follow row (if any) between the logged-in user and this profile
     follow = Follow.objects.filter(FOLLOWER=me, FOLLOWING=profile).first()
@@ -1375,24 +1419,31 @@ def view_profile(request, user_id):
     is_following = bool(follow and follow.status == "accepted")   # request accepted
     is_requested = bool(follow and follow.status == "pending")    # request sent, not answered yet
 
-    # Count followers of this profile (accepted only)
-    followers_count = Follow.objects.filter(
-        FOLLOWING=profile, status="accepted"
-    ).count()
+    # Does this person follow me? (shows a "Follows you" tag)
+    follows_me = Follow.objects.filter(
+        FOLLOWER=profile, FOLLOWING=me, status="accepted"
+    ).exists()
 
-    # Count users this profile follows (accepted only)
-    following_count = Follow.objects.filter(
-        FOLLOWER=profile, status="accepted"
-    ).count()
+    # Followers / following counts (accepted only)
+    followers_count = Follow.objects.filter(FOLLOWING=profile, status="accepted").count()
+    following_count = Follow.objects.filter(FOLLOWER=profile, status="accepted").count()
+
+    # Matches the rule in report_user: one open report per person
+    already_reported = (not is_own_profile) and Reports.objects.filter(
+        USER=me, VICTIM=profile, status__in=OPEN_STATUSES
+    ).exists()
 
     context = {
         "profile": profile,
         "posts": posts,
         "me": me,
         "post_count": posts.count(),
-        "is_own_profile": profile.id == me.id,
+        "is_own_profile": is_own_profile,
+        "is_suspended": is_suspended,
         "is_following": is_following,
         "is_requested": is_requested,
+        "follows_me": follows_me,
+        "already_reported": already_reported,
         "followers_count": followers_count,
         "following_count": following_count,
         "follow": follow,
@@ -1553,16 +1604,27 @@ def submit_complaint(request):
     if not reason:
         return JsonResponse({"ok": False, "error": "Please enter a reason."}, status=400)
 
-    # Block duplicate pending reports with the same text
-    if Complaints.objects.filter(USER=me, reports=reason, status="pending").exists():
+    if len(reason) < COMPLAINT_MIN_LENGTH:
+        return JsonResponse(
+            {"ok": False, "error": f"Please describe the problem in a little more detail (at least {COMPLAINT_MIN_LENGTH} characters)."},
+            status=400,
+        )
+
+    # Block duplicates while the first one is still open (pending or in review)
+    if Complaints.objects.filter(USER=me, reports=reason, status__in=("pending", "inreview")).exists():
         return JsonResponse({"ok": False, "error": "You have already submitted this report."}, status=400)
+
+    # Daily limit per user, so the admin inbox cannot be flooded
+    since = timezone.now() - timedelta(days=1)
+    if Complaints.objects.filter(USER=me, date__gte=since).count() >= MAX_COMPLAINTS_PER_DAY:
+        return JsonResponse(
+            {"ok": False, "error": "You have reached today's complaint limit. Please try again tomorrow."},
+            status=429,
+        )
 
     Complaints.objects.create(USER=me, reports=reason)
 
-    AdminNotification.objects.create(
-        kind="report",
-        message=f"New report submitted by {me.username}"
-    )
+    notify_admin("report", f"New complaint submitted by {me.username}")
 
     return JsonResponse({"ok": True, "message": "Report submitted. Thank you."})
 
@@ -1745,33 +1807,39 @@ def delete_message(request):
 
 @login_required
 def user_notifications(request):
-    profile = UserProfile.objects.get(LOGIN=request.user)
+    profile = get_object_or_404(UserProfile, LOGIN=request.user)
 
-    # Face detection notifications
+    # Face-consent requests
     notifications = UserNotification.objects.filter(
         recipient=profile
-    ).select_related(
-        'sender', 'post'
-    ).order_by('-id')
+    ).select_related('sender', 'post').order_by('-id')
 
-    pending_face_count = notifications.filter(
-        status='pending'
-    ).count()
+    pending_face_count = notifications.filter(status='pending').count()
 
-    # Follow requests
+    # Remember which ones were unread, then mark them as seen
+    unread_ids = list(
+        notifications.filter(is_read=False).values_list('id', flat=True)
+    )
+    UserNotification.objects.filter(
+        recipient=profile, is_read=False
+    ).exclude(status='pending').update(is_read=True)   # pending ones stay highlighted until answered
+
+    # Follow requests waiting for my answer
     follow_requests = Follow.objects.filter(
         FOLLOWING=profile,
         status='pending'
-    )
+    ).select_related('FOLLOWER')
 
-    # Reports I have submitted
-    my_reports = Reports.objects.filter(USER=profile)
+    # Reports I have submitted (with the person I reported)
+    my_reports = Reports.objects.filter(USER=profile).select_related('VICTIM').order_by('-date')
 
     return render(request, 'notification.html', {
         'notifications': notifications,
         'pending_face_count': pending_face_count,
         'follow_requests': follow_requests,
         'my_reports': my_reports,
+        'unread_ids': unread_ids,
+        'action_needed': pending_face_count + follow_requests.count(),
     })
 
 
