@@ -1,10 +1,10 @@
 {% extends 'admin_base.html' %}
 
-{% block title %}Review Report{% endblock %}
+{% block title %}Review Complaints{% endblock %}
 
 {% block page_heading %}
   <h1>Report #{{ report.id }}</h1>
-  <p><a class="link" href="{% url 'admin_common_reports' %}">← Back to Common Reports</a></p>
+  <p><a class="link" href="{% url 'admin_complaints' %}">← Back to Common Reports</a></p>
 {% endblock %}
 
 {% block content %}
@@ -31,12 +31,12 @@
     <p class="empty" style="padding-top:0">This report has been {{ report.status }}.</p>
   {% else %}
     <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <form method="post" action="{% url 'update_common_report' report.id %}" style="margin:0">
+      <form method="post" action="{% url 'update_complaints' report.id %}" style="margin:0">
         {% csrf_token %}
         <input type="hidden" name="action" value="resolved">
         <button type="submit" class="btn btn-blue" style="border:0;cursor:pointer;font-size:1rem">✔ Mark as resolved</button>
       </form>
-      <form method="post" action="{% url 'update_common_report' report.id %}" style="margin:0">
+      <form method="post" action="{% url 'update_complaints' report.id %}" style="margin:0">
         {% csrf_token %}
         <input type="hidden" name="action" value="dismissed">
         <button type="submit" class="btn btn-red" style="border:0;cursor:pointer;font-size:1rem">✖ Dismiss</button>

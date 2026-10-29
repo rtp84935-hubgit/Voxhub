@@ -227,16 +227,28 @@ class AdminNotificationPreference(models.Model):
     def __str__(self):
         return f"Notification preferences for {self.admin.username}"
 
-
 class Reports(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("inreview", "In review"),
+        ("resolved", "Resolved"),
+        ("dismissed", "Dismissed"),
+    ]
+ 
     USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="reports_made")
     VICTIM = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="reports_received")
     reports = models.CharField(max_length=100)
-    status = models.CharField(max_length=10, default="pending")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending", db_index=True)
     date = models.DateTimeField(auto_now_add=True)
-    
+ 
+    class Meta:
+        ordering = ["-date"]
+ 
+    def __str__(self):
+        return f"{self.USER.username} -> {self.VICTIM.username} ({self.status})"
+ 
 
-class Common_Reports(models.Model):
+class Complaints(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("inreview", "In review"),

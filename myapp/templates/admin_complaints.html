@@ -1,0 +1,433 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Complaints | VoxHub{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+/* =========================================
+   VOXHUB COMPLAINTS (admin)
+========================================= */
+.cp-page {
+    --cp-panel: #121925;
+    --cp-panel2: #182131;
+    --cp-panel3: #0d1420;
+    --cp-line: #293449;
+    --cp-text: #e8edf7;
+    --cp-muted: #91a0b7;
+    --cp-purple: #a78bfa;
+    --cp-cyan: #22d3ee;
+    --cp-red: #fb7185;
+    --cp-green: #34d399;
+    --cp-yellow: #fbbf24;
+    --cp-blue: #60a5fa;
+    color: var(--cp-text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+}
+.cp-page *, .cp-page *::before, .cp-page *::after { box-sizing: border-box; }
+.cp-page button, .cp-page input, .cp-page select { font: inherit; }
+.cp-page a { color: inherit; text-decoration: none; }
+.cp-page button { cursor: pointer; }
+.cp-page :focus-visible { outline: 2px solid var(--cp-cyan); outline-offset: 3px; }
+.cp-page [hidden] { display: none !important; }
+
+/* Messages */
+.cp-message {
+    display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; margin-bottom: 18px;
+    border: 1px solid #285b49; border-radius: 11px; background: #172a25; color: #86efac; line-height: 1.6;
+}
+.cp-message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+.cp-message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+.cp-message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+
+/* Intro */
+.cp-intro { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+.cp-intro-icon {
+    width: 50px; height: 50px; display: grid; place-items: center; flex-shrink: 0;
+    border: 1px solid rgba(167,139,250,.25); border-radius: 15px;
+    background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(34,211,238,.08));
+    color: var(--cp-purple); font-size: 21px;
+}
+.cp-intro h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.6px; }
+.cp-intro p  { margin: 6px 0 0; color: var(--cp-muted); font-size: 12px; line-height: 1.7; }
+
+/* Stats */
+.cp-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; margin-bottom: 24px; }
+.cp-stat {
+    min-width: 0; padding: 18px 20px; border: 1px solid var(--cp-line);
+    border-left: 3px solid var(--stat-color); border-radius: 14px; background: var(--cp-panel);
+}
+.cp-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cp-stat-label { color: var(--cp-muted); font-size: 12px; font-weight: 600; }
+.cp-stat-icon {
+    width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0;
+    border-radius: 10px; background: var(--stat-bg); color: var(--stat-color); font-size: 14px;
+}
+.cp-stat-value { margin-top: 14px; color: var(--stat-color); font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+.cp-stat-note { margin-top: 7px; color: var(--cp-muted); font-size: 11px; }
+.cp-stat.total  { --stat-color: #b9a2ff; --stat-bg: rgba(167,139,250,.12); }
+.cp-stat.new    { --stat-color: var(--cp-red); --stat-bg: rgba(251,113,133,.12); }
+.cp-stat.open   { --stat-color: var(--cp-yellow); --stat-bg: rgba(251,191,36,.12); }
+.cp-stat.closed { --stat-color: var(--cp-green); --stat-bg: rgba(52,211,153,.12); }
+
+/* Card */
+.cp-card { overflow: hidden; border: 1px solid var(--cp-line); border-radius: 15px; background: var(--cp-panel); }
+.cp-card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 17px; padding: 20px 21px 0; }
+.cp-card-heading h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.cp-card-heading p  { margin: 6px 0 0; color: var(--cp-muted); font-size: 11px; line-height: 1.6; }
+.cp-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.cp-search-wrap { position: relative; }
+.cp-search-wrap > i { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: #718096; font-size: 12px; pointer-events: none; }
+.cp-search {
+    width: 250px; max-width: 100%; padding: 11px 12px 11px 35px; border: 1px solid var(--cp-line);
+    border-radius: 9px; outline: none; background: var(--cp-panel3); color: var(--cp-text); font-size: 11px;
+}
+.cp-search::placeholder { color: #718096; }
+.cp-search:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
+.cp-filter {
+    padding: 11px 12px; border: 1px solid var(--cp-line); border-radius: 9px; outline: none;
+    background: var(--cp-panel3); color: var(--cp-text); font-size: 11px;
+}
+
+/* Tabs */
+.cp-tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 16px 21px 0; border-bottom: 1px solid var(--cp-line); }
+.cp-tab {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 0;
+    border-bottom: 2px solid transparent; background: none; color: var(--cp-muted); font-size: 12px; font-weight: 700;
+}
+.cp-tab:hover { color: var(--cp-text); }
+.cp-tab[aria-selected="true"] { color: var(--cp-text); border-bottom-color: var(--cp-purple); }
+.cp-tab-count {
+    min-width: 22px; padding: 2px 7px; border-radius: 20px; background: var(--cp-panel2);
+    color: var(--cp-muted); font-size: 10px; font-weight: 800; text-align: center;
+}
+.cp-tab[aria-selected="true"] .cp-tab-count { background: rgba(167,139,250,.18); color: #c4b5fd; }
+
+/* Table */
+.cp-table-wrap { width: 100%; overflow-x: auto; }
+.cp-table { width: 100%; min-width: 860px; border-collapse: collapse; }
+.cp-table thead { background: #171f2e; }
+.cp-table th { padding: 13px 17px; color: var(--cp-muted); text-align: left; white-space: nowrap; font-size: 11px; font-weight: 700; }
+.cp-table td { padding: 15px 17px; border-top: 1px solid var(--cp-line); vertical-align: middle; font-size: 12px; }
+.cp-table tbody tr:hover { background: rgba(255,255,255,.025); }
+.cp-table tr.is-new { box-shadow: inset 3px 0 0 var(--cp-red); }
+.cp-table tr.is-late td:last-child { color: inherit; }
+
+.cp-user { display: flex; align-items: center; gap: 11px; min-width: 180px; }
+.cp-avatar {
+    width: 38px; height: 38px; display: grid; place-items: center; flex-shrink: 0; overflow: hidden;
+    border: 1px solid rgba(167,139,250,.25); border-radius: 50%;
+    background: linear-gradient(135deg,#7c6cff,#22d3ee); color: #fff; font-size: 12px; font-weight: 800;
+}
+.cp-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cp-user-name { display: inline-block; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.cp-user-name:hover { color: var(--cp-purple); }
+.cp-sub { display: block; margin-top: 4px; color: var(--cp-muted); font-size: 10px; }
+.cp-new-dot {
+    display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
+    background: var(--cp-red); vertical-align: middle;
+}
+.cp-reason { max-width: 380px; color: #cbd5e1; line-height: 1.6; overflow-wrap: anywhere; }
+.cp-wait { display: block; margin-top: 4px; color: var(--cp-muted); font-size: 10px; }
+.cp-wait.late { color: var(--cp-yellow); font-weight: 700; }
+
+.cp-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px;
+    border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap;
+}
+.cp-badge.pending   { background: rgba(251,191,36,.12); color: var(--cp-yellow); }
+.cp-badge.inreview  { background: rgba(96,165,250,.12); color: var(--cp-blue); }
+.cp-badge.resolved  { background: rgba(52,211,153,.1); color: var(--cp-green); }
+.cp-badge.dismissed { background: rgba(140,152,173,.13); color: #aab5c8; }
+
+.cp-action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 33px; padding: 7px 12px;
+    border: 1px solid rgba(167,139,250,.4); border-radius: 8px; background: rgba(139,92,246,.16);
+    color: #ddd6fe; font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.cp-action:hover { filter: brightness(1.15); }
+
+.cp-empty { padding: 45px 20px !important; color: var(--cp-muted); text-align: center; line-height: 1.8; }
+.cp-empty i { display: block; margin-bottom: 12px; color: #64748b; font-size: 28px; }
+.cp-table-footer {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    padding: 14px 18px; border-top: 1px solid var(--cp-line); color: var(--cp-muted); font-size: 11px;
+}
+
+@media (max-width: 1000px) { .cp-stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 650px) {
+    .cp-stats { grid-template-columns: 1fr; }
+    .cp-intro h2 { font-size: 19px; }
+    .cp-card-header { align-items: stretch; padding: 16px 16px 0; }
+    .cp-tabs { padding: 12px 10px 0; }
+    .cp-toolbar { width: 100%; }
+    .cp-search-wrap { flex: 1; min-width: 0; }
+    .cp-search { width: 100%; }
+}
+</style>
+{% endblock %}
+
+
+{% block page_heading %}
+<h1>Complaints</h1>
+<p>General reports submitted by users about the platform.</p>
+{% endblock %}
+
+
+{% block content %}
+<div class="cp-page">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="cp-message {% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'info' in message.tags %}info{% endif %}" role="status">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>{{ message }}</div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="cp-intro">
+        <div class="cp-intro-icon"><i class="fa-solid fa-inbox"></i></div>
+        <div>
+            <h2>User complaints</h2>
+            <p>New complaints are listed first. Open one to read it in full and mark it resolved or dismissed.</p>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <section class="cp-stats" aria-label="Complaint statistics">
+        <div class="cp-stat total">
+            <div class="cp-stat-top">
+                <span class="cp-stat-label">Total complaints</span>
+                <span class="cp-stat-icon"><i class="fa-solid fa-inbox"></i></span>
+            </div>
+            <div class="cp-stat-value">{{ total_count }}</div>
+            <div class="cp-stat-note">All complaints received</div>
+        </div>
+        <div class="cp-stat new">
+            <div class="cp-stat-top">
+                <span class="cp-stat-label">New</span>
+                <span class="cp-stat-icon"><i class="fa-solid fa-bell"></i></span>
+            </div>
+            <div class="cp-stat-value">{{ new_count }}</div>
+            <div class="cp-stat-note">Not opened yet</div>
+        </div>
+        <div class="cp-stat open">
+            <div class="cp-stat-top">
+                <span class="cp-stat-label">Open</span>
+                <span class="cp-stat-icon"><i class="fa-solid fa-clock"></i></span>
+            </div>
+            <div class="cp-stat-value">{{ open_count }}</div>
+            <div class="cp-stat-note">Pending or in review</div>
+        </div>
+        <div class="cp-stat closed">
+            <div class="cp-stat-top">
+                <span class="cp-stat-label">Closed</span>
+                <span class="cp-stat-icon"><i class="fa-solid fa-circle-check"></i></span>
+            </div>
+            <div class="cp-stat-value">{{ closed_count }}</div>
+            <div class="cp-stat-note">Resolved or dismissed</div>
+        </div>
+    </section>
+
+    <!-- Complaints list -->
+    <section class="cp-card">
+        <div class="cp-card-header">
+            <div class="cp-card-heading">
+                <h3>All complaints</h3>
+                <p>Complaints open for more than 3 days are marked as waiting.</p>
+            </div>
+            <div class="cp-toolbar">
+                <div class="cp-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" id="cpSearch" class="cp-search"
+                           placeholder="Search user or text..." aria-label="Search complaints">
+                </div>
+                <select id="cpSort" class="cp-filter" aria-label="Sort complaints">
+                    <option value="new">New first</option>
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="cp-tabs" role="tablist" aria-label="Complaint views">
+            <button type="button" class="cp-tab" role="tab" data-tab="open" aria-selected="true">
+                Needs review <span class="cp-tab-count" data-count="open">0</span>
+            </button>
+            <button type="button" class="cp-tab" role="tab" data-tab="resolved" aria-selected="false">
+                Resolved <span class="cp-tab-count" data-count="resolved">0</span>
+            </button>
+            <button type="button" class="cp-tab" role="tab" data-tab="dismissed" aria-selected="false">
+                Dismissed <span class="cp-tab-count" data-count="dismissed">0</span>
+            </button>
+            <button type="button" class="cp-tab" role="tab" data-tab="all" aria-selected="false">
+                All <span class="cp-tab-count" data-count="all">0</span>
+            </button>
+        </div>
+
+        <div class="cp-table-wrap">
+            <table class="cp-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Submitted by</th>
+                        <th scope="col">Complaint</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="cpBody">
+                    {% for r in reports %}
+                        <tr class="cp-row {% if not r.admin_seen %}is-new{% endif %}"
+                            data-status="{{ r.status }}"
+                            data-new="{% if not r.admin_seen %}1{% else %}0{% endif %}"
+                            data-time="{{ r.date|date:'U' }}"
+                            data-search="{{ r.USER.name|lower }} {{ r.USER.username|lower }} {{ r.reports|lower }}">
+
+                            <td>
+                                <div class="cp-user">
+                                    <div class="cp-avatar">
+                                        {% if r.USER.profile_image %}
+                                            <img src="{{ r.USER.profile_image.url }}" alt="" loading="lazy">
+                                        {% else %}
+                                            {{ r.USER.username|slice:":2"|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <a class="cp-user-name" href="{% url 'view_userprofile' r.USER.LOGIN_id %}">
+                                            {% if not r.admin_seen %}<span class="cp-new-dot" title="New"></span>{% endif %}{{ r.USER.name }}
+                                        </a>
+                                        <span class="cp-sub">@{{ r.USER.username }}</span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="cp-reason" title="{{ r.reports }}">{{ r.reports|truncatechars:140 }}</div>
+                            </td>
+
+                            <td>
+                                <span>{{ r.date|date:"d M Y" }}</span>
+                                <span class="cp-sub">{{ r.date|date:"H:i" }}</span>
+                                {% if r.status == 'pending' or r.status == 'inreview' %}
+                                    <span class="cp-wait js-wait">Waiting {{ r.date|timesince }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <span class="cp-badge {{ r.status }}">{{ r.get_status_display }}</span>
+                            </td>
+
+                            <td>
+                                <a class="cp-action" href="{% url 'review_complaints' r.id %}">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="cp-empty">
+                                <i class="fa-regular fa-folder-open"></i>
+                                <strong>No complaints yet</strong><br>
+                                Complaints submitted by users will appear here.
+                            </td>
+                        </tr>
+                    {% endfor %}
+
+                    <tr id="cpNoResults" hidden>
+                        <td colspan="5" class="cp-empty">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <strong>Nothing in this view</strong><br>
+                            Try another tab or clear the search.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="cp-table-footer">
+            <span id="cpVisible" aria-live="polite">Showing {{ total_count }} complaints</span>
+        </div>
+    </section>
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tbody = document.getElementById('cpBody');
+    const rows = Array.from(document.querySelectorAll('.cp-row'));
+    const noResults = document.getElementById('cpNoResults');
+    const visibleLabel = document.getElementById('cpVisible');
+    const searchInput = document.getElementById('cpSearch');
+    const sortSelect = document.getElementById('cpSort');
+    const tabs = Array.from(document.querySelectorAll('.cp-tab'));
+    let activeTab = 'open';
+
+    const isOpen = r => r.dataset.status === 'pending' || r.dataset.status === 'inreview';
+    const tabRules = {
+        open:      isOpen,
+        resolved:  r => r.dataset.status === 'resolved',
+        dismissed: r => r.dataset.status === 'dismissed',
+        all:       () => true
+    };
+
+    Object.keys(tabRules).forEach(function (key) {
+        const el = document.querySelector('[data-count="' + key + '"]');
+        if (el) el.textContent = rows.filter(tabRules[key]).length;
+    });
+
+    // Mark open complaints that have waited more than 3 days.
+    const LATE_AFTER = 3 * 24 * 3600;
+    const now = Date.now() / 1000;
+    rows.forEach(function (row) {
+        const wait = row.querySelector('.js-wait');
+        if (wait && now - Number(row.dataset.time) > LATE_AFTER) wait.classList.add('late');
+    });
+
+    const sorters = {
+        new:    (a, b) => b.dataset.new - a.dataset.new || b.dataset.time - a.dataset.time,
+        newest: (a, b) => b.dataset.time - a.dataset.time,
+        oldest: (a, b) => a.dataset.time - b.dataset.time
+    };
+
+    function render() {
+        const query = searchInput.value.toLowerCase().trim();
+        let visible = 0;
+
+        rows.sort(sorters[sortSelect.value]).forEach(function (row) {
+            tbody.insertBefore(row, noResults);
+            const show = tabRules[activeTab](row) && row.dataset.search.includes(query);
+            row.hidden = !show;
+            if (show) visible++;
+        });
+
+        if (noResults) noResults.hidden = visible !== 0 || rows.length === 0;
+        if (visibleLabel) visibleLabel.textContent = 'Showing ' + visible + ' of ' + rows.length + ' complaints';
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            activeTab = tab.dataset.tab;
+            tabs.forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
+            render();
+        });
+    });
+    searchInput.addEventListener('input', render);
+    sortSelect.addEventListener('change', render);
+
+    // Nothing to review? Open on "All" so the page is never empty by default.
+    if (rows.length && !rows.some(isOpen)) {
+        document.querySelector('[data-tab="all"]').click();
+    } else {
+        render();
+    }
+});
+</script>
+{% endblock %}

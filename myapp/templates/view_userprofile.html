@@ -201,28 +201,7 @@
                     {% endif %}
                 </div>
 
-                <div class="pf-actions">
-                    {% if profile.LOGIN.is_active %}
-                        <form method="POST"
-                              action="{% url 'admin_ban_user' profile.LOGIN.id %}"
-                              onsubmit="return confirm('Are you sure you want to ban this user?');">
-                            {% csrf_token %}
-                            <button type="submit" class="pf-btn pf-btn-ban">
-                                Ban user
-                            </button>
-                        </form>
-                    {% else %}
-                        <form method="POST"
-                              action="{% url 'admin_unban_user' profile.LOGIN.id %}"
-                              onsubmit="return confirm('Restore this user account?');">
-                            {% csrf_token %}
-                            <button type="submit" class="pf-btn pf-btn-unban">
-                                Unban user
-                            </button>
-                        </form>
-                    {% endif %}
-                </div>
-
+                
             </div>
 
             <div class="pf-grid">

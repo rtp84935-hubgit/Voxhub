@@ -12,12 +12,12 @@ urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout_view/", views.logout_view, name="logout"),
     path("community_guidelines/", views.community_guidelines, name="community_guidelines"),
-    path("about_us/",views.about_us,name="about_us"),
-    path("submit_common_report/", views.submit_common_report, name="submit_common_report"),
-    path("admin_common_reports/", views.admin_common_reports, name="admin_common_reports"),
-    path("review_common_report/<int:id>/", views.review_common_report, name="review_common_report"),
-    path("update_common_report/<int:id>/", views.update_common_report, name="update_common_report"),
-    path("user_common_reports/", views.user_common_reports, name="user_common_reports"),
+    path("about_us/", views.about_us, name="about_us"),
+    path("submit_complaint/", views.submit_complaint, name="submit_complaint"),
+    path("admin_complaints/", views.admin_complaints, name="admin_complaints"),
+    path("review_complaints/<int:id>/", views.review_complaints, name="review_complaints"),
+    path("update_complaints/<int:id>/", views.update_complaints, name="update_complaints"),
+    path("user_complaints/", views.user_complaints, name="user_complaints"),
 
     # =====================================================
     # USER - feed, posts, likes, comments, saved
@@ -59,7 +59,7 @@ urlpatterns = [
     path("accept_follow_request/<id>", views.accept_follow_request, name="accept_follow_request"),
     path("decline_follow_request/<id>/", views.decline_follow_request, name="decline_follow_request"),
     path("delete_face_notification/<id>", views.delete_face_notification, name="delete_face_notification"),
-    path("delete_report_notification/<id>/", views.delete_report_notification, name="delete_report_notification"),
+    path("delete_report_notification/<int:id>/", views.delete_report_notification, name="delete_report_notification"),
 
     # =====================================================
     # USER - account settings
@@ -79,17 +79,18 @@ urlpatterns = [
     # =====================================================
     path("admin_users/", views.admin_users, name="admin_users"),
     path("admin_banned_users/", views.admin_banned_users, name="admin_banned_users"),
-    path("admin_ban_user/<id>", views.admin_ban_user, name="admin_ban_user"),
-    path("admin_unban_user/<id>", views.admin_unban_user, name="admin_unban_user"),
-    path('view_userprofile/<int:id>/', views.view_userprofile, name='view_userprofile'),
+    path("admin_ban_user/<int:id>", views.admin_ban_user, name="admin_ban_user"),
+    path("admin_unban_user/<int:id>", views.admin_unban_user, name="admin_unban_user"),
+    path("view_userprofile/<int:id>/", views.view_userprofile, name="view_userprofile"),
 
     # =====================================================
     # ADMIN - reports
     # =====================================================
     path("admin_reports/", views.admin_reports, name="admin_reports"),
-    path("review_report/<id>/", views.review_report, name="review_report"),
-    path("resolve_report/<id>/", views.resolve_report, name="resolve_report"),
-    path("dismiss_report/<id>/", views.dismiss_report, name="dismiss_report"),
+    path("review_report/<int:id>/", views.review_report, name="review_report"),
+    path("resolve_report/<int:id>/", views.resolve_report, name="resolve_report"),
+    path("dismiss_report/<int:id>/", views.dismiss_report, name="dismiss_report"),
+    path("admin_close_reports/<int:id>/", views.admin_close_reports, name="admin_close_reports"),
 
     # =====================================================
     # ADMIN - settings, profile, password

@@ -250,14 +250,14 @@ a { text-decoration: none; color: inherit; }
           </a>
 
           <!-- ===== REPORTS SECTION ===== -->
-          <div class="side-label">Reports</div>
+          <div class="side-label">Reports and Complaints</div>
           <a href="{% url 'admin_reports' %}"
              class="{% if page == 'admin_reports' or page == 'review_report' %}active{% endif %}">
-            <span class="ico">🚩</span> User Reports
+            <span class="ico">🚩</span>Reports
           </a>
-          <a href="{% url 'admin_common_reports' %}"
-             class="{% if page == 'admin_common_reports' or page == 'review_common_report' %}active{% endif %}">
-            <span class="ico">📋</span> Common Reports
+          <a href="{% url 'admin_complaints' %}"
+             class="{% if page == 'admin_complaints' or page == 'review_common_report' %}active{% endif %}">
+            <span class="ico">📋</span> Complaints
           </a>
           <!-- ===== END REPORTS SECTION ===== -->
 

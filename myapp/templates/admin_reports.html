@@ -1,163 +1,292 @@
 {% extends 'admin_base.html' %}
 
-{% block title %}Reported Users{% endblock %}
+{% block title %}Report Management | VoxHub{% endblock %}
 
 {% block extra_head %}
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-    .rp-page {
-        --panel: #121925;
-        --panel2: #192131;
-        --line: #273247;
-        --rp-text: #e8edf7;
-        --rp-muted: #8c98ad;
-        --rp-purple: #8b5cf6;
-        --cyan: #22d3ee;
-        --rp-red: #fb7185;
-        --green: #34d399;
-        --yellow: #fbbf24;
+/* =========================================
+   VOXHUB REPORT MANAGEMENT (v2)
+========================================= */
+.rp-page {
+    --rp-panel: #121925;
+    --rp-panel2: #182131;
+    --rp-panel3: #0d1420;
+    --rp-line: #293449;
+    --rp-text: #e8edf7;
+    --rp-muted: #91a0b7;
+    --rp-purple: #a78bfa;
+    --rp-cyan: #22d3ee;
+    --rp-red: #fb7185;
+    --rp-green: #34d399;
+    --rp-yellow: #fbbf24;
+    --rp-blue: #60a5fa;
+    color: var(--rp-text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+}
+.rp-page *, .rp-page *::before, .rp-page *::after { box-sizing: border-box; }
+.rp-page button, .rp-page input, .rp-page select { font: inherit; }
+.rp-page a { color: inherit; text-decoration: none; }
+.rp-page button { cursor: pointer; }
+.rp-page :focus-visible { outline: 2px solid var(--rp-cyan); outline-offset: 3px; }
+.rp-page [hidden] { display: none !important; }
 
-        font-family: 'Manrope', sans-serif;
-        color: var(--rp-text);
-    }
-    .rp-page button, .rp-page input { font-family: inherit; }
-    .rp-page a { color: inherit; }
+/* Messages */
+.rp-message {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 14px 16px; margin-bottom: 18px;
+    border: 1px solid #285b49; border-radius: 11px;
+    background: #172a25; color: #86efac; line-height: 1.6;
+}
+.rp-message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
+.rp-message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
+.rp-message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
 
-    /* Django messages */
-    .message {
-        padding: 13px 16px; border-radius: 10px; margin-bottom: 20px;
-        font-size: 13px; line-height: 1.6;
-        background: #172a25; border: 1px solid #285b49; color: #86efac;
-    }
-    .message.error   { background: #321b23; border-color: #713444; color: #fda4af; }
-    .message.warning { background: #352b18; border-color: #806126; color: #fcd34d; }
-    .message.info    { background: #17283b; border-color: #315477; color: #93c5fd; }
+/* Intro */
+.rp-intro { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; margin-bottom: 24px; }
+.rp-intro-main { display: flex; align-items: center; gap: 14px; }
+.rp-intro-icon {
+    width: 50px; height: 50px; display: grid; place-items: center; flex-shrink: 0;
+    border: 1px solid rgba(167,139,250,.25); border-radius: 15px;
+    background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(34,211,238,.08));
+    color: var(--rp-purple); font-size: 21px;
+}
+.rp-intro h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.6px; }
+.rp-intro p  { margin: 6px 0 0; color: var(--rp-muted); font-size: 12px; line-height: 1.7; }
+.rp-security-note {
+    display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px;
+    border: 1px solid var(--rp-line); border-radius: 9px;
+    background: var(--rp-panel); color: var(--rp-muted); font-size: 11px;
+}
+.rp-security-note i { color: var(--rp-cyan); }
 
-    /* Statistics */
-    .rp-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 25px; }
-    .stat-card {
-        background: var(--panel); border: 1px solid var(--line);
-        border-radius: 14px; padding: 22px;
-        transition: border-color .2s, transform .2s;
-    }
-    .stat-card:hover { border-color: #46516a; transform: translateY(-2px); }
-    .stat-label { color: var(--rp-muted); font-size: 13px; }
-    .stat-number { font-size: 29px; font-weight: 800; margin-top: 12px; }
-    .stat-note { color: var(--cyan); font-size: 12px; margin-top: 8px; }
-    .stat-card.pending .stat-number { color: var(--yellow); }
-    .stat-card.users .stat-number { color: #b9a2ff; }
-    .stat-card.resolved .stat-number { color: var(--green); }
+/* Stats */
+.rp-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; margin-bottom: 24px; }
+.rp-stat {
+    min-width: 0; padding: 18px 20px;
+    border: 1px solid var(--rp-line); border-left: 3px solid var(--stat-color);
+    border-radius: 14px; background: var(--rp-panel);
+}
+.rp-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rp-stat-label { color: var(--rp-muted); font-size: 12px; font-weight: 600; }
+.rp-stat-icon {
+    width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0;
+    border-radius: 10px; background: var(--stat-bg); color: var(--stat-color); font-size: 14px;
+}
+.rp-stat-value { margin-top: 14px; color: var(--stat-color); font-size: 29px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+.rp-stat-note { margin-top: 7px; color: var(--rp-muted); font-size: 11px; }
+.rp-stat.total    { --stat-color: #b9a2ff; --stat-bg: rgba(167,139,250,.12); }
+.rp-stat.open     { --stat-color: var(--rp-yellow); --stat-bg: rgba(251,191,36,.12); }
+.rp-stat.risk     { --stat-color: var(--rp-red); --stat-bg: rgba(251,113,133,.12); }
+.rp-stat.resolved { --stat-color: var(--rp-green); --stat-bg: rgba(52,211,153,.12); }
 
-    /* Card */
-    .content-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-    .card-header {
-        padding: 22px; display: flex; justify-content: space-between; align-items: center;
-        flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--line);
-    }
-    .card-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
-    .card-header p { color: var(--rp-muted); font-size: 12px; margin-top: 7px; }
+/* Priority alerts */
+.rp-alert-section { margin-bottom: 24px; }
+.rp-section-heading { display: flex; align-items: center; gap: 9px; margin: 0 0 4px; font-size: 14px; font-weight: 800; }
+.rp-section-heading i { color: var(--rp-red); }
+.rp-section-sub { margin: 0 0 12px; color: var(--rp-muted); font-size: 11px; line-height: 1.6; }
+.rp-alert-list { display: grid; gap: 10px; }
+.rp-alert {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+    border: 1px solid rgba(251,113,133,.3); border-radius: 13px;
+    background: linear-gradient(110deg, rgba(127,29,29,.24), rgba(18,25,37,.96) 75%);
+}
+.rp-alert-content { flex: 1; min-width: 0; }
+.rp-alert-title { margin: 0; color: #fda4af; font-size: 13px; font-weight: 800; }
+.rp-alert-description { margin: 5px 0 0; color: #cbd5e1; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.rp-alert-description strong { color: #fda4af; }
+.rp-alert-view {
+    padding: 9px 12px; flex-shrink: 0; border: 1px solid rgba(251,113,133,.3);
+    border-radius: 8px; background: rgba(251,113,133,.1); color: #fda4af;
+    font-size: 11px; font-weight: 800; white-space: nowrap;
+}
+.rp-alert-view:hover { background: rgba(251,113,133,.18); }
+.rp-alert-empty {
+    padding: 14px 16px; border: 1px solid var(--rp-line); border-radius: 11px;
+    background: var(--rp-panel); color: var(--rp-muted); font-size: 12px;
+}
+.rp-alert-empty i { color: var(--rp-green); margin-right: 6px; }
 
-    .search {
-        width: 280px; max-width: 100%; padding: 12px 14px; border-radius: 9px;
-        border: 1px solid var(--line); background: #0d121c; color: var(--rp-text);
-        outline: none; font-size: 12px;
-    }
-    .search:focus { border-color: var(--rp-purple); box-shadow: 0 0 0 3px #8b5cf622; }
-    .search::placeholder { color: #64748b; }
+/* Card */
+.rp-card { overflow: hidden; border: 1px solid var(--rp-line); border-radius: 15px; background: var(--rp-panel); }
+.rp-card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 17px; padding: 20px 21px 0; }
+.rp-card-heading h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.rp-card-heading p  { margin: 6px 0 0; color: var(--rp-muted); font-size: 11px; line-height: 1.6; }
+.rp-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.rp-search-wrap { position: relative; }
+.rp-search-wrap > i { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: #718096; font-size: 12px; pointer-events: none; }
+.rp-search {
+    width: 250px; max-width: 100%; padding: 11px 12px 11px 35px;
+    border: 1px solid var(--rp-line); border-radius: 9px; outline: none;
+    background: var(--rp-panel3); color: var(--rp-text); font-size: 11px;
+}
+.rp-search::placeholder { color: #718096; }
+.rp-search:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
+.rp-filter {
+    padding: 11px 12px; border: 1px solid var(--rp-line); border-radius: 9px; outline: none;
+    background: var(--rp-panel3); color: var(--rp-text); font-size: 11px;
+}
 
-    /* Table */
-    .table-wrap { width: 100%; overflow-x: auto; }
-    .rp-page table { width: 100%; min-width: 700px; border-collapse: collapse; }
-    .rp-page thead { background: #171f2e; }
-    .rp-page th {
-        padding: 15px 17px; text-align: left; color: var(--rp-muted); font-size: 11px;
-        font-weight: 600; text-transform: uppercase; letter-spacing: .7px; white-space: nowrap; border-bottom: 0;
-    }
-    .rp-page td { padding: 16px 17px; border-top: 1px solid var(--line); border-bottom: 0; font-size: 13px; vertical-align: middle; }
-    .rp-page tbody tr:hover { background: rgba(255,255,255,.02); }
+/* Tabs */
+.rp-tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 16px 21px 0; border-bottom: 1px solid var(--rp-line); }
+.rp-tab {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px;
+    border: 0; border-bottom: 2px solid transparent; background: none;
+    color: var(--rp-muted); font-size: 12px; font-weight: 700;
+}
+.rp-tab:hover { color: var(--rp-text); }
+.rp-tab[aria-selected="true"] { color: var(--rp-text); border-bottom-color: var(--rp-purple); }
+.rp-tab-count {
+    min-width: 22px; padding: 2px 7px; border-radius: 20px;
+    background: var(--rp-panel2); color: var(--rp-muted); font-size: 10px; font-weight: 800; text-align: center;
+}
+.rp-tab[aria-selected="true"] .rp-tab-count { background: rgba(167,139,250,.18); color: #c4b5fd; }
 
-    .u-cell { display: flex; align-items: center; gap: 12px; }
-    .u-av {
-        width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto; overflow: hidden;
-        display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff;
-        background: linear-gradient(135deg, #7c6cff, #22d3ee);
-    }
-    .u-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .u-name { font-weight: 700; display: block; }
-    .u-name:hover { color: #c4b5fd; }
-    .subtext { display: block; color: var(--rp-muted); font-size: 11px; margin-top: 3px; }
+/* Table */
+.rp-table-wrap { width: 100%; overflow-x: auto; }
+.rp-table { width: 100%; min-width: 900px; border-collapse: collapse; }
+.rp-table thead { background: #171f2e; }
+.rp-table th {
+    padding: 13px 17px; border: 0; color: var(--rp-muted); text-align: left;
+    white-space: nowrap; font-size: 11px; font-weight: 700;
+}
+.rp-table td { padding: 15px 17px; border-top: 1px solid var(--rp-line); vertical-align: middle; font-size: 12px; }
+.rp-table tbody tr:hover { background: rgba(255,255,255,.025); }
+.rp-table tr.risk-high { box-shadow: inset 3px 0 0 var(--rp-red); }
+.rp-table tr.risk-medium { box-shadow: inset 3px 0 0 var(--rp-yellow); }
 
-    /* Clickable count */
-    .count-btn {
-        min-width: 44px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
-        font-size: 13px; font-weight: 800; color: #fda4af;
-        background: rgba(251,113,133,.12); border: 1px solid rgba(251,113,133,.3);
-        transition: filter .2s, transform .15s;
-    }
-    .count-btn:hover { filter: brightness(1.25); transform: scale(1.05); }
-    .pend-note { font-size: 11px; color: var(--yellow); margin-left: 10px; }
+.rp-user { display: flex; align-items: center; gap: 11px; min-width: 190px; }
+.rp-avatar {
+    width: 41px; height: 41px; display: grid; place-items: center; flex-shrink: 0; overflow: hidden;
+    border: 1px solid rgba(167,139,250,.25); border-radius: 50%;
+    background: linear-gradient(135deg,#7c6cff,#22d3ee); color: #fff; font-size: 12px; font-weight: 800;
+}
+.rp-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rp-user-name { display: inline-block; max-width: 190px; overflow-wrap: anywhere; font-size: 12px; font-weight: 800; }
+.rp-user-name:hover { color: var(--rp-purple); }
+.rp-username { display: block; margin-top: 4px; color: var(--rp-muted); font-size: 10px; }
 
-    .badge { display: inline-block; padding: 6px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
-    .badge.pending   { background: rgba(251,191,36,.12); color: var(--yellow); }
-    .badge.inreview  { background: rgba(96,165,250,.12); color: #60a5fa; }
-    .badge.resolved  { background: rgba(52,211,153,.12); color: var(--green); }
-    .badge.dismissed { background: rgba(140,152,173,.13); color: #aab5c8; }
-    .badge.active    { background: rgba(52,211,153,.12); color: var(--green); }
-    .badge.banned    { background: rgba(251,113,133,.12); color: var(--rp-red); }
+/* Report count cell */
+.rp-count-cell { white-space: nowrap; }
+.rp-count-btn {
+    display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 12px;
+    border: 1px solid var(--rp-line); border-radius: 9px; background: var(--rp-panel2);
+    color: var(--rp-text); font-size: 13px; font-weight: 800;
+}
+.rp-count-btn small { color: var(--rp-muted); font-size: 10px; font-weight: 600; }
+.rp-count-btn:hover { border-color: #46536c; background: #1d283b; }
+.rp-count-btn.high { border-color: rgba(251,113,133,.5); background: rgba(251,113,133,.14); color: #fecdd3; }
+.rp-count-meta { display: block; margin-top: 6px; color: var(--rp-muted); font-size: 10px; }
+.rp-count-meta b { color: var(--rp-yellow); font-weight: 700; }
+.rp-count-meta .zero { color: var(--rp-green); font-weight: 700; }
 
-    .rp-btn {
-        display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 7px;
-        font-size: 11px; font-weight: 700; border: 1px solid var(--line); cursor: pointer; white-space: nowrap;
-        color: #b9a2ff; background: rgba(139,92,246,.12); border-color: rgba(139,92,246,.3);
-    }
-    .rp-btn:hover { filter: brightness(1.2); }
+/* Badges */
+.rp-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px;
+    border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap;
+}
+.rp-badge.active, .rp-badge.resolved { background: rgba(52,211,153,.1); color: var(--rp-green); }
+.rp-badge.banned, .rp-badge.high     { background: rgba(251,113,133,.12); color: var(--rp-red); }
+.rp-badge.pending, .rp-badge.medium  { background: rgba(251,191,36,.12); color: var(--rp-yellow); }
+.rp-badge.in-review, .rp-badge.in_review, .rp-badge.inreview { background: rgba(96,165,250,.12); color: var(--rp-blue); }
+.rp-badge.dismissed, .rp-badge.low, .rp-badge.staff { background: rgba(140,152,173,.13); color: #aab5c8; }
 
-    .rp-page td.rp-empty { text-align: center; color: var(--rp-muted); padding: 35px; line-height: 1.7; }
-    .rp-empty i { display: block; font-size: 25px; color: #64748b; margin-bottom: 12px; }
-    .rp-footer { text-align: center; color: #657187; font-size: 11px; padding: 25px 0 5px; }
+/* Actions */
+.rp-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.rp-actions form { margin: 0; }
+.rp-action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 33px; padding: 7px 10px; border: 1px solid var(--rp-line); border-radius: 8px;
+    background: var(--rp-panel2); font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.rp-action:hover { filter: brightness(1.15); }
+.rp-action.primary { border-color: rgba(167,139,250,.4); background: rgba(139,92,246,.16); color: #ddd6fe; }
+.rp-action.view  { border-color: rgba(167,139,250,.3); background: rgba(139,92,246,.1); color: #c4b5fd; }
+.rp-action.ban   { border-color: rgba(251,113,133,.3); background: rgba(251,113,133,.09); color: #fda4af; }
+.rp-action.unban { border-color: rgba(52,211,153,.3); background: rgba(52,211,153,.09); color: var(--rp-green); }
 
-    /* Reporters modal */
-    .rp-modal {
-        position: fixed; inset: 0; z-index: 100; display: none; place-items: center; padding: 16px;
-        background: rgba(5,7,15,.75); backdrop-filter: blur(4px);
-    }
-    .rp-modal.open { display: grid; }
-    .rp-mbox {
-        width: 640px; max-width: 100%; max-height: 85vh; display: flex; flex-direction: column;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
-        box-shadow: 0 30px 80px rgba(0,0,0,.6); color: var(--rp-text); font-family: 'Manrope', sans-serif;
-    }
-    .rp-mhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
-    .rp-mhead h3 { margin: 0; font-size: 16px; }
-    .rp-mhead span { display: block; font-size: 12px; color: var(--rp-muted); margin-top: 4px; font-weight: 400; }
-    .rp-mclose { font-size: 20px; color: var(--rp-muted); background: none; border: 0; cursor: pointer; padding: 4px 8px; }
-    .rp-mclose:hover { color: var(--rp-text); }
-    .rp-mbody { padding: 8px 22px 20px; overflow-y: auto; }
+.rp-empty { padding: 45px 20px !important; color: var(--rp-muted); text-align: center; line-height: 1.8; }
+.rp-empty i { display: block; margin-bottom: 12px; color: #64748b; font-size: 28px; }
 
-    .rep-item { padding: 16px 0; border-bottom: 1px solid var(--line); }
-    .rep-item:last-child { border-bottom: 0; }
-    .rep-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-    .rep-by { font-weight: 700; font-size: 13px; }
-    .rep-by a:hover { color: #c4b5fd; }
-    .rep-reason { font-size: 13px; line-height: 1.6; color: #cdd5e3; overflow-wrap: anywhere; white-space: pre-wrap; }
-    .rep-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; }
-    .rep-date { font-size: 11px; color: var(--rp-muted); }
+.rp-table-footer {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    padding: 14px 18px; border-top: 1px solid var(--rp-line); color: var(--rp-muted); font-size: 11px;
+}
+.rp-pager { display: flex; align-items: center; gap: 8px; }
+.rp-footer { padding: 24px 0 5px; color: #657187; text-align: center; font-size: 10px; }
 
-    @media (max-width: 850px) { .rp-stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 700px) {
-        .rp-stats { grid-template-columns: 1fr; gap: 12px; }
-        .card-header { padding: 17px; }
-        .search { width: 100%; }
-    }
+/* Modal */
+.rp-modal {
+    position: fixed; inset: 0; z-index: 999; display: none; place-items: center; padding: 16px;
+    background: rgba(4,7,14,.8); backdrop-filter: blur(7px);
+}
+.rp-modal.open { display: grid; }
+.rp-modal-box {
+    display: flex; flex-direction: column; width: 680px; max-width: 100%; max-height: 88vh; overflow: hidden;
+    border: 1px solid #344158; border-radius: 17px; background: var(--rp-panel);
+    box-shadow: 0 30px 90px rgba(0,0,0,.55);
+}
+.rp-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 20px 22px 14px; }
+.rp-modal-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.rp-modal-head p  { margin: 5px 0 0; color: var(--rp-muted); font-size: 11px; }
+.rp-modal-close {
+    width: 35px; height: 35px; flex-shrink: 0; border: 1px solid var(--rp-line); border-radius: 9px;
+    background: var(--rp-panel2); color: var(--rp-muted); font-size: 16px;
+}
+.rp-modal-close:hover { color: #fff; }
+.rp-chips { display: flex; gap: 6px; padding: 0 22px 12px; border-bottom: 1px solid var(--rp-line); }
+.rp-chip {
+    padding: 6px 12px; border: 1px solid var(--rp-line); border-radius: 20px;
+    background: transparent; color: var(--rp-muted); font-size: 11px; font-weight: 700;
+}
+.rp-chip[aria-pressed="true"] { border-color: rgba(167,139,250,.5); background: rgba(139,92,246,.15); color: #ddd6fe; }
+.rp-modal-body { padding: 4px 22px 12px; overflow-y: auto; }
+.rp-modal-foot {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    padding: 14px 22px; border-top: 1px solid var(--rp-line); background: var(--rp-panel3);
+}
+
+.rp-reporter { padding: 16px 0; border-bottom: 1px solid var(--rp-line); }
+.rp-reporter:last-child { border-bottom: 0; }
+.rp-reporter-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.rp-reporter-name { font-weight: 800; }
+.rp-reporter-name:hover { color: var(--rp-purple); }
+.rp-reason { color: #cbd5e1; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
+.rp-reporter-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.rp-date { color: var(--rp-muted); font-size: 10px; }
+.rp-review-link {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px;
+    border: 1px solid rgba(167,139,250,.3); border-radius: 8px;
+    background: rgba(139,92,246,.1); color: #c4b5fd !important; font-size: 11px; font-weight: 700;
+}
+
+@media (max-width: 1000px) { .rp-stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 650px) {
+    .rp-stats { grid-template-columns: 1fr; }
+    .rp-intro h2 { font-size: 19px; }
+    .rp-intro { align-items: flex-start; }
+    .rp-security-note { width: 100%; }
+    .rp-card-header { align-items: stretch; padding: 16px 16px 0; }
+    .rp-tabs { padding: 12px 10px 0; }
+    .rp-toolbar { width: 100%; }
+    .rp-search-wrap { flex: 1; min-width: 0; }
+    .rp-search { width: 100%; }
+    .rp-alert { flex-wrap: wrap; padding: 12px; }
+    .rp-modal-body, .rp-modal-head, .rp-chips, .rp-modal-foot { padding-left: 15px; padding-right: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .rp-page *, .rp-page *::before, .rp-page *::after { animation: none !important; transition: none !important; }
+}
 </style>
 {% endblock %}
 
 
 {% block page_heading %}
-    <h1>Reported Users</h1>
-    <p>Users who have been reported, and how many reports each one has received.</p>
+<h1>Report Management</h1>
+<p>Review user reports, spot patterns, and take proportionate moderation action.</p>
 {% endblock %}
 
 
@@ -166,148 +295,366 @@
 
     {% if messages %}
         {% for message in messages %}
-            <div class="message {% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'info' %}info{% endif %}">{{ message }}</div>
+            <div class="rp-message {% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'info' in message.tags %}info{% endif %}" role="status">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>{{ message }}</div>
+            </div>
         {% endfor %}
     {% endif %}
 
+    <div class="rp-intro">
+        <div class="rp-intro-main">
+            <div class="rp-intro-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+                <h2>Trust &amp; Safety Center</h2>
+                <p>Work the queue from the top: accounts with the most open reports from different people come first.</p>
+            </div>
+        </div>
+        <div class="rp-security-note">
+            <i class="fa-solid fa-lock"></i>
+            Moderation actions are restricted to administrators
+        </div>
+    </div>
+
     <!-- Statistics -->
-    <section class="rp-stats">
-        <div class="stat-card users">
-            <div class="stat-label"><i class="fa-solid fa-user-slash"></i> Reported Users</div>
-            <div class="stat-number">{{ reported_users|length }}</div>
-            <div class="stat-note">Users with at least one report</div>
+    <section class="rp-stats" aria-label="Report statistics">
+        <div class="rp-stat total">
+            <div class="rp-stat-top">
+                <span class="rp-stat-label">Reported accounts</span>
+                <span class="rp-stat-icon"><i class="fa-solid fa-users"></i></span>
+            </div>
+            <div class="rp-stat-value">{{ reported_users|length }}</div>
+            <div class="rp-stat-note">Accounts with at least one report</div>
         </div>
-        <div class="stat-card pending">
-            <div class="stat-label"><i class="fa-solid fa-clock"></i> Pending Reports</div>
-            <div class="stat-number">{{ pending_reports|default:0 }}</div>
-            <div class="stat-note">Awaiting review</div>
+        <div class="rp-stat open">
+            <div class="rp-stat-top">
+                <span class="rp-stat-label">Open reports</span>
+                <span class="rp-stat-icon"><i class="fa-solid fa-clock"></i></span>
+            </div>
+            <div class="rp-stat-value">{{ open_reports|default:0 }}</div>
+            <div class="rp-stat-note">Pending or in review</div>
         </div>
-        <div class="stat-card resolved">
-            <div class="stat-label"><i class="fa-solid fa-circle-check"></i> Resolved Reports</div>
-            <div class="stat-number">{{ resolved_reports|default:0 }}</div>
-            <div class="stat-note">Reviewed by admin</div>
+        <div class="rp-stat risk">
+            <div class="rp-stat-top">
+                <span class="rp-stat-label">High-risk accounts</span>
+                <span class="rp-stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            </div>
+            <div class="rp-stat-value">{{ high_risk_users|length }}</div>
+            <div class="rp-stat-note">Active, many people reporting</div>
+        </div>
+        <div class="rp-stat resolved">
+            <div class="rp-stat-top">
+                <span class="rp-stat-label">Closed reports</span>
+                <span class="rp-stat-icon"><i class="fa-solid fa-circle-check"></i></span>
+            </div>
+            <div class="rp-stat-value">{{ closed_reports|default:0 }}</div>
+            <div class="rp-stat-note">Resolved or dismissed</div>
         </div>
     </section>
 
-    <!-- Reported users -->
-    <section class="content-card">
+    <!-- High-risk accounts -->
+    <section class="rp-alert-section">
+        <h3 class="rp-section-heading">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Needs a decision
+        </h3>
+        <p class="rp-section-sub">
+            Active accounts reported by many different people. A high count is a prompt to
+            look at the evidence, not proof of a violation.
+        </p>
 
-        <div class="card-header">
-            <div>
-                <h2>Reported Users</h2>
-                <p>Click a report count to see who reported that user.</p>
+        <div class="rp-alert-list">
+            {% for u in high_risk_users %}
+                <div class="rp-alert">
+                    <div class="rp-alert-content">
+                        <h4 class="rp-alert-title">{{ u.name }}</h4>
+                        <p class="rp-alert-description">
+                            <strong>@{{ u.username }}</strong> has
+                            <strong>{{ u.open_count }} open report{{ u.open_count|pluralize }}</strong>
+                            from <strong>{{ u.unique_reporters }} different user{{ u.unique_reporters|pluralize }}</strong>.
+                            Read the reasons, then restrict the account only if they hold up.
+                        </p>
+                    </div>
+                    <button type="button" class="rp-alert-view js-open-reporters"
+                            data-target="reporters-{{ u.id }}" data-foot="foot-{{ u.id }}" data-name="{{ u.name }}">
+                        <i class="fa-solid fa-eye"></i> Review reports
+                    </button>
+                </div>
+            {% empty %}
+                <div class="rp-alert-empty">
+                    <i class="fa-solid fa-circle-check"></i>
+                    No active account is currently above the high-risk threshold.
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Reported accounts -->
+    <section class="rp-card">
+        <div class="rp-card-header">
+            <div class="rp-card-heading">
+                <h3>Reported accounts</h3>
+                <p>Open an account's reports to read the reasons before banning.</p>
             </div>
-            <input type="search" id="reportSearch" class="search" placeholder="Search reported users..." aria-label="Search reported users">
+            <div class="rp-toolbar">
+                <div class="rp-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" id="reportSearch" class="rp-search"
+                           placeholder="Search name or username..." aria-label="Search reported users">
+                </div>
+                <select id="sortBy" class="rp-filter" aria-label="Sort accounts">
+                    <option value="open">Most open reports</option>
+                    <option value="reporters">Most different reporters</option>
+                    <option value="recent">Recently reported</option>
+                    <option value="name">Name A–Z</option>
+                </select>
+            </div>
         </div>
 
-        <div class="table-wrap">
-            <table>
+        <div class="rp-tabs" role="tablist" aria-label="Report queue views">
+            <button type="button" class="rp-tab" role="tab" data-tab="review" aria-selected="true">
+                Needs review <span class="rp-tab-count" data-count="review">0</span>
+            </button>
+            <button type="button" class="rp-tab" role="tab" data-tab="high" aria-selected="false">
+                High risk <span class="rp-tab-count" data-count="high">0</span>
+            </button>
+            <button type="button" class="rp-tab" role="tab" data-tab="banned" aria-selected="false">
+                Banned <span class="rp-tab-count" data-count="banned">0</span>
+            </button>
+            <button type="button" class="rp-tab" role="tab" data-tab="all" aria-selected="false">
+                All <span class="rp-tab-count" data-count="all">0</span>
+            </button>
+        </div>
+
+        <div class="rp-table-wrap">
+            <table class="rp-table">
                 <thead>
                     <tr>
-                        <th>Reported User</th>
-                        <th>Reports Received</th>
-                        <th>Last Reported</th>
-                        <th>Account</th>
-                        <th>Profile</th>
+                        <th scope="col">Account</th>
+                        <th scope="col">Reports</th>
+                        <th scope="col">Last reported</th>
+                        <th scope="col">Risk</th>
+                        <th scope="col">Account status</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
 
-                <tbody>
-                {% for u in reported_users %}
-                    <tr class="report-row">
-                        <td>
-                            <div class="u-cell">
-                                <div class="u-av">
-                                    {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="">{% else %}{{ u.username|slice:":2"|upper }}{% endif %}
+                <tbody id="reportedUsersBody">
+                    {% for u in reported_users %}
+                        <tr class="report-row risk-{{ u.risk }}"
+                            data-name="{{ u.name|lower }}"
+                            data-search="{{ u.name|lower }} {{ u.username|lower }}"
+                            data-active="{% if u.LOGIN.is_active %}1{% else %}0{% endif %}"
+                            data-risk="{{ u.risk }}"
+                            data-open="{{ u.open_count|default:0 }}"
+                            data-reporters="{{ u.unique_reporters|default:0 }}"
+                            data-last="{% if u.last_reported %}{{ u.last_reported|date:'U' }}{% else %}0{% endif %}">
+
+                            <td>
+                                <div class="rp-user">
+                                    <div class="rp-avatar">
+                                        {% if u.profile_image %}
+                                            <img src="{{ u.profile_image.url }}" alt="" loading="lazy">
+                                        {% else %}
+                                            {{ u.username|slice:":2"|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <a class="rp-user-name" href="{% url 'view_userprofile' u.LOGIN.id %}">{{ u.name }}</a>
+                                        <span class="rp-username">@{{ u.username }}</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <a class="u-name" href="{% url 'view_userprofile' u.LOGIN_id %}">{{ u.name }}</a>
-                                    <span class="subtext">@{{ u.username }}</span>
+                            </td>
+
+                            <td class="rp-count-cell">
+                                <button type="button"
+                                        class="rp-count-btn {% if u.risk == 'high' %}high{% endif %} js-open-reporters"
+                                        data-target="reporters-{{ u.id }}" data-foot="foot-{{ u.id }}" data-name="{{ u.name }}"
+                                        title="Read reports against {{ u.name }}">
+                                    {{ u.open_count|default:0 }} <small>open</small>
+                                </button>
+                                <span class="rp-count-meta">
+                                    {% if u.open_count %}
+                                        <b>{{ u.unique_reporters }} reporter{{ u.unique_reporters|pluralize }}</b> ·
+                                    {% else %}
+                                        <span class="zero">All handled</span> ·
+                                    {% endif %}
+                                    {{ u.report_count }} total
+                                </span>
+                            </td>
+
+                            <td>
+                                {% if u.last_reported %}
+                                    <span>{{ u.last_reported|date:"d M Y" }}</span>
+                                    <span class="rp-username">{{ u.last_reported|date:"H:i" }}</span>
+                                {% else %}
+                                    <span class="rp-username">No date available</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if u.open_count == 0 %}
+                                    <span class="rp-badge low">None open</span>
+                                {% elif u.risk == 'high' %}
+                                    <span class="rp-badge high"><i class="fa-solid fa-triangle-exclamation"></i> High</span>
+                                {% elif u.risk == 'medium' %}
+                                    <span class="rp-badge medium">Medium</span>
+                                {% else %}
+                                    <span class="rp-badge low">Low</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if u.LOGIN.is_active %}
+                                    <span class="rp-badge active"><i class="fa-solid fa-circle-check"></i> Active</span>
+                                {% else %}
+                                    <span class="rp-badge banned"><i class="fa-solid fa-ban"></i> Banned</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <div class="rp-actions">
+                                    <button type="button" class="rp-action primary js-open-reporters"
+                                            data-target="reporters-{{ u.id }}" data-foot="foot-{{ u.id }}" data-name="{{ u.name }}">
+                                        <i class="fa-solid fa-flag"></i> Review
+                                    </button>
+                                    <a href="{% url 'view_userprofile' u.LOGIN.id %}" class="rp-action view">
+                                        <i class="fa-solid fa-user"></i> Profile
+                                    </a>
                                 </div>
-                            </div>
-                        </td>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="rp-empty">
+                                <i class="fa-regular fa-folder-open"></i>
+                                <strong>No reported users yet</strong><br>
+                                Reports will appear here when users report accounts.
+                            </td>
+                        </tr>
+                    {% endfor %}
 
-                        <td>
-                            <button type="button" class="count-btn" data-target="reporters-{{ u.id }}"
-                                    data-name="{{ u.name }}" title="Show who reported {{ u.name }}">
-                                {{ u.report_count }}
-                            </button>
-                            {% if u.pending_count %}<span class="pend-note">{{ u.pending_count }} pending</span>{% endif %}
-                        </td>
-
-                        <td>{% with last=u.reports_received.all.0 %}{{ last.date|date:"d M Y, H:i" }}{% endwith %}</td>
-
-                        <td>
-                            {% if u.LOGIN.is_active %}
-                                <span class="badge active">Active</span>
-                            {% else %}
-                                <span class="badge banned">Banned</span>
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            
-<a class="rp-btn" href="{% url 'view_userprofile' u.reports_received.all.0.id %}">
-    <i class="fa-solid fa-eye"></i> View
-</a>
-
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="5" class="rp-empty">
-                            <i class="fa-regular fa-folder-open"></i>
-                            No users have been reported yet.
-                        </td>
-                    </tr>
-                {% endfor %}
-
-                    <tr id="noResults" style="display:none;">
-                        <td colspan="5" class="rp-empty">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            No reported users match your search.
+                    <tr id="noResults" hidden>
+                        <td colspan="6" class="rp-empty">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <strong>Nothing in this view</strong><br>
+                            Try another tab or clear the search.
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <div class="rp-table-footer">
+            <span id="visibleCount" aria-live="polite">Showing {{ reported_users|length }} reported accounts</span>
+
+            {% if page_obj %}
+                <div class="rp-pager">
+                    {% if page_obj.has_previous %}
+                        <a class="rp-action" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                    {% endif %}
+                    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                    {% if page_obj.has_next %}
+                        <a class="rp-action" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
     </section>
 
-    <footer class="rp-footer">© 2026 VoxHub Admin Panel · Secure Administration</footer>
+    <footer class="rp-footer">© 2026 VoxHub · Trust, Safety &amp; Community Moderation</footer>
 
-    <!-- Hidden reporter lists (one per reported user) -->
+    <!-- Hidden per-account report details and modal footer actions -->
     {% for u in reported_users %}
-    <div id="reporters-{{ u.id }}" hidden>
-        {% for r in u.reports_received.all %}
-        <div class="rep-item">
-            <div class="rep-top">
-                <span class="rep-by">
-                    <a href="{% url 'view_userprofile' r.USER.LOGIN_id %}">{{ r.USER.name }}</a>
-                    <span class="subtext" style="display:inline;margin-left:6px">@{{ r.USER.username }}</span>
-                </span>
-                <span class="badge {{ r.status }}">{{ r.status|title }}</span>
-            </div>
-            <div class="rep-reason">{{ r.reports|default:"No reason provided" }}</div>
-            <div class="rep-foot">
-                <span class="rep-date">{{ r.date|date:"d M Y, H:i" }}</span>
-                <a class="rp-btn" href="{% url 'review_report' r.id %}"><i class="fa-solid fa-eye"></i> Review</a>
-            </div>
+        <div id="reporters-{{ u.id }}" hidden>
+            {% for r in u.reports_received.all %}
+                {% with s=r.status|slugify %}
+                <div class="rp-reporter"
+                     data-open="{% if s == 'pending' or s == 'in-review' or s == 'in_review' or s == 'inreview' %}1{% else %}0{% endif %}">
+                    <div class="rp-reporter-top">
+                        <div>
+                            <a class="rp-reporter-name" href="{% url 'view_userprofile' r.USER.LOGIN.id %}">{{ r.USER.name }}</a>
+                            <span class="rp-username">@{{ r.USER.username }}</span>
+                        </div>
+                        <span class="rp-badge {{ s }}">{{ r.get_status_display }}</span>
+                    </div>
+
+                    <div class="rp-reason">{{ r.reports|default:"No additional details were provided." }}</div>
+
+                    <div class="rp-reporter-foot">
+                        <span class="rp-date"><i class="fa-regular fa-clock"></i> {{ r.date|date:"d M Y, H:i" }}</span>
+                        <a class="rp-review-link" href="{% url 'review_report' r.id %}">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open report
+                        </a>
+                    </div>
+                </div>
+                {% endwith %}
+            {% empty %}
+                <div class="rp-empty">No report details are available.</div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
+
+        <div id="foot-{{ u.id }}" hidden>
+            <a href="{% url 'view_userprofile' u.LOGIN.id %}" class="rp-action view">
+                <i class="fa-solid fa-user"></i> View profile
+            </a>
+
+            {% if u.open_count %}
+                <form method="POST" action="{% url 'admin_close_reports' u.LOGIN.id %}"
+                      onsubmit="return confirm('Close all {{ u.open_count }} open report(s) against {{ u.username|escapejs }}?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" name="action" value="dismissed" class="rp-action">
+                        <i class="fa-solid fa-xmark"></i> Dismiss open reports
+                    </button>
+                    <button type="submit" name="action" value="resolved" class="rp-action unban">
+                        <i class="fa-solid fa-check"></i> Mark resolved
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if u.LOGIN.is_staff or u.LOGIN.is_superuser %}
+                <span class="rp-badge staff"><i class="fa-solid fa-user-shield"></i> Staff account · cannot be banned here</span>
+            {% elif u.LOGIN.is_active %}
+                <form method="POST" action="{% url 'admin_ban_user' u.LOGIN.id %}"
+                      onsubmit="return confirm('Ban {{ u.username|escapejs }}? They will no longer be able to log in, and their open reports will be marked as resolved.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="rp-action ban"><i class="fa-solid fa-ban"></i> Ban account</button>
+                </form>
+            {% else %}
+                <form method="POST" action="{% url 'admin_unban_user' u.LOGIN.id %}"
+                      onsubmit="return confirm('Unban {{ u.username|escapejs }} and allow them to log in again?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="rp-action unban"><i class="fa-solid fa-unlock"></i> Unban account</button>
+                </form>
+            {% endif %}
+        </div>
     {% endfor %}
 
-    <!-- Reporters modal -->
-    <div class="rp-modal" id="reportersModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
-        <div class="rp-mbox">
-            <div class="rp-mhead">
+    <!-- Modal -->
+    <div class="rp-modal" id="reportersModal" role="dialog" aria-modal="true"
+         aria-labelledby="rpModalTitle" aria-hidden="true">
+        <div class="rp-modal-box">
+            <div class="rp-modal-head">
                 <div>
-                    <h3 id="rmTitle">Reports</h3>
-                    <span id="rmSub"></span>
+                    <h3 id="rpModalTitle">Report details</h3>
+                    <p id="rpModalSubtitle">Review the reports submitted by users.</p>
                 </div>
-                <button type="button" class="rp-mclose" id="rmClose" aria-label="Close">✕</button>
+                <button type="button" class="rp-modal-close" id="rpModalClose" aria-label="Close report details">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <div class="rp-mbody" id="rmBody"></div>
+
+            <div class="rp-chips" role="group" aria-label="Filter reports">
+                <button type="button" class="rp-chip" data-chip="open" aria-pressed="true">Open</button>
+                <button type="button" class="rp-chip" data-chip="closed" aria-pressed="false">Closed</button>
+                <button type="button" class="rp-chip" data-chip="all" aria-pressed="false">All</button>
+            </div>
+
+            <div class="rp-modal-body" id="rpModalBody"></div>
+            <div class="rp-modal-foot" id="rpModalFoot"></div>
         </div>
     </div>
 
@@ -318,50 +665,148 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // ---------- search ----------
-    const searchInput = document.getElementById('reportSearch');
-    const rows = document.querySelectorAll('.report-row');
+    // ---------- Queue: tabs, search, sort ----------
+    const tbody = document.getElementById('reportedUsersBody');
+    const rows = Array.from(document.querySelectorAll('.report-row'));
     const noResults = document.getElementById('noResults');
+    const visibleCount = document.getElementById('visibleCount');
+    const searchInput = document.getElementById('reportSearch');
+    const sortBy = document.getElementById('sortBy');
+    const tabs = Array.from(document.querySelectorAll('.rp-tab'));
+    let activeTab = 'review';
 
-    searchInput.addEventListener('input', function () {
-        const q = this.value.toLowerCase().trim();
+    const tabRules = {
+        review: r => r.dataset.active === '1' && Number(r.dataset.open) > 0,
+        high:   r => r.dataset.active === '1' && r.dataset.risk === 'high' && Number(r.dataset.open) > 0,
+        banned: r => r.dataset.active === '0',
+        all:    () => true
+    };
+
+    // Tab counters
+    Object.keys(tabRules).forEach(function (key) {
+        const el = document.querySelector('[data-count="' + key + '"]');
+        if (el) el.textContent = rows.filter(tabRules[key]).length;
+    });
+
+    const sorters = {
+        open:      (a, b) => b.dataset.open - a.dataset.open || b.dataset.reporters - a.dataset.reporters,
+        reporters: (a, b) => b.dataset.reporters - a.dataset.reporters || b.dataset.open - a.dataset.open,
+        recent:    (a, b) => b.dataset.last - a.dataset.last,
+        name:      (a, b) => a.dataset.name.localeCompare(b.dataset.name)
+    };
+
+    function render() {
+        const query = searchInput.value.toLowerCase().trim();
         let visible = 0;
-        rows.forEach(function (row) {
-            const show = row.textContent.toLowerCase().includes(q);
-            row.style.display = show ? '' : 'none';
+
+        rows.sort(sorters[sortBy.value]).forEach(function (row) {
+            tbody.insertBefore(row, noResults);       // re-order in the DOM
+            const show = tabRules[activeTab](row) && row.dataset.search.includes(query);
+            row.hidden = !show;
             if (show) visible++;
         });
-        noResults.style.display = rows.length > 0 && visible === 0 ? '' : 'none';
-    });
 
-    // ---------- reporters modal ----------
+        if (noResults) noResults.hidden = visible !== 0 || rows.length === 0;
+        if (visibleCount) {
+            visibleCount.textContent = 'Showing ' + visible + ' of ' + rows.length + ' reported accounts';
+        }
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            activeTab = tab.dataset.tab;
+            tabs.forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
+            render();
+        });
+    });
+    searchInput.addEventListener('input', render);
+    sortBy.addEventListener('change', render);
+
+    // If nothing needs review, start on "All" so the page is never empty by default.
+    if (rows.length && !rows.some(tabRules.review)) {
+        document.querySelector('[data-tab="all"]').click();
+    } else {
+        render();
+    }
+
+    // ---------- Modal ----------
     const modal = document.getElementById('reportersModal');
-    const body = document.getElementById('rmBody');
-    const title = document.getElementById('rmTitle');
-    const sub = document.getElementById('rmSub');
+    const modalBody = document.getElementById('rpModalBody');
+    const modalFoot = document.getElementById('rpModalFoot');
+    const modalTitle = document.getElementById('rpModalTitle');
+    const modalSubtitle = document.getElementById('rpModalSubtitle');
+    const closeButton = document.getElementById('rpModalClose');
+    const chips = Array.from(document.querySelectorAll('.rp-chip'));
+    let lastTrigger = null;
 
-    function openModal(btn) {
-        const src = document.getElementById(btn.dataset.target);
-        if (!src) return;
-        const count = btn.textContent.trim();
-        title.textContent = 'Reported by ' + count + (count === '1' ? ' user' : ' users');
-        sub.textContent = 'Reports against ' + btn.dataset.name;
-        body.innerHTML = src.innerHTML;
+    function applyChip(mode) {
+        chips.forEach(c => c.setAttribute('aria-pressed', c.dataset.chip === mode ? 'true' : 'false'));
+        let shown = 0;
+        modalBody.querySelectorAll('.rp-reporter').forEach(function (item) {
+            const isOpen = item.dataset.open === '1';
+            const show = mode === 'all' || (mode === 'open' ? isOpen : !isOpen);
+            item.hidden = !show;
+            if (show) shown++;
+        });
+        const old = modalBody.querySelector('.js-chip-empty');
+        if (old) old.remove();
+        if (!shown) {
+            const p = document.createElement('div');
+            p.className = 'rp-empty js-chip-empty';
+            p.textContent = mode === 'open' ? 'No open reports. Switch to Closed or All to see history.' : 'No reports in this view.';
+            modalBody.appendChild(p);
+        }
+    }
+
+    function openReportModal(button) {
+        const source = document.getElementById(button.dataset.target);
+        const foot = document.getElementById(button.dataset.foot);
+        if (!source) return;
+
+        lastTrigger = button;
+        modalTitle.textContent = 'Reports against ' + button.dataset.name;
+        modalSubtitle.textContent = 'Newest first. Read the reasons before taking action.';
+        modalBody.innerHTML = source.innerHTML;
+        modalFoot.innerHTML = foot ? foot.innerHTML : '';
+
+        // Start on open reports; fall back to all if none are open.
+        applyChip(modalBody.querySelector('.rp-reporter[data-open="1"]') ? 'open' : 'all');
+
         modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        closeButton.focus();
     }
 
-    function closeModal() {
+    function closeReportModal() {
         modal.classList.remove('open');
-        body.innerHTML = '';
+        modal.setAttribute('aria-hidden', 'true');
+        modalBody.innerHTML = '';
+        modalFoot.innerHTML = '';
+        document.body.style.overflow = '';
+        if (lastTrigger) lastTrigger.focus();
     }
 
-    document.querySelectorAll('.count-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () { openModal(btn); });
+    document.querySelectorAll('.js-open-reporters').forEach(function (button) {
+        button.addEventListener('click', function () { openReportModal(button); });
     });
+    chips.forEach(c => c.addEventListener('click', () => applyChip(c.dataset.chip)));
+    closeButton.addEventListener('click', closeReportModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeReportModal(); });
 
-    document.getElementById('rmClose').addEventListener('click', closeModal);
-    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+    document.addEventListener('keydown', function (e) {
+        if (!modal.classList.contains('open')) return;
+        if (e.key === 'Escape') { closeReportModal(); return; }
+
+        if (e.key === 'Tab') {                         // keep focus inside the dialog
+            const f = modal.querySelectorAll('a[href], button:not([disabled])');
+            const visible = Array.from(f).filter(el => el.offsetParent !== null);
+            if (!visible.length) return;
+            const first = visible[0], last = visible[visible.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+    });
 });
 </script>
 {% endblock %}

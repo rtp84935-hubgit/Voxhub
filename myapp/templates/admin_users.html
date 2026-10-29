@@ -267,27 +267,9 @@
                         <td>
                             <div class="row-actions">
 
-                                <a href="{% url 'view_userprofile' profile.id %}" class="um-btn um-btn-view">View</a>
+                                <a href="{% url 'view_userprofile' profile.LOGIN.id %}" class="um-btn um-btn-view">View</a>
 
-                                {% if profile.LOGIN.is_active %}
-                                    <form
-                                        method="POST"
-                                        action="{% url 'admin_ban_user' profile.LOGIN.id %}"
-                                        onsubmit="return confirm('Are you sure you want to ban this user?');"
-                                    >
-                                        {% csrf_token %}
-                                        <button type="submit" class="um-btn um-btn-ban">Ban</button>
-                                    </form>
-                                {% else %}
-                                    <form
-                                        method="POST"
-                                        action="myapp/admin_unban_user/{{profile.LOGIN.id}}"
-                                        onsubmit="return confirm('Restore this user account?');"
-                                    >
-                                        {% csrf_token %}
-                                        <button type="submit" class="um-btn um-btn-unban">Unban</button>
-                                    </form>
-                                {% endif %}
+                               
 
                             </div>
                         </td>

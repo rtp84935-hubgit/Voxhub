@@ -48,10 +48,11 @@ from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.validators import validate_email
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
@@ -94,6 +95,12 @@ VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
 
 # ---- admin notifications ----
 NOTIFY_KINDS = ("new_user", "report", "security")
+
+# ---- user reports (moderation) ----
+OPEN_STATUSES = ("pending", "inreview")   # Reports.status values that still need action
+HIGH_RISK_REPORTERS = 10                  # different people with open reports -> "high"
+MEDIUM_RISK_REPORTERS = 5                 # -> "medium"
+MAX_REPORTS_PER_DAY = 10                  # per reporter, stops report spamming
 
 # ---- loaded once at import time (not on every request) ----
 _face_cascade = cv2.CascadeClassifier(
@@ -455,6 +462,39 @@ def notify_admin(kind, message):
 def _get_prefs(user):
     prefs, _ = AdminNotificationPreference.objects.get_or_create(admin=user)
     return prefs
+
+
+# ---------------------------------------------------------
+# Report moderation helpers
+# ---------------------------------------------------------
+
+def _risk_level(unique_reporters):
+    """low / medium / high, based on how many DIFFERENT people have
+    open reports against an account (one person spamming the report
+    button cannot raise it)."""
+    if unique_reporters >= HIGH_RISK_REPORTERS:
+        return "high"
+    if unique_reporters >= MEDIUM_RISK_REPORTERS:
+        return "medium"
+    return "low"
+
+
+def _safe_next(request, fallback):
+    """Redirect to ?next= only if it points back to this site."""
+    nxt = request.POST.get("next", "")
+    if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        return redirect(nxt)
+    return redirect(fallback)
+
+
+def _is_protected(request, target):
+    """Admins, staff and yourself must never be banned from the UI."""
+    return (
+        target.id == request.user.id
+        or target.is_staff
+        or target.is_superuser
+        or target.groups.filter(name="admin").exists()
+    )
 
 
 # =========================================================
@@ -1444,6 +1484,10 @@ def suggestions(request):
     })
 
 
+# ---------------------------------------------------------
+# Reporting a user
+# ---------------------------------------------------------
+
 @login_required(login_url="login")
 @require_POST
 def report_user(request, user_id):
@@ -1464,29 +1508,35 @@ def report_user(request, user_id):
             status=400
         )
 
-    # Prevent duplicate pending reports
+    # Block a second report while the first one is still open
+    # (pending OR in review - the old check only looked at "pending")
     if Reports.objects.filter(
         USER=me,
         VICTIM=target,
-        status="pending"
+        status__in=OPEN_STATUSES,
     ).exists():
         return JsonResponse(
             {"ok": False, "error": "You have already reported this user."},
             status=400
         )
 
+    # Daily limit per reporter, so the report button cannot be spammed
+    since = timezone.now() - timedelta(days=1)
+    if Reports.objects.filter(USER=me, date__gte=since).count() >= MAX_REPORTS_PER_DAY:
+        return JsonResponse(
+            {"ok": False, "error": "Report limit reached for today. Please try again tomorrow."},
+            status=429
+        )
+
     # Save the report
-    report = Reports.objects.create(
+    Reports.objects.create(
         USER=me,
         VICTIM=target,
         reports=reason
     )
 
-    # Create an admin notification
-    AdminNotification.objects.create(
-        kind="report",
-        message=f"New report submitted against {target.LOGIN.username}"
-    )
+    # Admin notification (de-duplicated, never raises)
+    notify_admin("report", f"New report against {target.username}")
 
     return JsonResponse({
         "ok": True,
@@ -1495,7 +1545,7 @@ def report_user(request, user_id):
 
 @login_required(login_url="login")
 @require_POST
-def submit_common_report(request):
+def submit_complaint(request):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
 
     reason = (request.POST.get("reason") or "").strip()[:1000]
@@ -1504,10 +1554,10 @@ def submit_common_report(request):
         return JsonResponse({"ok": False, "error": "Please enter a reason."}, status=400)
 
     # Block duplicate pending reports with the same text
-    if Common_Reports.objects.filter(USER=me, reports=reason, status="pending").exists():
+    if Complaints.objects.filter(USER=me, reports=reason, status="pending").exists():
         return JsonResponse({"ok": False, "error": "You have already submitted this report."}, status=400)
 
-    Common_Reports.objects.create(USER=me, reports=reason)
+    Complaints.objects.create(USER=me, reports=reason)
 
     AdminNotification.objects.create(
         kind="report",
@@ -1517,16 +1567,16 @@ def submit_common_report(request):
     return JsonResponse({"ok": True, "message": "Report submitted. Thank you."})
 
 @login_required(login_url="login")
-def user_common_reports(request):
+def user_complaints(request):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
 
-    my_reports = Common_Reports.objects.filter(USER=me)
+    my_reports = Complaints.objects.filter(USER=me)
 
     # remember which ones the admin updated, then mark them as seen
     unseen_ids = list(my_reports.filter(user_seen=False).values_list("id", flat=True))
-    Common_Reports.objects.filter(USER=me, user_seen=False).update(user_seen=True)
+    Complaints.objects.filter(USER=me, user_seen=False).update(user_seen=True)
 
-    return render(request, "user_common_reports.html", {
+    return render(request, "user_complaints.html", {
         "reports": my_reports,
         "unseen_ids": unseen_ids,
     })
@@ -1714,13 +1764,8 @@ def user_notifications(request):
         status='pending'
     )
 
-    # Reports
+    # Reports I have submitted
     my_reports = Reports.objects.filter(USER=profile)
-
-    Reports.objects.filter(
-        USER=profile,
-        user_seen=False
-    ).update(user_seen=True)
 
     return render(request, 'notification.html', {
         'notifications': notifications,
@@ -1766,16 +1811,18 @@ def notifications(request):
     )
 
 
+@login_required(login_url="login")
 def accept_follow_request(request, id):
     if request.method == 'POST':
         Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).update(status='accepted')
-    return redirect('user_notification')
+    return redirect('user_notifications')
 
 
+@login_required(login_url="login")
 def decline_follow_request(request, id):
     if request.method == 'POST':
         Follow.objects.filter(id=id, FOLLOWING__LOGIN=request.user).delete()
-    return redirect('user_notification')
+    return redirect('user_notifications')
 
 
 @login_required
@@ -1791,13 +1838,13 @@ def respond_to_notification(request, notification_id):
 
     if notification.status != "pending":
         messages.warning(request, "You have already responded.")
-        return redirect("notifications")
+        return redirect("user_notifications")
 
     action = request.POST.get("action")
 
     if action not in ["accept", "reject"]:
         messages.error(request, "Invalid action.")
-        return redirect("notifications")
+        return redirect("user_notifications")
 
     faces = PostFace.objects.filter(
         post=notification.post,
@@ -1811,7 +1858,7 @@ def respond_to_notification(request, notification_id):
             request,
             "No pending face-visibility request was found."
         )
-        return redirect("notifications")
+        return redirect("user_notifications")
 
     new_status = "accepted" if action == "accept" else "rejected"
 
@@ -1861,9 +1908,21 @@ def delete_face_notification(request, id):
     return redirect("user_notifications")
 
 
+@login_required(login_url="login")
+@require_POST
 def delete_report_notification(request, id):
-    report = get_object_or_404(Reports, id=id)
-    report.delete()
+    """Remove a handled report from the reporter's notification list.
+    Only the reporter can do this, and only after the admin has closed it
+    (the old version let anyone delete any report - including the evidence -
+    by visiting the URL)."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    report = get_object_or_404(Reports, id=id, USER=me)
+
+    if report.status in OPEN_STATUSES:
+        messages.warning(request, "You can remove a report only after it has been handled.")
+    else:
+        report.delete()
+
     return redirect("user_notifications")
 
 
@@ -1924,7 +1983,6 @@ def change_password(request):
     return render(request, "change_password.html")
 
 
-
 # =========================================================
 # 10. ADMIN
 # =========================================================
@@ -1975,7 +2033,8 @@ def admin_home(request):
     recent_users = UserProfile.objects.order_by('-created_at', '-id')[:5]
     active = User.objects.filter(is_active=1, is_staff=0).count()
     total_posts = User_posts.objects.all().count()
-    pending_reports = Reports.objects.filter(status="pending").count()
+    # "pending" only counted brand-new reports; open = pending + in review
+    pending_reports = Reports.objects.filter(status__in=OPEN_STATUSES).count()
     return render(request, 'admin_home.html', {
         'total_users': total_users,
         "banned_users": banned_users,
@@ -2002,54 +2061,48 @@ def admin_banned_users(request):
     return render(request, 'admin_banned_users.html', {'banned': banned})
 
 
-from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
-
-from .models import Reports
-
-
-from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
-from .models import Reports
-
-
 @admin_required
 @require_POST
 def admin_ban_user(request, id):
-    report = get_object_or_404(Reports, id=id)
+    """Ban an account. Works from admin_users and from admin_reports
+    (the form sends ?next so you return to the page you came from)."""
+    target = get_object_or_404(User, id=id)
 
- 
-    report.VICTIM.LOGIN.is_active = False
-    report.VICTIM.LOGIN.save(update_fields=["is_active"])
+    if _is_protected(request, target):
+        messages.warning(request, "Admin and staff accounts cannot be banned here.")
+        return _safe_next(request, "admin_users")
 
-   
-    report.status = "banned"
-    report.save(update_fields=["status"])
+    with transaction.atomic():
+        target.is_active = False
+        target.save(update_fields=["is_active"])
 
-    return redirect("admin_users")
+        # The account is handled, so its open reports are closed.
+        closed = Reports.objects.filter(
+            VICTIM__LOGIN=target,
+            status__in=OPEN_STATUSES,
+        ).update(status="resolved")
+
+    messages.success(
+        request,
+        f"{target.username} was banned. {closed} open report(s) marked as resolved."
+    )
+    return _safe_next(request, "admin_users")
 
 
 @admin_required
 @require_POST
 def admin_unban_user(request, id):
-    report = get_object_or_404(Reports, id=id)
+    target = get_object_or_404(User, id=id)
+    target.is_active = True
+    target.save(update_fields=["is_active"])
 
-    report.VICTIM.LOGIN.is_active = True
-    report.VICTIM.LOGIN.save(update_fields=["is_active"])
-
-
-    report.status = "resolved"
-    report.save(update_fields=["status"])
-
-    return redirect("admin_users")
+    messages.success(request, f"{target.username} was unbanned.")
+    return _safe_next(request, "admin_users")
 
 
+@admin_required
 def view_userprofile(request, id):
-    report = get_object_or_404(Reports, id=id)
-
-    profile = report.VICTIM
+    profile = get_object_or_404(UserProfile, LOGIN_id=id)
 
     posts = User_posts.objects.filter(USER=profile)
 
@@ -2058,78 +2111,138 @@ def view_userprofile(request, id):
         'posts': posts,
     })
 
-
 # ---------------------------------------------------------
 # Admin - reports
 # ---------------------------------------------------------
 
-from django.db.models import Prefetch   # add to your imports
-
 @admin_required
 def admin_reports(request):
-    reported_users = (
+    open_q = Q(reports_received__status__in=OPEN_STATUSES)
+
+    users = list(
         UserProfile.objects
         .filter(reports_received__isnull=False)
         .select_related("LOGIN")
         .annotate(
             report_count=Count("reports_received", distinct=True),
-            pending_count=Count(
-                "reports_received",
-                filter=Q(reports_received__status="pending"),
-                distinct=True,
-            ),
+            open_count=Count("reports_received", filter=open_q, distinct=True),
+            # distinct reporters among OPEN reports: one person pressing
+            # "report" many times cannot push an account to high risk
+            unique_reporters=Count("reports_received__USER", filter=open_q, distinct=True),
+            last_reported=Max("reports_received__date"),
         )
         .prefetch_related(
             Prefetch(
                 "reports_received",
-                queryset=Reports.objects.select_related("USER").order_by("-date"),
+                queryset=Reports.objects.select_related("USER", "USER__LOGIN").order_by("-date"),
             )
         )
-        .order_by("-report_count", "name")
+        .order_by("-open_count", "-unique_reporters", "-last_reported")
     )
-    
+
+    for u in users:
+        u.risk = _risk_level(u.unique_reporters) if u.open_count else "low"
+
+    high_risk_users = [
+        u for u in users
+        if u.risk == "high" and u.LOGIN.is_active
+    ]
+
+    open_reports = Reports.objects.filter(status__in=OPEN_STATUSES).count()
 
     return render(request, "admin_reports.html", {
-        "reported_users": reported_users,
-        "pending_reports": Reports.objects.filter(status="pending").count(),
-        "resolved_reports": Reports.objects.filter(status="resolved").count(),
+        "reported_users": users,
+        "high_risk_users": high_risk_users,
+        "open_reports": open_reports,
+        "closed_reports": Reports.objects.exclude(status__in=OPEN_STATUSES).count(),
     })
 
 
+@admin_required
 def review_report(request, id):
-    report = Reports.objects.get(id=id)
-    ob = Reports.objects.get(id=id)
-    if ob.status == "pending":
-        ob.status = "inreview"
-        ob.save()
+    report = get_object_or_404(
+        Reports.objects.select_related("USER", "VICTIM", "VICTIM__LOGIN"),
+        id=id,
+    )
+
+    if report.status == "pending":
+        report.status = "inreview"
+        report.save(update_fields=["status"])
+
     return render(request, "review_report.html", {"report": report})
 
 
-@require_POST
-def resolve_report(request, id):
-    Reports.objects.filter(id=id).update(status="resolved", user_seen=False)
+def _close_one_report(request, id, status):
+    updated = Reports.objects.filter(id=id).update(status=status)
+
+    if not updated:
+        messages.warning(request, "Report not found.")
+        return redirect("admin_reports")
+
+    messages.success(request, f"Report marked as {status}.")
     return redirect("review_report", id=id)
 
-
-@require_POST
-def dismiss_report(request, id):
-    Reports.objects.filter(id=id).update(status="dismissed", user_seen=False)
-    return redirect("review_report", id=id)
 
 @admin_required
-def admin_common_reports(request):
-    reports = Common_Reports.objects.select_related("USER")
+@require_POST
+def resolve_report(request, id):
+    return _close_one_report(request, id, "resolved")
 
-    return render(request, "admin_common_reports.html", {
+
+@admin_required
+@require_POST
+def dismiss_report(request, id):
+    return _close_one_report(request, id, "dismissed")
+
+
+@admin_required
+@require_POST
+def admin_close_reports(request, id):
+    """Close every open report against one account at once.
+    id = the account's auth User id (same id the ban buttons use)."""
+    action = request.POST.get("action")
+
+    if action not in ("resolved", "dismissed"):
+        messages.warning(request, "Invalid action.")
+        return _safe_next(request, "admin_reports")
+
+    count = Reports.objects.filter(
+        VICTIM__LOGIN_id=id,
+        status__in=OPEN_STATUSES,
+    ).update(status=action)
+
+    messages.success(request, f"{count} open report(s) marked as {action}.")
+    return _safe_next(request, "admin_reports")
+
+
+COMPLAINT_OPEN = ("pending", "inreview")   # Complaints.status values that still need action
+
+
+@admin_required
+def admin_complaints(request):
+    reports = (
+        Complaints.objects
+        .select_related("USER", "USER__LOGIN")
+        .order_by("admin_seen", "-date")      # unopened first, then newest
+    )
+
+    open_count = reports.filter(status__in=COMPLAINT_OPEN).count()
+    total = reports.count()
+
+    return render(request, "admin_complaints.html", {
         "reports": reports,
-        "pending_count": reports.filter(status="pending").count(),
-        "resolved_count": reports.filter(status="resolved").count(),
+        "total_count": total,
+        "new_count": reports.filter(admin_seen=False).count(),
+        "open_count": open_count,
+        "closed_count": total - open_count,
     })
 
 
 @admin_required
-def review_common_report(request, id):
-    report = get_object_or_404(Common_Reports, id=id)
+def review_complaints(request, id):
+    report = get_object_or_404(
+        Complaints.objects.select_related("USER", "USER__LOGIN"), id=id
+    )
 
     changed = []
     if report.status == "pending":
@@ -2141,23 +2254,36 @@ def review_common_report(request, id):
     if changed:
         report.save(update_fields=changed)
 
-    return render(request, "review_common_report.html", {"report": report})
+    # the same user's other complaints, for context (repeat complaints stand out)
+    others = Complaints.objects.filter(USER=report.USER).exclude(id=report.id).order_by("-date")
+
+    return render(request, "review_complaints.html", {
+        "report": report,
+        "other_complaints": others[:5],
+        "other_total": others.count(),
+    })
 
 
 @admin_required
 @require_POST
-def update_common_report(request, id):
+def update_complaints(request, id):
     action = request.POST.get("action")
 
-    if action not in ("resolved", "dismissed"):
+    # "inreview" = reopen a complaint that was closed by mistake
+    if action not in ("resolved", "dismissed", "inreview"):
         messages.warning(request, "Invalid action.")
-        return redirect("review_common_report", id=id)
+        return redirect("review_complaints", id=id)
 
     # user_seen=False so the reporter sees there is an update
-    Common_Reports.objects.filter(id=id).update(status=action, user_seen=False)
+    updated = Complaints.objects.filter(id=id).update(status=action, user_seen=False)
 
-    messages.success(request, f"Report marked as {action}.")
-    return redirect("review_common_report", id=id)
+    if not updated:
+        messages.warning(request, "Complaint not found.")
+        return redirect("admin_complaints")
+
+    label = "reopened" if action == "inreview" else f"marked as {action}"
+    messages.success(request, f"Complaint {label}.")
+    return redirect("review_complaints", id=id)
 
 
 # ---------------------------------------------------------

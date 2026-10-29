@@ -1,0 +1,214 @@
+{% extends 'user_base.html' %}
+
+{% block title %}VoxHub - Report a Problem{% endblock %}
+
+{% block extra_head %}
+<style>
+.cm { max-width: 760px; margin: auto; }
+.cm-head h2 { margin: 0 0 6px; font-size: 1.5rem; letter-spacing: -.02em; }
+.cm-head p { margin: 0 0 22px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+/* Compose */
+.cm-box {
+    margin-bottom: 30px; padding: 20px; border: 1px solid var(--line);
+    border-radius: 18px; background: var(--surface);
+}
+.cm-box label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+.cm-box textarea {
+    width: 100%; min-height: 130px; padding: 13px 15px; resize: vertical;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+    color: inherit; font: inherit; font-size: 14px; line-height: 1.6;
+}
+.cm-box textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,108,255,.28); }
+.cm-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.cm-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.cm-count { color: var(--muted); font-size: 12px; }
+.cm-count.warn { color: #fbbf24; font-weight: 700; }
+.cm-send {
+    padding: 11px 24px; border: 0; border-radius: 12px; cursor: pointer; color: #fff; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), #4f8dff 60%, var(--accent-2));
+}
+.cm-send:disabled { opacity: .45; cursor: not-allowed; }
+
+/* List header + filters */
+.cm-list-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.cm-list-head h3 { margin: 0; font-size: 1.05rem; }
+.cm-chips { display: flex; gap: 6px; }
+.cm-chip {
+    padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px; background: transparent;
+    color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.cm-chip[aria-pressed="true"] { border-color: var(--accent); background: rgba(124,108,255,.16); color: inherit; }
+
+/* Cards */
+.cm-card {
+    margin-bottom: 12px; padding: 16px 18px; border: 1px solid var(--line);
+    border-left: 3px solid var(--st, var(--line)); border-radius: 16px; background: var(--surface);
+}
+.cm-card.is-new { border-color: var(--accent); border-left-color: var(--accent); }
+.cm-card[data-status="pending"]   { --st: #fbbf24; }
+.cm-card[data-status="inreview"]  { --st: #60a5fa; }
+.cm-card[data-status="resolved"]  { --st: #34d399; }
+.cm-card[data-status="dismissed"] { --st: #9aa7bf; }
+.cm-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.cm-date { color: var(--muted); font-size: 12px; }
+.cm-text { font-size: 14px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cm-state { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.cm-update { margin: 10px 0 0; color: var(--accent); font-size: 12px; font-weight: 700; }
+
+.cm-badge { padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.cm-badge.pending   { background: rgba(251,191,36,.15); color: #fbbf24; }
+.cm-badge.inreview  { background: rgba(96,165,250,.15); color: #60a5fa; }
+.cm-badge.resolved  { background: rgba(52,211,153,.15); color: #34d399; }
+.cm-badge.dismissed { background: rgba(154,167,191,.15); color: #9aa7bf; }
+
+.cm-empty { padding: 30px 0; color: var(--muted); text-align: center; line-height: 1.7; }
+[hidden] { display: none !important; }
+
+@media (max-width: 560px) {
+    .cm-foot { flex-direction: column; align-items: stretch; }
+    .cm-send { width: 100%; }
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="cm">
+
+  <div class="cm-head">
+    <h2>Report a problem</h2>
+    <p>Tell us about a bug, abuse or anything else that needs the admin's attention. To report a specific person, use the report option on their profile.</p>
+  </div>
+
+  <section class="cm-box">
+    <label for="reason">What happened?</label>
+    <textarea id="reason" maxlength="1000"
+              placeholder="Describe the problem: what you did, what you expected and what happened instead."></textarea>
+    <p class="cm-hint">Be specific, at least 10 characters. You can send up to 5 complaints a day.</p>
+    <div class="cm-foot">
+      <span class="cm-count" id="cmCount"><span id="cnt">0</span>/1000</span>
+      <button type="button" class="cm-send" id="send" disabled>Submit complaint</button>
+    </div>
+  </section>
+
+  <div class="cm-list-head">
+    <h3>My complaints</h3>
+    {% if reports %}
+    <div class="cm-chips" role="group" aria-label="Filter complaints">
+      <button type="button" class="cm-chip" data-chip="all" aria-pressed="true">All</button>
+      <button type="button" class="cm-chip" data-chip="open" aria-pressed="false">Open</button>
+      <button type="button" class="cm-chip" data-chip="closed" aria-pressed="false">Closed</button>
+    </div>
+    {% endif %}
+  </div>
+
+  {% for r in reports %}
+  <article class="cm-card {% if r.id in unseen_ids %}is-new{% endif %}" data-status="{{ r.status }}"
+           data-open="{% if r.status == 'pending' or r.status == 'inreview' %}1{% else %}0{% endif %}">
+    <div class="cm-top">
+      <span class="cm-date">{{ r.date|date:"d M Y, H:i" }}</span>
+      <span class="cm-badge {{ r.status }}">{{ r.get_status_display }}</span>
+    </div>
+
+    <div class="cm-text">{{ r.reports }}</div>
+
+    <p class="cm-state">
+      {% if r.status == 'pending' %}Waiting for an admin to open it.
+      {% elif r.status == 'inreview' %}An admin is looking into this.
+      {% elif r.status == 'resolved' %}The admin handled this problem.
+      {% elif r.status == 'dismissed' %}The admin reviewed this and no action was needed.
+      {% endif %}
+    </p>
+
+    {% if r.id in unseen_ids %}
+      <p class="cm-update">● New update from the admin: {{ r.get_status_display }}</p>
+    {% endif %}
+  </article>
+  {% empty %}
+  <p class="cm-empty">You haven't submitted any complaints yet.</p>
+  {% endfor %}
+
+  <p class="cm-empty" id="cmFilterEmpty" hidden>No complaints in this view.</p>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+const MIN_LEN = 10;
+const reasonEl = document.getElementById("reason");
+const sendBtn  = document.getElementById("send");
+const cntEl    = document.getElementById("cnt");
+const cmCount  = document.getElementById("cmCount");
+
+function say(msg) {
+  if (typeof toast === "function") toast(msg); else alert(msg);
+}
+
+function refreshForm() {
+  const len = reasonEl.value.length;
+  cntEl.textContent = len;
+  cmCount.classList.toggle("warn", len >= 900);
+  sendBtn.disabled = reasonEl.value.trim().length < MIN_LEN;
+}
+reasonEl.addEventListener("input", refreshForm);
+
+function submitComplaint() {
+  const reason = reasonEl.value.trim();
+  if (reason.length < MIN_LEN || sendBtn.disabled) return;
+
+  const fd = new FormData();
+  fd.append("reason", reason);
+  sendBtn.disabled = true;
+  sendBtn.textContent = "Sending...";
+
+  fetch("{% url 'submit_complaint' %}", {
+    method: "POST",
+    body: fd,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  })
+  .then(async r => {
+    let d = {};
+    try { d = await r.json(); } catch (_) {}
+    if (r.ok && d.ok) {
+      say("Complaint submitted. Thank you.");
+      setTimeout(() => location.reload(), 700);
+    } else {
+      say(d.error || ("Could not submit (" + r.status + ")"));
+      sendBtn.textContent = "Submit complaint";
+      refreshForm();
+    }
+  })
+  .catch(() => {
+    say("Network error. Please try again.");
+    sendBtn.textContent = "Submit complaint";
+    refreshForm();
+  });
+}
+
+sendBtn.addEventListener("click", submitComplaint);
+reasonEl.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") submitComplaint();
+});
+
+// Filter my complaints: All / Open / Closed
+const chips = document.querySelectorAll(".cm-chip");
+const cards = document.querySelectorAll(".cm-card");
+const filterEmpty = document.getElementById("cmFilterEmpty");
+
+chips.forEach(chip => chip.addEventListener("click", () => {
+  const mode = chip.dataset.chip;
+  chips.forEach(c => c.setAttribute("aria-pressed", c === chip ? "true" : "false"));
+  let shown = 0;
+  cards.forEach(card => {
+    const open = card.dataset.open === "1";
+    const show = mode === "all" || (mode === "open" ? open : !open);
+    card.hidden = !show;
+    if (show) shown++;
+  });
+  filterEmpty.hidden = shown !== 0;
+}));
+</script>
+{% endblock %}
