@@ -1,0 +1,39 @@
+{# The conversation list. Rendered inside the pages AND returned alone by chat_list_fragment for auto-refresh. #}
+<section data-sec="convs">
+    <div class="cl-label">Conversations</div>
+    {% for p in conversations %}
+    <a class="cl-row {% if p.id == active_id %}active{% endif %} {% if p.unread_count %}unread{% endif %}"
+       href="{% url 'chat_room' p.id %}" data-search="{{ p.name|lower }} {{ p.username|lower }}" data-unread="{{ p.unread_count }}">
+        <span class="cl-av">{% if p.profile_image %}<img src="{{ p.profile_image.url }}" alt="" loading="lazy">{% else %}{{ p.username|first|upper }}{% endif %}</span>
+        <span class="cl-mid">
+            <span class="cl-top">
+                <span class="cl-name">{{ p.name|default:p.username }}</span>
+                <span class="cl-time">{{ p.time_label }}</span>
+            </span>
+            <span class="cl-bottom">
+                <span class="cl-preview">{% if chat_settings.show_preview %}{% if p.last_from_me %}You: {% endif %}{{ p.last_text|truncatechars:40 }}{% else %}{% if p.unread_count %}New message{% else %}Open conversation{% endif %}{% endif %}</span>
+                {% if p.unread_count %}<span class="cl-badge" title="{{ p.unread_count }} unread">{% if p.unread_count > 99 %}99+{% else %}{{ p.unread_count }}{% endif %}</span>{% endif %}
+            </span>
+        </span>
+    </a>
+    {% empty %}
+    <div class="cl-empty">No conversations yet. Start one below.</div>
+    {% endfor %}
+</section>
+
+<section data-sec="new">
+    <div class="cl-label">Start a new chat</div>
+    {% for p in others %}
+    <a class="cl-row cl-new" href="{% url 'chat_room' p.id %}" data-search="{{ p.name|lower }} {{ p.username|lower }}" data-unread="0">
+        <span class="cl-av">{% if p.profile_image %}<img src="{{ p.profile_image.url }}" alt="" loading="lazy">{% else %}{{ p.username|first|upper }}{% endif %}</span>
+        <span class="cl-mid">
+            <span class="cl-name" style="display:block">{{ p.name|default:p.username }}</span>
+            <span class="cl-preview" style="display:block">@{{ p.username }}</span>
+        </span>
+    </a>
+    {% empty %}
+    <div class="cl-empty">You've started a chat with everyone.</div>
+    {% endfor %}
+</section>
+
+<div class="cl-none" data-none hidden>Nothing found. Try another name.</div>

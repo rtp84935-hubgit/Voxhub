@@ -25,6 +25,7 @@ urlpatterns = [
     path("user_home/", views.user_home, name="user_home"),
     path("create_post/", views.create_post, name="create_post"),
     path("delete_post/", views.delete_post, name="delete_post"),
+    path('edit_post_caption/', views.edit_post_caption, name='edit_post_caption'),
     path("toggle_like/", views.toggle_like, name="toggle_like"),
     path("liked_posts/", views.liked_posts, name="liked_posts"),
     path("add_comment/", views.add_comment, name="add_comment"),
@@ -46,6 +47,9 @@ urlpatterns = [
     # USER - chat
     # =====================================================
     path("chat/", views.chat_inbox, name="chat_inbox"),
+    path("chat/list/", views.chat_list_fragment, name="chat_list_fragment"),
+    path("chat/settings/", views.chat_settings_page, name="chat_settings"),
+    path("chat/settings/update/", views.update_chat_setting, name="update_chat_setting"),
     path("chat/<int:user_id>/", views.chat_room, name="chat_room"),
     path("chat/<int:user_id>/send/", views.send_message, name="send_message"),
     path("chat/<int:user_id>/messages/", views.chat_messages, name="chat_messages"),
@@ -90,6 +94,7 @@ urlpatterns = [
     path("review_report/<int:id>/", views.review_report, name="review_report"),
     path("resolve_report/<int:id>/", views.resolve_report, name="resolve_report"),
     path("dismiss_report/<int:id>/", views.dismiss_report, name="dismiss_report"),
+    # NEW: dismiss / resolve every open report against one account (id = auth User id)
     path("admin_close_reports/<int:id>/", views.admin_close_reports, name="admin_close_reports"),
 
     # =====================================================

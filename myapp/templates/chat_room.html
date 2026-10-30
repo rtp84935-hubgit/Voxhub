@@ -1,271 +1,317 @@
 {% extends 'user_base.html' %}
 
-{% block title %}Chat with {{ other.username }} · VoxHub{% endblock %}
+{% block title %}Chat with {{ other.name|default:other.username }} · VoxHub{% endblock %}
 
-{# no right column on this page, so the base default (two columns) is kept #}
+{# no right column: list pane + conversation #}
 
 {% block extra_head %}
+{% include "chat_css.html" %}
 <style>
-.room{
-    display:grid;
-    grid-template-columns:240px minmax(0,1fr);
-    height:calc(100vh - 48px);
-    min-height:480px;
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:18px;
-    overflow:hidden;
+/* ---------- header ---------- */
+.ch-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.ch-back { display: none; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; color: var(--muted); }
+.ch-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ch-av { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; overflow: hidden; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px; font-weight: 800; }
+.ch-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ch-who { flex: 1; min-width: 0; line-height: 1.3; }
+.ch-who a { display: block; overflow: hidden; font-size: 15px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.ch-who a:hover { color: var(--accent); }
+.ch-who span { color: var(--muted); font-size: 12px; }
+
+/* quick theme picker */
+.ch-pop-wrap { position: relative; }
+.ch-pop {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; width: 232px; padding: 14px;
+    border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow);
+}
+.ch-pop-title { margin-bottom: 10px; font-size: 13px; font-weight: 800; }
+.ch-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.ch-pop a { display: block; margin-top: 12px; color: var(--accent); font-size: 12px; font-weight: 700; }
+
+.ch-empty { margin: auto; padding: 20px; color: var(--muted); font-size: 13px; line-height: 1.7; text-align: center; }
+.ch-empty strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 16px; }
+.ch-new {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2;
+    padding: 8px 16px; border-radius: 999px; background: var(--ct-a); color: #fff;
+    font-size: 12px; font-weight: 800; box-shadow: var(--shadow);
 }
 
-/* conversation list */
-.rooms{border-right:1px solid var(--line);overflow-y:auto;padding:12px}
-.rooms h3{margin:6px 8px 12px;font-size:1.05rem}
-.rooms a{display:block;padding:11px 12px;border-radius:10px;color:var(--muted);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rooms a:hover{background:var(--surface-2);color:var(--text)}
-.rooms a.on{background:rgba(124,108,255,.16);color:#fff}
-
-/* thread */
-.thread{display:flex;flex-direction:column;min-width:0;min-height:0}
-.th{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
-.th h3{margin:0;font-size:1rem}
-.th .back{display:none;font-size:14px;color:var(--accent-2);font-weight:700}
-
-#messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:18px}
-.bubble{
-    position:relative;
-    max-width:75%;
-    width:fit-content;
-    padding:10px 14px;
-    border-radius:18px;
-    font-size:14px;
-    overflow-wrap:anywhere;
-    white-space:pre-wrap;
+/* ---------- composer ---------- */
+.ch-error { margin: 0; padding: 0 18px; color: #fb7185; font-size: 13px; }
+.ch-error:empty { display: none; }
+.ch-form { display: flex; align-items: flex-end; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid var(--line); }
+.ch-form textarea {
+    flex: 1; min-width: 0; max-height: 120px; padding: 11px 16px; resize: none;
+    border: 1px solid var(--line); border-radius: 20px; background: var(--surface-2); font-size: 14px; line-height: 1.45;
 }
-.mine{align-self:flex-end;background:linear-gradient(135deg,var(--accent),#4f8dff);color:#fff;border-bottom-right-radius:6px}
-.theirs{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:6px}
-.time{display:block;margin-top:5px;font-size:11px;opacity:.7}
+.ch-form textarea:focus { outline: none; border-color: var(--ct-a); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ch-form button { height: 44px; padding: 0 22px; flex-shrink: 0; border-radius: 999px; color: #fff; font-weight: 800; background: linear-gradient(135deg, var(--ct-a), var(--ct-b)); }
+.ch-form button:disabled { opacity: .5; cursor: default; }
+.ch-closed { padding: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
 
-/* delete button (shown on every message in this chat) */
-.del{
-    position:absolute;
-    top:50%;
-    left:-34px;
-    transform:translateY(-50%);
-    width:28px;height:28px;
-    display:grid;place-items:center;
-    border-radius:50%;
-    background:var(--surface-2);
-    border:1px solid var(--line);
-    font-size:13px;
-    opacity:0;
-    transition:opacity .15s, background .15s;
-}
-.theirs .del{left:auto;right:-34px}
-.bubble:hover .del,.del:focus-visible{opacity:1}
-.del:hover{background:rgba(244,114,182,.18);border-color:rgba(244,114,182,.5)}
-.del:disabled{opacity:.4;cursor:default}
-@media(hover:none){.del{opacity:.75}}
-
-#error{color:#fda4af;font-size:13px;margin:0;padding:0 18px;min-height:0}
-#chat-form{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
-#chat-form input{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:14px}
-#chat-form input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.28)}
-#chat-form button{padding:0 20px;border-radius:999px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),#4f8dff 60%,var(--accent-2))}
-#chat-form button:disabled{opacity:.5;cursor:default}
-
-@media(max-width:760px){
-    .room{grid-template-columns:1fr;height:calc(100vh - 150px)}
-    .rooms{display:none}
-    .th .back{display:inline}
-    .bubble{max-width:82%}
-}
+@media (max-width: 860px) { .ch-back { display: grid; } }
 </style>
 {% endblock %}
 
 
 {% block content %}
-<div class="room">
+<div class="msgr in-room">
 
-    <aside class="rooms">
-        <h3>Chats</h3>
-        {% for person in users %}
-            <a href="{% url 'chat_room' person.id %}" class="{% if person.id == other.id %}on{% endif %}">{{ person.username }}</a>
-        {% endfor %}
-        <a href="{% url 'chat_inbox' %}">← All messages</a>
-    </aside>
+    {% include "chat_list_pane.html" %}
 
-    <section class="thread">
-        <div class="th">
-            <a class="back" href="{% url 'chat_inbox' %}">← Back</a>
-            <h3>Chat with {{ other.username }}</h3>
-        </div>
+    <section class="msgr-main {% if chat_settings.compact %}compact{% endif %} {% if not chat_settings.show_time %}no-time{% endif %}"
+             id="chatMain" data-chat-theme="{{ chat_settings.theme }}" data-chat-font="{{ chat_settings.font_size }}"
+             data-enter="{% if chat_settings.enter_to_send %}1{% else %}0{% endif %}">
 
-        <div id="messages">
+        <header class="ch-head">
+            <a class="icon-link ch-back" href="{% url 'chat_inbox' %}" aria-label="Back to messages">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </a>
+
+            <a class="ch-av" href="{% url 'view_profile' other.id %}" aria-label="View profile">
+                {% if other.profile_image %}<img src="{{ other.profile_image.url }}" alt="">{% else %}{{ other.username|first|upper }}{% endif %}
+            </a>
+
+            <div class="ch-who">
+                <a href="{% url 'view_profile' other.id %}">{{ other.name|default:other.username }}</a>
+                <span>@{{ other.username }}</span>
+            </div>
+
+            <div class="ch-pop-wrap">
+                <button type="button" class="icon-link" id="chThemeBtn" title="Chat theme" aria-label="Chat theme" aria-haspopup="true" aria-expanded="false">
+                    <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                </button>
+                <div class="ch-pop" id="chThemes" hidden>
+                    <div class="ch-pop-title">Chat theme</div>
+                    <div class="ch-swatches">
+                        {% for key, label in themes %}
+                        <button type="button" class="sw" data-t="{{ key }}" title="{{ label }}" aria-label="{{ label }}"
+                                aria-pressed="{% if chat_settings.theme == key %}true{% else %}false{% endif %}"></button>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'chat_settings' %}">More chat settings →</a>
+                </div>
+            </div>
+        </header>
+
+        <div class="ch-log" id="messages" role="log" aria-live="polite" aria-label="Messages with {{ other.username }}">
             {% for msg in chat_messages %}
-                <div class="bubble {% if msg.sender_id == me.id %}mine{% else %}theirs{% endif %}">
-                    {{ msg.message }}
-                    <span class="time">{{ msg.timestamp|date:"d M H:i" }}</span>
-                    <button type="button" class="del" data-id="{{ msg.id }}" title="Delete message" aria-label="Delete message">🗑</button>
+                {% ifchanged msg.timestamp|date:"Y-m-d" %}
+                    <div class="ch-sep" data-day="{{ msg.timestamp|date:'Y-m-d' }}">{{ msg.timestamp|date:"d M Y" }}</div>
+                {% endifchanged %}
+
+                <div class="ch-msg {% if msg.sender_id == me.id %}mine{% else %}theirs{% endif %}"
+                     data-id="{{ msg.id }}" data-day="{{ msg.timestamp|date:'Y-m-d' }}">
+                    <div class="ch-text">{{ msg.message }}</div>
+                    <div class="ch-meta">
+                        <span class="ch-time">{{ msg.timestamp|date:"H:i" }}</span>
+                        <button type="button" class="ch-del" aria-label="Delete message for me">Delete</button>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="ch-empty" id="chatEmpty">
+                    <strong>Say hello to {{ other.name|default:other.username }}</strong>
+                    Your messages are private between the two of you.
                 </div>
             {% endfor %}
+
+            <button type="button" class="ch-new" id="chNew" hidden>New messages ↓</button>
         </div>
 
-        <p id="error"></p>
+        <p class="ch-error" id="error" role="alert"></p>
 
-        <form id="chat-form" action="{% url 'send_message' other.id %}" method="post">
-            {% csrf_token %}
-            <input type="text" name="message" maxlength="2000" placeholder="Write a message..." autocomplete="off" required>
-            <button type="submit">Send</button>
-        </form>
+        {% if other_suspended %}
+            <div class="ch-closed">This account has been suspended, so you can't send new messages.</div>
+        {% else %}
+            <form class="ch-form" id="chat-form" action="{% url 'send_message' other.id %}" method="post">
+                {% csrf_token %}
+                <textarea name="message" rows="1" maxlength="2000" placeholder="Write a message..." aria-label="Message" required></textarea>
+                <button type="submit">Send</button>
+            </form>
+        {% endif %}
+
     </section>
-
 </div>
 {% endblock %}
 
 
 {% block extra_js %}
+<script>window.CHAT_ACTIVE = {{ other.id }};</script>
+{% include "chat_list_js.html" %}
+
 <script>
-const messageBox = document.getElementById("messages");
-const form = document.getElementById("chat-form");
-const input = form.querySelector('input[name="message"]');
-const errorBox = document.getElementById("error");
-const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
-const myId = {{ me.id }};
-const messagesUrl = "{% url 'chat_messages' other.id %}";
-const deleteUrl = "{% url 'delete_message' %}";
+(function () {
+    const main = $("chatMain");
+    const box = $("messages");
+    const form = $("chat-form");
+    const errorBox = $("error");
+    const newPill = $("chNew");
 
-let lastSignature = "";
+    const myId = {{ me.id }};
+    const messagesUrl = "{% url 'chat_messages' other.id %}";
+    const deleteUrl = "{% url 'delete_message' %}";
+    const settingUrl = "{% url 'update_chat_setting' %}";
+    const csrf = "{{ csrf_token }}";
+    const enterSends = main.dataset.enter === "1";
 
-function renderMessages(messages) {
-    const signature = messages.map(m => m.id).join(",");
-    if (signature === lastSignature) return;
+    let lastId = {{ last_id }};
+    let lastDay = "";
 
-    const scrollAtBottom =
-        messageBox.scrollHeight - messageBox.scrollTop -
-        messageBox.clientHeight < 80;
+    // ---------- helpers ----------
+    function dayLabel(iso) {
+        const d = new Date(iso + "T00:00:00");
+        const t = new Date(); t.setHours(0, 0, 0, 0);
+        const diff = Math.round((t - d) / 86400000);
+        if (diff === 0) return "Today";
+        if (diff === 1) return "Yesterday";
+        return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: d.getFullYear() === t.getFullYear() ? undefined : "numeric" });
+    }
+    const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+    const scrollDown = () => { box.scrollTop = box.scrollHeight; newPill.hidden = true; };
+    const relabel = () => box.querySelectorAll(".ch-sep").forEach(s => { s.textContent = dayLabel(s.dataset.day); });
 
-    messageBox.replaceChildren();
+    function tidy() {
+        box.querySelectorAll(".ch-sep").forEach(function (s) {
+            const next = s.nextElementSibling;
+            if (!next || !next.classList.contains("ch-msg")) s.remove();
+        });
+        const bubbles = box.querySelectorAll(".ch-msg");
+        lastDay = bubbles.length ? bubbles[bubbles.length - 1].dataset.day : "";
+        if (!bubbles.length && !$("chatEmpty")) {
+            const e = document.createElement("div");
+            e.className = "ch-empty"; e.id = "chatEmpty";
+            e.innerHTML = "<strong>No messages</strong>Write the first one below.";
+            box.insertBefore(e, newPill);
+        }
+    }
 
-    messages.forEach(m => {
-        const mine = m.sender_id === myId;
-        const bubble = document.createElement("div");
-        bubble.className = "bubble " + (mine ? "mine" : "theirs");
+    function addMessage(m) {
+        if (box.querySelector('.ch-msg[data-id="' + m.id + '"]')) return;
+        const empty = $("chatEmpty"); if (empty) empty.remove();
 
-        bubble.appendChild(document.createTextNode(m.message));
-
-        const time = document.createElement("span");
-        time.className = "time";
-        time.textContent = m.timestamp;
-        bubble.appendChild(time);
-
-        {
-            const del = document.createElement("button");
-            del.type = "button";
-            del.className = "del";
-            del.dataset.id = m.id;
-            del.title = "Delete message";
-            del.setAttribute("aria-label", "Delete message");
-            del.textContent = "🗑";
-            bubble.appendChild(del);
+        if (m.day !== lastDay) {
+            const sep = document.createElement("div");
+            sep.className = "ch-sep"; sep.dataset.day = m.day; sep.textContent = dayLabel(m.day);
+            box.insertBefore(sep, newPill);
+            lastDay = m.day;
         }
 
-        messageBox.appendChild(bubble);
+        const el = document.createElement("div");
+        el.className = "ch-msg " + (m.sender_id === myId ? "mine" : "theirs");
+        el.dataset.id = m.id; el.dataset.day = m.day;
+
+        const text = document.createElement("div");
+        text.className = "ch-text"; text.textContent = m.message;
+
+        const meta = document.createElement("div");
+        meta.className = "ch-meta";
+        const time = document.createElement("span"); time.className = "ch-time"; time.textContent = m.time;
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "ch-del"; del.textContent = "Delete";
+        del.setAttribute("aria-label", "Delete message for me");
+        meta.append(time, del);
+
+        el.append(text, meta);
+        box.insertBefore(el, newPill);
+        if (m.id > lastId) lastId = m.id;
+    }
+
+    // ---------- fetch only NEW messages ----------
+    async function poll() {
+        if (document.hidden) return;
+        try {
+            const r = await fetch(messagesUrl + "?after=" + lastId, { credentials: "same-origin" });
+            if (!r.ok) return;
+            const data = await r.json();
+            if (!data.ok || !data.messages.length) return;
+            const stick = nearBottom();
+            data.messages.forEach(addMessage);
+            if (stick) scrollDown(); else newPill.hidden = false;
+        } catch (e) { /* next tick */ }
+    }
+
+    // ---------- send ----------
+    if (form) {
+        const input = form.querySelector("textarea");
+        const button = form.querySelector("button");
+        const grow = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 120) + "px"; };
+        input.addEventListener("input", grow);
+
+        // Setting "Enter sends": Enter sends, Shift+Enter = new line.
+        // Otherwise Enter = new line and Ctrl/Cmd+Enter sends.
+        input.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter" || e.isComposing) return;
+            const send = enterSends ? !e.shiftKey : (e.ctrlKey || e.metaKey);
+            if (send) { e.preventDefault(); form.requestSubmit(); }
+        });
+
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            if (!input.value.trim()) return;
+            button.disabled = true; errorBox.textContent = "";
+            try {
+                const r = await fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" });
+                const data = await r.json();
+                if (!r.ok || !data.ok) { errorBox.textContent = data.error || "Message could not be sent."; return; }
+                addMessage(data);
+                input.value = ""; grow(); scrollDown(); input.focus();
+            } catch (err) {
+                errorBox.textContent = "Network error. Please try again.";
+            } finally { button.disabled = false; }
+        });
+    }
+
+    // ---------- delete for me only ----------
+    box.addEventListener("click", async function (e) {
+        const btn = e.target.closest(".ch-del");
+        if (!btn) return;
+        const msg = btn.closest(".ch-msg");
+        if (!confirm("Delete this message for you? The other person will still see it.")) return;
+        btn.disabled = true;
+
+        const fd = new FormData();
+        fd.append("message_id", msg.dataset.id);
+        try {
+            const r = await fetch(deleteUrl, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRFToken": csrf } });
+            let data = {}; try { data = await r.json(); } catch (_) {}
+            if (!r.ok || !data.ok) { toast(data.error || ("Delete failed (" + r.status + ")")); btn.disabled = false; return; }
+            msg.remove(); tidy();
+        } catch (err) { toast("Network error. Please try again."); btn.disabled = false; }
     });
 
-    lastSignature = signature;
+    // ---------- quick theme picker ----------
+    const themeBtn = $("chThemeBtn"), themePop = $("chThemes");
+    themeBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        themePop.hidden = !themePop.hidden;
+        themeBtn.setAttribute("aria-expanded", String(!themePop.hidden));
+    });
+    document.addEventListener("click", function (e) {
+        if (!themePop.hidden && !themePop.contains(e.target)) { themePop.hidden = true; themeBtn.setAttribute("aria-expanded", "false"); }
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") themePop.hidden = true; });
 
-    if (scrollAtBottom) {
-        messageBox.scrollTop = messageBox.scrollHeight;
-    }
-}
-
-async function loadMessages() {
-    try {
-        const response = await fetch(messagesUrl, { credentials: "same-origin" });
-        if (!response.ok) return;
-
-        const data = await response.json();
-        if (data.ok) renderMessages(data.messages);
-    } catch (error) {
-        console.error("Could not refresh messages:", error);
-    }
-}
-
-// ---------- send ----------
-form.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const text = input.value.trim();
-    if (!text) return;
-
-    const button = form.querySelector("button");
-    button.disabled = true;
-    errorBox.textContent = "";
-
-    try {
-        const response = await fetch(form.action, {
-            method: "POST",
-            body: new FormData(form),
-            credentials: "same-origin"
+    themePop.querySelectorAll(".sw").forEach(function (sw) {
+        sw.addEventListener("click", async function () {
+            const theme = sw.dataset.t;
+            main.dataset.chatTheme = theme;                                    // instant
+            themePop.querySelectorAll(".sw").forEach(s => s.setAttribute("aria-pressed", s === sw ? "true" : "false"));
+            const fd = new FormData(); fd.append("key", "theme"); fd.append("value", theme);
+            try {
+                const r = await fetch(settingUrl, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRFToken": csrf } });
+                const d = await r.json();
+                toast(r.ok && d.ok ? "Theme saved" : "Could not save theme");
+            } catch (_) { toast("Could not save theme"); }
         });
+    });
 
-        const data = await response.json();
+    newPill.addEventListener("click", scrollDown);
+    box.addEventListener("scroll", () => { if (nearBottom()) newPill.hidden = true; });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
-        if (!response.ok || !data.ok) {
-            errorBox.textContent = data.error || "Message could not be sent.";
-            return;
-        }
-
-        input.value = "";
-        await loadMessages();
-        messageBox.scrollTop = messageBox.scrollHeight;
-        input.focus();
-    } catch (error) {
-        errorBox.textContent = "Network error. Please try again.";
-    } finally {
-        button.disabled = false;
-    }
-});
-
-// ---------- delete for me only (the other person still sees it) ----------
-messageBox.addEventListener("click", async function (event) {
-    const btn = event.target.closest(".del");
-    if (!btn) return;
-
-    if (!confirm("Delete this message for you? The other person will still see it.")) return;
-
-    btn.disabled = true;
-
-    const fd = new FormData();
-    fd.append("message_id", btn.dataset.id);
-
-    try {
-        const response = await fetch(deleteUrl, {
-            method: "POST",
-            body: fd,
-            credentials: "same-origin",
-            headers: { "X-CSRFToken": csrfToken }
-        });
-        const text = await response.text();
-        let data = {};
-        try { data = JSON.parse(text); } catch (e) {}
-
-        if (!response.ok || !data.ok) {
-            console.error("Delete failed", response.status, text.slice(0, 300));
-            toast(data.error || ("Delete failed (" + response.status + ")"));
-            btn.disabled = false;
-            return;
-        }
-
-        lastSignature = "";          // force a redraw without the deleted message
-        await loadMessages();
-    } catch (error) {
-        toast("Network error. Please try again.");
-        btn.disabled = false;
-    }
-});
-
-loadMessages();
-setInterval(loadMessages, 3000);
+    // ---------- start ----------
+    relabel(); tidy(); scrollDown();
+    setInterval(poll, 3000);
+})();
 </script>
 {% endblock %}

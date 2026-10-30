@@ -334,9 +334,9 @@ hr { border: 0; border-top: 1px solid var(--line); }
 
             <div class="nav-sep" role="separator"></div>
 
-            <a href="{% url 'user_complaints' %}" {% if page == 'user_complaints' %}class="on" aria-current="page"{% endif %}>
+            <!-- <a href="{% url 'user_complaints' %}" {% if page == 'user_complaints' %}class="on" aria-current="page"{% endif %}>
                 <span class="ico"><svg><use href="#i-flag"/></svg></span><span class="t">Report a problem</span>
-            </a>
+            </a> -->
 
             <a href="{% url 'settings' %}" {% if page == 'settings' or page == 'change_password' %}class="on" aria-current="page"{% endif %}>
                 <span class="ico"><svg><use href="#i-settings"/></svg></span><span class="t">Settings</span>

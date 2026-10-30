@@ -1,0 +1,186 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Chat settings · VoxHub{% endblock %}
+
+{% block extra_head %}
+{% include "chat_css.html" %}
+<style>
+.cs { max-width: 940px; margin: 0 auto; }
+.cs-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.cs-back:hover { color: var(--text); }
+.cs h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.cs-sub { margin: 6px 0 22px; color: var(--muted); font-size: 13px; }
+
+.cs-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.cs-forms { display: grid; gap: 16px; min-width: 0; }
+.cs-card { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.cs-card h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; }
+.cs-card > p { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+/* themes */
+.cs-swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 10px; }
+.cs-swatch { display: grid; justify-items: center; gap: 7px; padding: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.cs-swatch .sw { width: 44px; height: 44px; }
+.cs-swatch[aria-pressed="true"] { color: var(--text); }
+.cs-swatch[aria-pressed="true"] .sw { border-color: var(--surface); box-shadow: 0 0 0 2px var(--accent); }
+
+/* text size */
+.cs-seg { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.cs-seg button { padding: 9px 20px; border-radius: 9px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.cs-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+
+/* toggles */
+.cs-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.cs-row:first-of-type { border-top: 0; padding-top: 0; }
+.cs-row:last-child { padding-bottom: 0; }
+.cs-row strong { display: block; font-size: 14px; }
+.cs-row span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.cs-switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); transition: background .2s; }
+.cs-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s; }
+.cs-switch[aria-checked="true"] { border-color: transparent; background: var(--accent); }
+.cs-switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+.cs-reset { justify-self: start; padding: 10px 18px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.cs-reset:hover { border-color: var(--pink); color: var(--pink); }
+
+/* live preview */
+.cs-side { position: sticky; top: 20px; }
+.cs-preview { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.cs-prev-head { padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.cs-preview .ch-log { flex: none; min-height: 250px; overflow: visible; }
+
+@media (max-width: 860px) {
+    .cs-grid { grid-template-columns: 1fr; }
+    .cs-side { position: static; order: -1; }
+    .cs-swatches { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="cs">
+
+    <a class="cs-back" href="{% url 'chat_inbox' %}">← Messages</a>
+    <h1>Chat settings</h1>
+    <p class="cs-sub">These apply to all your conversations. Changes save automatically.</p>
+
+    <div class="cs-grid">
+
+        <div class="cs-forms">
+
+            <section class="cs-card">
+                <h2>Theme</h2>
+                <p>The colour of your messages and a soft tint behind the conversation.</p>
+                <div class="cs-swatches" id="csThemes">
+                    {% for key, label in themes %}
+                    <button type="button" class="cs-swatch" data-t="{{ key }}" aria-pressed="{% if chat_settings.theme == key %}true{% else %}false{% endif %}">
+                        <span class="sw" data-t="{{ key }}"></span>{{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="cs-card">
+                <h2>Text size</h2>
+                <p>How large the text looks inside messages.</p>
+                <div class="cs-seg" id="csFonts" role="group" aria-label="Text size">
+                    {% for key, label in fonts %}
+                    <button type="button" data-f="{{ key }}" aria-pressed="{% if chat_settings.font_size == key %}true{% else %}false{% endif %}">{{ label }}</button>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="cs-card">
+                <h2>Preferences</h2>
+                <p>How the chat behaves for you.</p>
+
+                <div class="cs-row">
+                    <div><strong>Enter key sends</strong><span>Turn off to write several lines with Enter. Ctrl+Enter then sends.</span></div>
+                    <button type="button" class="cs-switch" role="switch" data-k="enter_to_send" aria-label="Enter key sends" aria-checked="{% if chat_settings.enter_to_send %}true{% else %}false{% endif %}"></button>
+                </div>
+                <div class="cs-row">
+                    <div><strong>Show message times</strong><span>Display the time under each message.</span></div>
+                    <button type="button" class="cs-switch" role="switch" data-k="show_time" aria-label="Show message times" aria-checked="{% if chat_settings.show_time %}true{% else %}false{% endif %}"></button>
+                </div>
+                <div class="cs-row">
+                    <div><strong>Compact messages</strong><span>Smaller bubbles and tighter spacing, so more fits on screen.</span></div>
+                    <button type="button" class="cs-switch" role="switch" data-k="compact" aria-label="Compact messages" aria-checked="{% if chat_settings.compact %}true{% else %}false{% endif %}"></button>
+                </div>
+                <div class="cs-row">
+                    <div><strong>Show previews in the list</strong><span>Turn off to hide the last message in your conversation list, for privacy.</span></div>
+                    <button type="button" class="cs-switch" role="switch" data-k="show_preview" aria-label="Show previews in the list" aria-checked="{% if chat_settings.show_preview %}true{% else %}false{% endif %}"></button>
+                </div>
+            </section>
+
+            <button type="button" class="cs-reset" id="csReset">Reset to defaults</button>
+        </div>
+
+        <aside class="cs-side">
+            <div class="cs-preview {% if chat_settings.compact %}compact{% endif %} {% if not chat_settings.show_time %}no-time{% endif %}"
+                 id="csPreview" data-chat-theme="{{ chat_settings.theme }}" data-chat-font="{{ chat_settings.font_size }}">
+                <div class="cs-prev-head">Preview</div>
+                <div class="ch-log">
+                    <div class="ch-sep">Today</div>
+                    <div class="ch-msg theirs"><div class="ch-text">Hey! Did you try the new chat themes?</div><div class="ch-meta"><span class="ch-time">10:24</span></div></div>
+                    <div class="ch-msg mine"><div class="ch-text">Yes, this one looks great.</div><div class="ch-meta"><span class="ch-time">10:25</span></div></div>
+                    <div class="ch-msg mine"><div class="ch-text">Try the larger text size too.</div><div class="ch-meta"><span class="ch-time">10:25</span></div></div>
+                    <div class="ch-msg theirs"><div class="ch-text">Nice, I will.</div><div class="ch-meta"><span class="ch-time">10:26</span></div></div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+    const URL = "{% url 'update_chat_setting' %}";
+    const CSRF = "{{ csrf_token }}";
+    const prev = $("csPreview");
+
+    async function save(key, value) {
+        const fd = new FormData(); fd.append("key", key); fd.append("value", value);
+        try {
+            const r = await fetch(URL, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRFToken": CSRF } });
+            const d = await r.json();
+            toast(r.ok && d.ok ? "Saved" : (d.error || "Could not save"));
+        } catch (_) { toast("Could not save. Check your connection."); }
+    }
+
+    // ----- apply a value to the page + preview -----
+    function setTheme(t) {
+        prev.dataset.chatTheme = t;
+        document.querySelectorAll("#csThemes .cs-swatch").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t ? "true" : "false"));
+    }
+    function setFont(f) {
+        prev.dataset.chatFont = f;
+        document.querySelectorAll("#csFonts button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === f ? "true" : "false"));
+    }
+    function setBool(k, on) {
+        const sw = document.querySelector('.cs-switch[data-k="' + k + '"]');
+        if (sw) sw.setAttribute("aria-checked", String(on));
+        if (k === "compact") prev.classList.toggle("compact", on);
+        if (k === "show_time") prev.classList.toggle("no-time", !on);
+    }
+
+    document.querySelectorAll("#csThemes .cs-swatch").forEach(b => b.addEventListener("click", () => { setTheme(b.dataset.t); save("theme", b.dataset.t); }));
+    document.querySelectorAll("#csFonts button").forEach(b => b.addEventListener("click", () => { setFont(b.dataset.f); save("font_size", b.dataset.f); }));
+    document.querySelectorAll(".cs-switch").forEach(sw => sw.addEventListener("click", () => {
+        const on = sw.getAttribute("aria-checked") !== "true";
+        setBool(sw.dataset.k, on);
+        save(sw.dataset.k, on);
+    }));
+
+    $("csReset").addEventListener("click", async function () {
+        if (!confirm("Reset all chat settings to their defaults?")) return;
+        setTheme("default"); setFont("medium");
+        setBool("enter_to_send", true); setBool("show_time", true); setBool("compact", false); setBool("show_preview", true);
+        save("reset", "true");
+    });
+})();
+</script>
+{% endblock %}

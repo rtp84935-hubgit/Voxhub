@@ -44,6 +44,8 @@
 }
 .hv-icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .hv-icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.hv-edit { margin-left: auto; }
+.hv-edit + .hv-del { margin-left: 0; }
 .hv-del { margin-left: auto; }
 .hv-del:hover { color: #fb7185; background: rgba(251,113,133,.12); }
 
@@ -87,6 +89,18 @@
 .hv-cf button { color: var(--accent); font-size: 14px; font-weight: 800; opacity: .45; }
 .hv-cf input:not(:placeholder-shown) + button { opacity: 1; }
 .hv-cf button:disabled { cursor: default; }
+
+.hv-edit-box { margin-top: 4px; }
+.hv-edit-box textarea {
+    width: 100%; padding: 10px 12px; resize: none; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface-2); font-size: 14px; line-height: 1.5;
+}
+.hv-edit-box textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.hv-edit-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.hv-edit-n { margin-right: auto; color: var(--muted); font-size: 11px; }
+.hv-edit-row button { padding: 7px 14px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; font-weight: 800; }
+.hv-edit-row .hv-edit-save { border-color: transparent; background: var(--accent); color: #fff; }
+.hv-edit-row button:disabled { opacity: .5; cursor: default; }
 
 /* empty + load more */
 .hv-empty {
@@ -170,6 +184,7 @@
   <symbol id="h-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
   <symbol id="h-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
   <symbol id="h-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="h-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
   <symbol id="h-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
   <symbol id="h-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
 </svg>
@@ -194,6 +209,9 @@
           <time datetime="{{ p.date|date:'c' }}">{{ p.date|timesince }} ago</time>
         </div>
         {% if mine == request.user.id %}
+        <button class="hv-icon-btn hv-edit" type="button" aria-label="Edit caption" title="Edit caption">
+          <svg><use href="#h-edit"/></svg>
+        </button>
         <button class="hv-icon-btn hv-del" type="button" aria-label="Delete post" title="Delete post">
           <svg><use href="#h-trash"/></svg>
         </button>
@@ -222,7 +240,7 @@
 
       <div class="hv-body">
         <div class="hv-likes">{{ p.like_count }} like{{ p.like_count|pluralize }}</div>
-        {% if p.caption %}<div class="hv-cap"><b>{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b>{{ p.caption }}</div>{% endif %}
+        <div class="hv-cap" {% if not p.caption %}hidden{% endif %}><b>{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b><span class="hv-cap-text">{{ p.caption }}</span></div>
 
         {% with cs=p.comments_set.all %}
         <button class="hv-vc" type="button" {% if not cs %}hidden{% endif %}>View all {{ cs|length }} comment{{ cs|length|pluralize }}</button>
@@ -337,6 +355,7 @@
   const URL_LIKE = "{% url 'toggle_like' %}";
   const URL_SAVE = "{% url 'toggle_save' %}";
   const URL_DEL_POST = "{% url 'delete_post' %}";
+  const URL_EDIT = "{% url 'edit_post_caption' %}";
   const URL_DEL_COMMENT = "{% url 'delete_comment' %}";
   const URL_CREATE = "{% url 'create_post' %}";
   const MAX_IMG = 10 * 1024 * 1024, MAX_VID = 50 * 1024 * 1024;
@@ -389,6 +408,55 @@
     if (!feed.querySelector(".hv-post")) location.reload();     // show the empty state
   }
 
+  // ---------- edit caption ----------
+  function startEdit(post) {
+    if (post.querySelector(".hv-edit-box")) return;
+    const cap = post.querySelector(".hv-cap");
+    const box = document.createElement("div");
+    box.className = "hv-edit-box";
+    box.innerHTML =
+      '<textarea rows="2" maxlength="100" aria-label="Edit caption" placeholder="Write a caption..."></textarea>' +
+      '<div class="hv-edit-row"><span class="hv-edit-n"></span>' +
+      '<button type="button" class="hv-edit-cancel">Cancel</button>' +
+      '<button type="button" class="hv-edit-save">Save</button></div>';
+
+    const ta = box.querySelector("textarea"), n = box.querySelector(".hv-edit-n");
+    ta.value = cap.querySelector(".hv-cap-text").textContent;
+    const count = () => { n.textContent = ta.value.length + "/100"; };
+    count();
+    ta.addEventListener("input", count);
+    ta.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); stopEdit(post); }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveEdit(post);
+    });
+
+    cap.hidden = true;
+    cap.after(box);
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+
+  function stopEdit(post) {
+    const box = post.querySelector(".hv-edit-box");
+    if (box) box.remove();
+    const cap = post.querySelector(".hv-cap");
+    cap.hidden = !cap.querySelector(".hv-cap-text").textContent;
+  }
+
+  async function saveEdit(post) {
+    const box = post.querySelector(".hv-edit-box");
+    if (!box) return;
+    const save = box.querySelector(".hv-edit-save");
+    save.disabled = true;
+
+    const res = await send(URL_EDIT, form({ postid: post.dataset.id, caption: box.querySelector("textarea").value.trim() }));
+    if (!res.ok) { save.disabled = false; return toast(res.data.error || "Could not save (" + res.status + ")"); }
+
+    post.querySelector(".hv-cap-text").textContent = res.data.caption;
+    stopEdit(post);
+    toast("Caption updated");
+  }
+
   // ---------- comments ----------
   function updateCommentCount(post) {
     const n = post.querySelectorAll(".hv-cmts .hv-c").length;
@@ -438,6 +506,9 @@
     if (e.target.closest(".hv-cmts .x")) deleteComment(e.target.closest(".x"), post);
     else if (e.target.closest(".hv-like")) toggleLike(post);
     else if (e.target.closest(".hv-save")) toggleSave(post);
+    else if (e.target.closest(".hv-edit-save")) saveEdit(post);
+    else if (e.target.closest(".hv-edit-cancel")) stopEdit(post);
+    else if (e.target.closest(".hv-edit")) startEdit(post);
     else if (e.target.closest(".hv-del")) deletePost(post);
     else if (e.target.closest(".hv-vc")) post.querySelector(".hv-cmts").hidden = !post.querySelector(".hv-cmts").hidden;
     else if (e.target.closest(".hv-cbtn")) post.querySelector(".hv-cf input").focus();

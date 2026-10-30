@@ -1,0 +1,52 @@
+{# Search, Unread filter and auto-refresh for the list pane. Needs window.CHAT_ACTIVE (id or 0) #}
+<script>
+(function () {
+    const search = $("msgrSearch");
+    const items = $("msgrItems");
+    const btns = document.querySelectorAll(".msgr-filter button");
+    let mode = "all";
+
+    function applyFilters() {
+        const q = search.value.toLowerCase().trim();
+        let shown = 0;
+
+        items.querySelectorAll("[data-sec]").forEach(function (sec) {
+            const rows = sec.querySelectorAll(".cl-row");
+            let visible = 0;
+            rows.forEach(function (row) {
+                const ok = (row.dataset.search || "").includes(q) && (mode === "all" || Number(row.dataset.unread) > 0);
+                row.hidden = !ok;
+                if (ok) visible++;
+            });
+            // "Unread" only applies to conversations
+            const hide = (mode === "unread" && sec.dataset.sec === "new") || (rows.length > 0 && visible === 0);
+            sec.hidden = hide;
+            if (!hide) shown += visible;
+        });
+
+        const none = items.querySelector("[data-none]");
+        if (none) none.hidden = shown !== 0 || !(q || mode === "unread");
+    }
+
+    btns.forEach(function (b) {
+        b.addEventListener("click", function () {
+            mode = b.dataset.filter;
+            btns.forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+            applyFilters();
+        });
+    });
+    search.addEventListener("input", applyFilters);
+
+    // Refresh the list every 15 seconds while the tab is visible
+    async function refresh() {
+        if (document.hidden) return;
+        try {
+            const r = await fetch("{% url 'chat_list_fragment' %}?active=" + (window.CHAT_ACTIVE || ""), { credentials: "same-origin" });
+            if (!r.ok) return;
+            items.innerHTML = await r.text();
+            applyFilters();
+        } catch (_) { /* next time */ }
+    }
+    setInterval(refresh, 15000);
+})();
+</script>

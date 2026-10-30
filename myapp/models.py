@@ -1,4 +1,4 @@
-from datetime import timezone,datetime
+from django.utils import timezone
 
 from django.db import models
 
@@ -149,10 +149,10 @@ class PostFace(models.Model):
         return f"Face in post {self.post_id}"
 
 class Comments(models.Model):
-    comment=models.CharField(max_length=100)
-    USER=models.ForeignKey(UserProfile,on_delete=models.CASCADE)
-    POST=models.ForeignKey(User_posts,on_delete=models.CASCADE)
-    date=models.DateTimeField(default=datetime.now)
+    comment = models.CharField(max_length=100)
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    POST = models.ForeignKey(User_posts, on_delete=models.CASCADE)
+    date = models.DateTimeField(default=timezone.now)
 
 class Likes(models.Model):
     USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
@@ -316,3 +316,33 @@ class UserNotification(models.Model):
 
     def __str__(self):
         return f"{self.sender} -> {self.recipient}: {self.message}"
+
+class ChatSettings(models.Model):
+    THEME_CHOICES = [
+        ("default", "Default"),
+        ("ocean", "Ocean"),
+        ("sunset", "Sunset"),
+        ("forest", "Forest"),
+        ("rose", "Rose"),
+        ("violet", "Violet"),
+        ("midnight", "Midnight"),
+        ("mono", "Mono"),
+    ]
+    FONT_CHOICES = [
+        ("small", "Small"),
+        ("medium", "Medium"),
+        ("large", "Large"),
+    ]
+ 
+    USER = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name="chat_settings")
+ 
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default="default")
+    font_size = models.CharField(max_length=6, choices=FONT_CHOICES, default="medium")
+ 
+    enter_to_send = models.BooleanField(default=True)    # Enter sends (off: Ctrl+Enter sends)
+    show_time = models.BooleanField(default=True)        # time under each message
+    compact = models.BooleanField(default=False)         # smaller bubbles, tighter spacing
+    show_preview = models.BooleanField(default=True)     # last message shown in the chat list
+ 
+    def __str__(self):
+        return f"Chat settings of {self.USER.username}"

@@ -1,0 +1,24 @@
+{# Left pane shared by the inbox and the chat room #}
+<aside class="msgr-list">
+    <div class="msgr-list-head">
+        <h1>Messages</h1>
+        <a class="icon-link" href="{% url 'chat_settings' %}" title="Chat settings" aria-label="Chat settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+    </div>
+
+    <div class="msgr-tools">
+        <label class="msgr-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="msgrSearch" type="search" placeholder="Search people..." autocomplete="off" aria-label="Search people">
+        </label>
+        <div class="msgr-filter" role="group" aria-label="Filter conversations">
+            <button type="button" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-filter="unread" aria-pressed="false">Unread</button>
+        </div>
+    </div>
+
+    <div class="msgr-items" id="msgrItems">
+        {% include "chat_list_items.html" %}
+    </div>
+</aside>

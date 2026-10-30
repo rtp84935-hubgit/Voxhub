@@ -49,7 +49,8 @@ from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.core.validators import validate_email
 from django.db import transaction
-from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -1151,6 +1152,43 @@ def delete_post(request):
         }, status=500)
 
 
+@login_required(login_url="login")
+@require_POST
+def edit_post_caption(request):
+    """Change the caption of a post owned by the logged-in user."""
+
+    me = UserProfile.objects.filter(LOGIN=request.user).first()
+
+    if not me:
+        return JsonResponse({"ok": False, "error": "Your account has no profile."}, status=403)
+
+    post_id = request.POST.get("postid", "").strip()
+
+    if not post_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Invalid post ID."}, status=400)
+
+    post = User_posts.objects.filter(id=post_id).first()
+
+    if not post:
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    # Only the owner can edit
+    if post.USER_id != me.id:
+        return JsonResponse({"ok": False, "error": "You can edit only your own posts."}, status=403)
+
+    caption = request.POST.get("caption", "").strip()
+
+    # create_post cuts long captions silently; here we tell the user instead
+    if len(caption) > 100:
+        return JsonResponse({"ok": False, "error": "Caption must be 100 characters or fewer."}, status=400)
+
+    if caption != post.caption:
+        post.caption = caption
+        post.save(update_fields=["caption"])
+
+    return JsonResponse({"ok": True, "caption": post.caption})
+
+
 # ---------------------------------------------------------
 # Likes
 # ---------------------------------------------------------
@@ -1647,41 +1685,167 @@ def user_complaints(request):
 # 7. USER - CHAT
 # =========================================================
 
+def _chat_settings(me):
+    """The user's chat settings (created with the defaults on first use)."""
+    obj, _ = ChatSettings.objects.get_or_create(USER=me)
+    return obj
+
+
+def _chat_list_context(me, active_id=None):
+    """Everything the conversation list needs (inbox, chat room and the
+    auto-refresh fragment all use it)."""
+
+    # Latest message between me and each person (ignoring ones I deleted)
+    thread = (
+        ChatMessage.objects
+        .filter(Q(sender=me, receiver=OuterRef("pk")) | Q(sender=OuterRef("pk"), receiver=me))
+        .exclude(deleted_for=me)
+        .order_by("-timestamp", "-id")
+    )
+
+    people = list(
+        UserProfile.objects
+        .filter(LOGIN__is_active=True)          # banned accounts cannot reply
+        .exclude(id=me.id)
+        .annotate(
+            last_time=Subquery(thread.values("timestamp")[:1]),
+            last_text=Subquery(thread.values("message")[:1]),
+            last_from=Subquery(thread.values("sender_id")[:1]),
+        )
+    )
+
+    # Unread counts for everyone in ONE query
+    unread = dict(
+        ChatMessage.objects
+        .filter(receiver=me, is_read=False)
+        .exclude(deleted_for=me)
+        .order_by()
+        .values_list("sender")
+        .annotate(n=Count("id"))
+    )
+
+    today = timezone.localdate()
+    for p in people:
+        p.unread_count = unread.get(p.id, 0)
+        p.last_from_me = p.last_from == me.id
+        if p.last_time:
+            when = localtime(p.last_time)
+            if when.date() == today:
+                p.time_label = when.strftime("%H:%M")
+            elif when.date() == today - timedelta(days=1):
+                p.time_label = "Yesterday"
+            else:
+                p.time_label = when.strftime("%d %b")
+
+    # People I already talk to, newest conversation first; everyone else A-Z
+    conversations = sorted(
+        (p for p in people if p.last_time), key=lambda p: p.last_time, reverse=True
+    )
+    others = sorted(
+        (p for p in people if not p.last_time), key=lambda p: (p.name or p.username).lower()
+    )
+
+    return {
+        "conversations": conversations,
+        "others": others,
+        "unread_total": sum(p.unread_count for p in people),
+        "active_id": active_id,
+        "chat_settings": _chat_settings(me),
+    }
+
+
 @login_required(login_url="login")
 def chat_inbox(request):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
+    return render(request, "chat_inbox.html", {"me": me, **_chat_list_context(me)})
 
-    users = UserProfile.objects.exclude(id=me.id)
 
-    for user in users:
-        # unread messages from this person, ignoring ones I deleted
-        user.unread_count = ChatMessage.objects.filter(
-            sender=user,
-            receiver=me,
-            is_read=False
-        ).exclude(deleted_for=me).count()
+@login_required(login_url="login")
+def chat_list_fragment(request):
+    """Just the conversation list (HTML), used by the pages' 15-second refresh."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    active = request.GET.get("active", "")
+    active_id = int(active) if active.isdigit() else None
+    return render(request, "chat_list_items.html", _chat_list_context(me, active_id))
 
-        # latest message in the conversation that I have not deleted
-        user.last_message = ChatMessage.objects.filter(
-            sender__in=[me, user],
-            receiver__in=[me, user]
-        ).exclude(deleted_for=me).order_by("-timestamp", "-id").first()
 
-    return render(request, "chat_inbox.html", {
-        "me": me,
-        "users": users,
+# ---------------------------------------------------------
+# Chat settings
+# ---------------------------------------------------------
+
+CHAT_BOOL_SETTINGS = ("enter_to_send", "show_time", "compact", "show_preview")
+
+
+@login_required(login_url="login")
+def chat_settings_page(request):
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    return render(request, "chat_settings.html", {
+        "chat_settings": _chat_settings(me),
+        "themes": ChatSettings.THEME_CHOICES,
+        "fonts": ChatSettings.FONT_CHOICES,
     })
+
+
+@login_required(login_url="login")
+@require_POST
+def update_chat_setting(request):
+    """Save ONE chat setting (the pages save as soon as you change a control)."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    prefs = _chat_settings(me)
+
+    key = request.POST.get("key", "")
+    value = request.POST.get("value", "")
+
+    if key == "reset":
+        prefs.theme = "default"
+        prefs.font_size = "medium"
+        prefs.enter_to_send = True
+        prefs.show_time = True
+        prefs.compact = False
+        prefs.show_preview = True
+        prefs.save()
+        return JsonResponse({"ok": True})
+
+    if key == "theme":
+        if value not in dict(ChatSettings.THEME_CHOICES):
+            return JsonResponse({"ok": False, "error": "Unknown theme."}, status=400)
+        prefs.theme = value
+
+    elif key == "font_size":
+        if value not in dict(ChatSettings.FONT_CHOICES):
+            return JsonResponse({"ok": False, "error": "Unknown text size."}, status=400)
+        prefs.font_size = value
+
+    elif key in CHAT_BOOL_SETTINGS:
+        setattr(prefs, key, value == "true")
+
+    else:
+        return JsonResponse({"ok": False, "error": "Unknown setting."}, status=400)
+
+    prefs.save(update_fields=[key])
+    return JsonResponse({"ok": True})
+
+
+def _message_json(msg):
+    """One chat message as JSON (shared by send_message and chat_messages)."""
+    when = localtime(msg.timestamp)
+    return {
+        "id": msg.id,
+        "sender_id": msg.sender_id,
+        "message": msg.message,
+        "timestamp": when.strftime("%d %b %H:%M"),
+        "day": when.strftime("%Y-%m-%d"),        # used for the date separators
+        "time": when.strftime("%H:%M"),
+    }
 
 
 @login_required(login_url="login")
 def chat_room(request, user_id):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
-    other = get_object_or_404(UserProfile, id=user_id)
+    other = get_object_or_404(UserProfile.objects.select_related("LOGIN"), id=user_id)
 
     if other.id == me.id:
         return redirect("chat_inbox")
-
-    users = UserProfile.objects.exclude(id=me.id)
 
     ChatMessage.objects.filter(
         sender=other,
@@ -1689,16 +1853,21 @@ def chat_room(request, user_id):
         is_read=False
     ).update(is_read=True)
 
-    messages_list = ChatMessage.objects.filter(
-        Q(sender=me, receiver=other) |
-        Q(sender=other, receiver=me)
-    ).exclude(deleted_for=me).select_related("sender", "receiver").order_by("timestamp", "id")
+    messages_list = list(
+        ChatMessage.objects.filter(
+            Q(sender=me, receiver=other) |
+            Q(sender=other, receiver=me)
+        ).exclude(deleted_for=me).order_by("timestamp", "id")
+    )
 
     return render(request, "chat_room.html", {
         "me": me,
         "other": other,
-        "users": users,
+        "other_suspended": not other.LOGIN.is_active,
         "chat_messages": messages_list,
+        "last_id": messages_list[-1].id if messages_list else 0,
+        "themes": ChatSettings.THEME_CHOICES,
+        **_chat_list_context(me, other.id),      # the conversation list on the left
     })
 
 
@@ -1706,12 +1875,18 @@ def chat_room(request, user_id):
 @require_POST
 def send_message(request, user_id):
     me = get_object_or_404(UserProfile, LOGIN=request.user)
-    receiver = get_object_or_404(UserProfile, id=user_id)
+    receiver = get_object_or_404(UserProfile.objects.select_related("LOGIN"), id=user_id)
 
     if receiver.id == me.id:
         return JsonResponse(
             {"ok": False, "error": "You cannot message yourself."},
             status=400
+        )
+
+    if not receiver.LOGIN.is_active:
+        return JsonResponse(
+            {"ok": False, "error": "This account has been suspended."},
+            status=403
         )
 
     message_text = request.POST.get("message", "").strip()
@@ -1734,17 +1909,13 @@ def send_message(request, user_id):
         message=message_text
     )
 
-    return JsonResponse({
-        "ok": True,
-        "id": msg.id,
-        "sender_id": me.id,
-        "message": msg.message,
-        "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
-    })
+    return JsonResponse({"ok": True, **_message_json(msg)})
 
 
 @login_required(login_url="login")
 def chat_messages(request, user_id):
+    """Messages in a conversation. ?after=<id> returns only newer ones,
+    so the page's 3-second refresh stays small."""
     me = get_object_or_404(UserProfile, LOGIN=request.user)
     other = get_object_or_404(UserProfile, id=user_id)
 
@@ -1760,22 +1931,18 @@ def chat_messages(request, user_id):
         is_read=False
     ).update(is_read=True)
 
-    messages_list = ChatMessage.objects.filter(
+    messages_qs = ChatMessage.objects.filter(
         Q(sender=me, receiver=other) |
         Q(sender=other, receiver=me)
-    ).exclude(deleted_for=me).select_related("sender").order_by("timestamp", "id")
+    ).exclude(deleted_for=me)
 
-    data = [
-        {
-            "id": msg.id,
-            "sender_id": msg.sender_id,
-            "message": msg.message,
-            "timestamp": msg.timestamp.strftime("%d %b %H:%M"),
-        }
-        for msg in messages_list
-    ]
+    after = request.GET.get("after", "")
+    if after.isdigit():
+        messages_qs = messages_qs.filter(id__gt=int(after))
 
-    return JsonResponse({"ok": True, "messages": data})
+    messages_qs = messages_qs.order_by("timestamp", "id")
+
+    return JsonResponse({"ok": True, "messages": [_message_json(m) for m in messages_qs]})
 
 
 @login_required(login_url="login")
@@ -2095,21 +2262,79 @@ def admin_login_post(request):
 # Admin dashboard
 # ---------------------------------------------------------
 
+@admin_required
 def admin_home(request):
-    total_users = User.objects.filter(is_active=1, is_staff=0).count()
-    banned_users = User.objects.filter(is_active=0).count()
-    recent_users = UserProfile.objects.order_by('-created_at', '-id')[:5]
-    active = User.objects.filter(is_active=1, is_staff=0).count()
-    total_posts = User_posts.objects.all().count()
-    # "pending" only counted brand-new reports; open = pending + in review
-    pending_reports = Reports.objects.filter(status__in=OPEN_STATUSES).count()
-    return render(request, 'admin_home.html', {
-        'total_users': total_users,
+    today = timezone.localdate()
+    start = today - timedelta(days=6)                    # last 7 days including today
+
+    # ---- totals (same source as the Users page) ----
+    total_users = UserProfile.objects.count()
+    banned_users = UserProfile.objects.filter(LOGIN__is_active=False).count()
+    active = total_users - banned_users
+    total_posts = User_posts.objects.count()
+
+    # ---- last 7 days: new users and new posts per day ----
+    users_by_day = dict(
+        UserProfile.objects.filter(created_at__gte=start)
+        .order_by().values_list("created_at").annotate(n=Count("id"))
+    )
+    posts_by_day = dict(
+        User_posts.objects.filter(date__date__gte=start)
+        .annotate(day=TruncDate("date")).order_by()
+        .values_list("day").annotate(n=Count("id"))
+    )
+
+    days = [start + timedelta(days=i) for i in range(7)]
+    user_counts = [users_by_day.get(d, 0) for d in days]
+    post_counts = [posts_by_day.get(d, 0) for d in days]
+    max_users = max(user_counts) or 1
+    max_posts = max(post_counts) or 1
+
+    week = [
+        {
+            "label": d.strftime("%d %b"),
+            "short": d.strftime("%a"),
+            "users": u,
+            "posts": p,
+            "users_pct": round(u * 100 / max_users) if u else 0,
+            "posts_pct": round(p * 100 / max_posts) if p else 0,
+        }
+        for d, u, p in zip(days, user_counts, post_counts)
+    ]
+
+    # ---- moderation queue ----
+    open_reports = Reports.objects.filter(status__in=OPEN_STATUSES).count()
+    open_complaints = Complaints.objects.filter(status__in=COMPLAINT_OPEN).count()
+    new_complaints = Complaints.objects.filter(admin_seen=False).count()
+
+    open_q = Q(reports_received__status__in=OPEN_STATUSES)
+    top_reported = list(
+        UserProfile.objects
+        .select_related("LOGIN")
+        .annotate(
+            open_count=Count("reports_received", filter=open_q, distinct=True),
+            unique_reporters=Count("reports_received__USER", filter=open_q, distinct=True),
+        )
+        .filter(open_count__gt=0, LOGIN__is_active=True)
+        .order_by("-open_count", "-unique_reporters")[:4]
+    )
+
+    return render(request, "admin_home.html", {
+        "today": today,
+        "total_users": total_users,
         "banned_users": banned_users,
-        "recent_users": recent_users,
         "active": active,
         "total_posts": total_posts,
-        "pending_reports": pending_reports,
+        "new_users_week": sum(user_counts),
+        "posts_week": sum(post_counts),
+        "week": week,
+        "recent_users": UserProfile.objects.select_related("LOGIN").order_by("-created_at", "-id")[:6],
+        "open_reports": open_reports,
+        "open_complaints": open_complaints,
+        "new_complaints": new_complaints,
+        "top_reported": top_reported,
+        "activity": AdminNotification.objects.all()[:8],
+        "unread_notifications": AdminNotification.objects.filter(is_read=False).count(),
     })
 
 
