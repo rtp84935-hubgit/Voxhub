@@ -1,285 +1,106 @@
-
-{% load static %}
-
+{# Admin notification bell. Include it once per admin page: {% include 'admin_bell.html' %} #}
 <style>
-    .ab-wrap,
-    .ab-wrap * {
-        box-sizing: border-box;
-    }
+.ab-wrap, .ab-wrap * { box-sizing: border-box; }
+.ab-wrap { position: fixed; top: 16px; right: 24px; z-index: 9999; font-family: 'Manrope', sans-serif; }
+.ab-wrap [hidden] { display: none !important; }
+.ab-wrap button { font: inherit; cursor: pointer; }
+.ab-wrap a { color: inherit; text-decoration: none; }
+.ab-wrap :focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
 
-    .ab-wrap {
-        position: fixed;
-        top: 16px;
-        right: 24px;
-        z-index: 9999;
-        font-family: 'Manrope', sans-serif;
-    }
+/* ---------- bell button ---------- */
+.ab-btn {
+    position: relative; display: grid; place-items: center; width: 44px; height: 44px;
+    border: 1px solid #273244; border-radius: 13px; background: #121925; color: #c4b5fd;
+    transition: background .2s, border-color .2s;
+}
+.ab-btn:hover, .ab-btn[aria-expanded="true"] { border-color: #8b5cf6; background: #1a2333; }
+.ab-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ab-badge {
+    position: absolute; top: -6px; right: -6px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+    border: 2px solid #0b0f17; border-radius: 20px; background: #fb7185; color: #0b111c; font-size: 10px; font-weight: 800;
+}
+.ab-badge.bump { animation: abBump .5s ease; }
+@keyframes abBump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
-    .ab-wrap [hidden] {
-        display: none !important;
-    }
+/* ---------- panel ---------- */
+.ab-panel {
+    position: absolute; top: 54px; right: 0; width: 390px; max-width: calc(100vw - 32px); overflow: hidden;
+    border: 1px solid #273244; border-radius: 18px; background: #121925; box-shadow: 0 20px 55px rgba(0,0,0,.55);
+}
+.ab-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 12px; }
+.ab-head strong { display: block; color: #e8edf7; font-size: 15px; font-weight: 800; }
+.ab-head span { display: block; margin-top: 2px; color: #7d8ba1; font-size: 11px; }
+.ab-readall { padding: 7px 12px; border: 1px solid #273244; border-radius: 9px; background: none; color: #a78bfa; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.ab-readall:hover:not(:disabled) { border-color: #8b5cf6; background: rgba(139,92,246,.1); }
+.ab-readall:disabled { opacity: .45; cursor: default; }
 
-    /* Notification button */
-    .ab-btn {
-        position: relative;
-        width: 42px;
-        height: 42px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #121925;
-        border: 1px solid #273244;
-        border-radius: 12px;
-        color: #c4b5fd;
-        cursor: pointer;
-        transition: background 0.2s, border-color 0.2s;
-    }
+.ab-tabs { display: flex; gap: 6px; padding: 0 18px 12px; overflow-x: auto; scrollbar-width: none; }
+.ab-tabs::-webkit-scrollbar { display: none; }
+.ab-tab { padding: 6px 12px; flex-shrink: 0; border: 1px solid #273244; border-radius: 999px; background: none; color: #91a0b7; font-size: 11px; font-weight: 700; }
+.ab-tab[aria-selected="true"] { border-color: #8b5cf6; background: rgba(139,92,246,.16); color: #e8edf7; }
 
-    .ab-btn:hover {
-        background: #1a2333;
-        border-color: #8b5cf6;
-    }
+.ab-list { max-height: 400px; overflow-y: auto; border-top: 1px solid #273244; overscroll-behavior: contain; }
+.ab-list::-webkit-scrollbar { width: 5px; }
+.ab-list::-webkit-scrollbar-thumb { border-radius: 10px; background: #354256; }
 
-    .ab-btn:focus-visible {
-        outline: 2px solid #c4b5fd;
-        outline-offset: 3px;
-    }
+.ab-item { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #1c2636; transition: background .15s; }
+.ab-item:last-child { border-bottom: 0; }
+.ab-item:hover { background: #1a2333; }
+.ab-item.unread { background: #161f2f; }
+.ab-item.unread::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c); }
+.ab-ico { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); }
+.ab-ico svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ab-item.new_user { --c: #34d399; }
+.ab-item.report   { --c: #fbbf24; }
+.ab-item.security { --c: #fb7185; }
 
-    .ab-btn svg {
-        width: 20px;
-        height: 20px;
-    }
+.ab-body { flex: 1; min-width: 0; }
+.ab-msg { color: #cbd5e1; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.ab-item.unread .ab-msg { color: #f1f5f9; font-weight: 700; }
+.ab-time { margin-top: 4px; color: #718096; font-size: 10px; }
+.ab-go { align-self: center; color: #526079; font-size: 14px; }
 
-    /* Unread badge */
-    .ab-badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        min-width: 19px;
-        height: 19px;
-        padding: 0 5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #fb7185;
-        color: #0b111c;
-        border: 2px solid #0b0f17;
-        border-radius: 20px;
-        font-size: 10px;
-        font-weight: 800;
-    }
+.ab-empty { padding: 36px 18px; color: #718096; font-size: 12px; line-height: 1.7; text-align: center; }
+.ab-empty strong { display: block; margin-bottom: 4px; color: #cbd5e1; font-size: 13px; }
+.ab-empty.err { color: #fda4af; }
+.ab-retry { margin-top: 10px; padding: 6px 14px; border: 1px solid #273244; border-radius: 9px; background: none; color: #a78bfa; font-size: 11px; font-weight: 800; }
 
-    /* Dropdown panel */
-    .ab-panel {
-        position: absolute;
-        top: 52px;
-        right: 0;
-        width: 350px;
-        max-width: calc(100vw - 32px);
-        background: #121925;
-        border: 1px solid #273244;
-        border-radius: 16px;
-        box-shadow: 0 18px 50px #00000080;
-        overflow: hidden;
-    }
+.ab-foot { display: block; padding: 12px 18px; border-top: 1px solid #273244; color: #a78bfa; font-size: 12px; font-weight: 700; text-align: center; }
+.ab-foot:hover { background: #1a2333; }
 
-    /* Header */
-    .ab-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 15px 16px;
-        border-bottom: 1px solid #273244;
-        color: #e5e7eb;
-        font-size: 13px;
-    }
-
-    .ab-head strong {
-        font-size: 14px;
-        font-weight: 800;
-    }
-
-    .ab-head button {
-        background: none;
-        border: none;
-        color: #a78bfa;
-        font-family: inherit;
-        font-size: 11px;
-        font-weight: 700;
-        white-space: nowrap;
-        cursor: pointer;
-    }
-
-    .ab-head button:hover {
-        color: #c4b5fd;
-    }
-
-    .ab-head button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    /* Notification list */
-    .ab-list {
-        max-height: 380px;
-        overflow-y: auto;
-    }
-
-    .ab-list::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    .ab-list::-webkit-scrollbar-track {
-        background: #121925;
-    }
-
-    .ab-list::-webkit-scrollbar-thumb {
-        background: #354256;
-        border-radius: 10px;
-    }
-
-    .ab-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 11px;
-        padding: 14px 16px;
-        border-bottom: 1px solid #1f2937;
-        transition: background 0.2s;
-    }
-
-    .ab-item:last-child {
-        border-bottom: none;
-    }
-
-    .ab-item:hover {
-        background: #1a2333;
-    }
-
-    .ab-item.unread {
-        background: #171f2e;
-    }
-
-    .ab-item.unread:hover {
-        background: #1c2739;
-    }
-
-    /* Notification dot */
-    .ab-dot {
-        width: 9px;
-        height: 9px;
-        margin-top: 5px;
-        flex-shrink: 0;
-        border-radius: 50%;
-        background: #8b5cf6;
-    }
-
-    .ab-item.new_user .ab-dot {
-        background: #34d399;
-    }
-
-    .ab-item.report .ab-dot {
-        background: #fcd34d;
-    }
-
-    .ab-item.security .ab-dot {
-        background: #fda4af;
-    }
-
-    .ab-body {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .ab-msg {
-        color: #e5e7eb;
-        font-size: 12px;
-        line-height: 1.6;
-        overflow-wrap: anywhere;
-    }
-
-    .ab-time {
-        margin-top: 4px;
-        color: #718096;
-        font-size: 10px;
-    }
-
-    /* Empty, loading, and error states */
-    .ab-empty {
-        padding: 30px 16px;
-        text-align: center;
-        color: #718096;
-        font-size: 12px;
-    }
-
-    .ab-error {
-        color: #fda4af;
-    }
-
-    /* Small screens */
-    @media (max-width: 480px) {
-        .ab-wrap {
-            top: 12px;
-            right: 12px;
-        }
-
-        .ab-panel {
-            width: 320px;
-            max-width: calc(100vw - 24px);
-        }
-    }
+@media (max-width: 480px) { .ab-wrap { top: 12px; right: 12px; } .ab-panel { width: calc(100vw - 24px); } }
+@media (prefers-reduced-motion: reduce) { .ab-badge.bump { animation: none; } }
 </style>
 
 <div class="ab-wrap" id="adminBell">
 
-    {% csrf_token %}
-
-    <!-- Notification bell -->
-    <button
-        type="button"
-        class="ab-btn"
-        id="abBtn"
-        aria-label="Notifications"
-        aria-expanded="false"
-        aria-controls="abPanel"
-        title="Notifications"
-    >
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-        >
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-
+    <button type="button" class="ab-btn" id="abBtn" aria-label="Notifications" aria-haspopup="dialog"
+            aria-expanded="false" aria-controls="abPanel" title="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="ab-badge" id="abBadge" hidden>0</span>
     </button>
 
-    <!-- Notification dropdown -->
-    <div class="ab-panel" id="abPanel" hidden>
+    <div class="ab-panel" id="abPanel" role="dialog" aria-label="Notifications" hidden>
 
         <div class="ab-head">
-            <strong>Notifications</strong>
-
-            <button type="button" id="abRead">
-                Mark all as read
-            </button>
+            <div>
+                <strong>Notifications</strong>
+                <span id="abSub">Loading...</span>
+            </div>
+            <button type="button" class="ab-readall" id="abReadAll" disabled>Mark all read</button>
         </div>
 
-        <div
-            class="ab-list"
-            id="abList"
-            aria-live="polite"
-            aria-busy="false"
-        >
-            <div class="ab-empty">Loading notifications...</div>
+        <div class="ab-tabs" role="tablist" aria-label="Filter notifications">
+            <button type="button" class="ab-tab" role="tab" data-f="all" aria-selected="true">All</button>
+            <button type="button" class="ab-tab" role="tab" data-f="unread" aria-selected="false">Unread</button>
+            <button type="button" class="ab-tab" role="tab" data-f="new_user" aria-selected="false">Users</button>
+            <button type="button" class="ab-tab" role="tab" data-f="report" aria-selected="false">Reports</button>
+            <button type="button" class="ab-tab" role="tab" data-f="security" aria-selected="false">Security</button>
         </div>
 
+        <div class="ab-list" id="abList" aria-live="polite"></div>
+
+        <a class="ab-foot" href="{% url 'admin_settings' %}">Notification settings</a>
     </div>
 </div>
 
@@ -287,285 +108,220 @@
 (function () {
     'use strict';
 
-    /* Django URL names */
     var URL_LIST = "{% url 'admin_notifications' %}";
     var URL_READ = "{% url 'admin_notifications_read' %}";
+    var CSRF = "{{ csrf_token }}";
 
     var root = document.getElementById('adminBell');
-
-    if (!root || root.dataset.initialized === 'true') {
-        return;
-    }
-
-    root.dataset.initialized = 'true';
+    if (!root || root.dataset.ready === 'true') return;
+    root.dataset.ready = 'true';
 
     var btn = document.getElementById('abBtn');
     var badge = document.getElementById('abBadge');
     var panel = document.getElementById('abPanel');
     var list = document.getElementById('abList');
-    var readBtn = document.getElementById('abRead');
+    var sub = document.getElementById('abSub');
+    var readAll = document.getElementById('abReadAll');
+    var tabs = root.querySelectorAll('.ab-tab');
 
-    var token = root.querySelector(
-        'input[name="csrfmiddlewaretoken"]'
-    );
+    var ICONS = {
+        new_user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        report:   '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+        security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
+    };
 
-    var loading = false;
+    var baseTitle = document.title;
+    var items = [];
+    var unread = 0;
+    var filter = 'all';
+    var busy = false;
+    var failed = false;
 
-    /*
-     * Display a message in the notification list.
-     */
-    function showMessage(message, isError) {
-        list.textContent = '';
+    /* ---------- badge + page title ---------- */
+    function setUnread(n, announce) {
+        var grew = n > unread;
+        unread = n;
 
-        var element = document.createElement('div');
+        badge.hidden = n === 0;
+        badge.textContent = n > 99 ? '99+' : String(n);
+        document.title = n > 0 ? '(' + (n > 99 ? '99+' : n) + ') ' + baseTitle : baseTitle;
 
-        element.className = 'ab-empty';
-
-        if (isError) {
-            element.classList.add('ab-error');
+        if (grew && announce) {                      // new notification arrived
+            badge.classList.remove('bump');
+            void badge.offsetWidth;
+            badge.classList.add('bump');
         }
-
-        element.textContent = message;
-
-        list.appendChild(element);
+        sub.textContent = n > 0 ? n + ' unread' : 'All caught up';
+        readAll.disabled = n === 0;
     }
 
-    /*
-     * Render notification data returned by Django.
-     *
-     * Expected JSON:
-     * {
-     *   "unread": 2,
-     *   "items": [
-     *     {
-     *       "kind": "report",
-     *       "message": "New report submitted",
-     *       "is_read": false,
-     *       "time": "Oct 25, 2026 11:30 AM"
-     *     }
-     *   ]
-     * }
-     */
-    function render(data) {
-        if (
-            !data ||
-            !Array.isArray(data.items) ||
-            typeof data.unread !== 'number'
-        ) {
-            showMessage('Invalid notification response.', true);
-            return;
+    /* ---------- list ---------- */
+    function message(title, text, isError, withRetry) {
+        list.textContent = '';
+        var box = document.createElement('div');
+        box.className = 'ab-empty' + (isError ? ' err' : '');
+        var s = document.createElement('strong');
+        s.textContent = title;
+        box.appendChild(s);
+        box.appendChild(document.createTextNode(text));
+        if (withRetry) {
+            var r = document.createElement('div');
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'ab-retry'; b.textContent = 'Try again';
+            b.addEventListener('click', function () { load(true); });
+            r.appendChild(b); box.appendChild(r);
         }
+        list.appendChild(box);
+    }
 
-        /* Update unread badge */
-        if (data.unread > 0) {
-            badge.textContent =
-                data.unread > 99 ? '99+' : String(data.unread);
+    function visible() {
+        return items.filter(function (n) {
+            if (filter === 'all') return true;
+            if (filter === 'unread') return !n.is_read;
+            return n.kind === filter;
+        });
+    }
 
-            badge.hidden = false;
-        } else {
-            badge.hidden = true;
-        }
-
+    function render() {
+        var shown = visible();
         list.textContent = '';
 
-        /* No notifications */
-        if (data.items.length === 0) {
-            showMessage('No notifications yet.', false);
+        if (!shown.length) {
+            if (filter === 'unread') message('No unread notifications', 'You have read everything.', false);
+            else if (filter === 'all') message('No notifications yet', 'New users, reports and security events will show up here.', false);
+            else message('Nothing here', 'No notifications of this type.', false);
             return;
         }
 
-        /* Build notification rows safely */
-        data.items.forEach(function (notification) {
-            var row = document.createElement('div');
+        shown.forEach(function (n) {
+            var row = document.createElement('a');
+            row.className = 'ab-item ' + n.kind + (n.is_read ? '' : ' unread');
+            row.href = n.url || '#';
+            row.dataset.id = n.id;
 
-            var kind = [
-                'new_user',
-                'report',
-                'security'
-            ].indexOf(notification.kind) !== -1
-                ? notification.kind
-                : '';
-
-            row.className = 'ab-item ' + kind;
-
-            if (!notification.is_read) {
-                row.classList.add('unread');
-            }
-
-            var dot = document.createElement('span');
-            dot.className = 'ab-dot';
-            dot.setAttribute('aria-hidden', 'true');
+            var ico = document.createElement('span');
+            ico.className = 'ab-ico';
+            ico.setAttribute('aria-hidden', 'true');
+            ico.innerHTML = '<svg viewBox="0 0 24 24">' + (ICONS[n.kind] || ICONS.report) + '</svg>';
 
             var body = document.createElement('div');
             body.className = 'ab-body';
-
-            var message = document.createElement('div');
-            message.className = 'ab-msg';
-
-            /* textContent prevents notification HTML from executing */
-            message.textContent = notification.message || '';
-
+            var msg = document.createElement('div');
+            msg.className = 'ab-msg';
+            msg.textContent = n.message || '';          // textContent: never runs HTML
             var time = document.createElement('div');
             time.className = 'ab-time';
-            time.textContent = notification.time || '';
+            time.textContent = n.ago + ' ago';
+            time.title = n.time;
+            body.appendChild(msg); body.appendChild(time);
 
-            body.appendChild(message);
-            body.appendChild(time);
+            var go = document.createElement('span');
+            go.className = 'ab-go'; go.textContent = '›'; go.setAttribute('aria-hidden', 'true');
 
-            row.appendChild(dot);
-            row.appendChild(body);
-
+            row.appendChild(ico); row.appendChild(body); row.appendChild(go);
             list.appendChild(row);
         });
     }
 
-    /*
-     * Load notifications from the Django backend.
-     */
-    function load() {
-        if (loading) {
-            return;
-        }
+    /* ---------- talking to Django ---------- */
+    function load(showSpinner) {
+        if (busy) return;
+        busy = true;
+        if (showSpinner && !items.length) { sub.textContent = 'Loading...'; }
 
-        loading = true;
-        list.setAttribute('aria-busy', 'true');
-
-        fetch(URL_LIST, {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(function (response) {
-            if (!response.ok) {
-                throw new Error(
-                    'Unable to load notifications. HTTP ' +
-                    response.status
-                );
-            }
-
-            return response.json();
-        })
-        .then(function (data) {
-            render(data);
-        })
-        .catch(function (error) {
-            console.error('VoxHub notifications:', error);
-
-            showMessage(
-                'Could not load notifications. Please try again.',
-                true
-            );
-        })
-        .finally(function () {
-            loading = false;
-            list.setAttribute('aria-busy', 'false');
-        });
+        var full = !panel.hidden || showSpinner;
+        fetch(URL_LIST + (full ? '' : '?summary=1'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                if (r.status === 401 || r.status === 403) throw new Error('auth');
+                if (!r.ok) throw new Error('http ' + r.status);
+                return r.json();
+            })
+            .then(function (data) {
+                failed = false;
+                if (typeof data.unread !== 'number') throw new Error('bad response');
+                if (Array.isArray(data.items)) { items = data.items; if (!panel.hidden) render(); }
+                setUnread(data.unread, true);
+            })
+            .catch(function (err) {
+                failed = true;
+                console.error('VoxHub notifications:', err);
+                if (!panel.hidden) {
+                    var auth = err && err.message === 'auth';
+                    message(auth ? 'Please log in again' : 'Could not load notifications',
+                            auth ? 'Your admin session has ended.' : 'Check your connection and try again.', true, !auth);
+                }
+            })
+            .then(function () { busy = false; });
     }
 
-    /*
-     * Open and close the notification panel.
-     */
-    btn.addEventListener('click', function () {
-        var opening = panel.hidden;
+    // Mark one notification (id) or all of them (no id) as read
+    function markRead(id) {
+        var body = new URLSearchParams();
+        if (id) body.append('id', id);
+        return fetch(URL_READ, {
+            method: 'POST', credentials: 'same-origin', keepalive: true, body: body,
+            headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+    }
 
-        panel.hidden = !opening;
-
-        btn.setAttribute(
-            'aria-expanded',
-            opening ? 'true' : 'false'
-        );
-
-        if (opening) {
-            load();
-        }
+    /* ---------- events ---------- */
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = panel.hidden;
+        panel.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { if (items.length) render(); else message('Loading...', '', false); load(true); }
     });
 
-    /*
-     * Mark every notification as read.
-     */
-    readBtn.addEventListener('click', function () {
-        if (readBtn.disabled) {
-            return;
-        }
-
-        readBtn.disabled = true;
-
-        fetch(URL_READ, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'X-CSRFToken': token ? token.value : '',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(function (response) {
-            if (!response.ok) {
-                throw new Error(
-                    'Unable to mark notifications as read. HTTP ' +
-                    response.status
-                );
-            }
-
-            return response.json();
-        })
-        .then(function () {
-            load();
-        })
-        .catch(function (error) {
-            console.error('VoxHub mark-read error:', error);
-
-            showMessage(
-                'Could not mark notifications as read.',
-                true
-            );
-        })
-        .finally(function () {
-            readBtn.disabled = false;
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function () {
+            filter = t.dataset.f;
+            tabs.forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+            render();
         });
     });
 
-    /*
-     * Close the panel when clicking outside it.
-     */
-    document.addEventListener('click', function (event) {
-        if (
-            !root.contains(event.target) &&
-            !panel.hidden
-        ) {
-            panel.hidden = true;
-            btn.setAttribute('aria-expanded', 'false');
+    // Click a notification: mark it read, then follow its link
+    list.addEventListener('click', function (e) {
+        var row = e.target.closest('.ab-item');
+        if (!row) return;
+        var n = items.filter(function (x) { return String(x.id) === row.dataset.id; })[0];
+        if (n && !n.is_read) {
+            n.is_read = true;
+            setUnread(Math.max(0, unread - 1), false);
+            markRead(n.id).catch(function () { /* the next refresh corrects the count */ });
         }
     });
 
-    /*
-     * Close the panel with Escape.
-     */
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !panel.hidden) {
-            panel.hidden = true;
-
-            btn.setAttribute('aria-expanded', 'false');
-
-            btn.focus();
-        }
+    readAll.addEventListener('click', function () {
+        readAll.disabled = true;
+        markRead().then(function () {
+            items.forEach(function (n) { n.is_read = true; });
+            setUnread(0, false);
+            render();
+        }).catch(function () {
+            readAll.disabled = false;
+            message('Could not mark as read', 'Please try again.', true, false);
+        });
     });
 
-    /*
-     * Allow other admin pages to refresh the notification bell.
-     */
-    window.refreshAdminBell = load;
+    document.addEventListener('click', function (e) {
+        if (!panel.hidden && !root.contains(e.target)) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+    });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
 
-    /* Initial load */
-    load();
+    // Other admin pages can call this after they create something
+    window.refreshAdminBell = function () { load(true); };
 
-    /* Refresh every 15 seconds */
-    window.setInterval(function () {
-        if (!document.hidden) {
-            load();
-        }
-    }, 15000);
-
+    /* ---------- start: cheap count now, then every 20s (every 10s while open) ---------- */
+    load(false);
+    setInterval(function () {
+        if (document.hidden) return;
+        if (!panel.hidden) { load(false); return; }
+        if (!failed || Math.random() < 0.34) load(false);   // slow down after errors
+    }, 10000);
 })();
 </script>

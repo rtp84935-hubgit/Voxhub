@@ -25,7 +25,7 @@ urlpatterns = [
     path("user_home/", views.user_home, name="user_home"),
     path("create_post/", views.create_post, name="create_post"),
     path("delete_post/", views.delete_post, name="delete_post"),
-    path('edit_post_caption/', views.edit_post_caption, name='edit_post_caption'),
+    path("edit_post_caption/", views.edit_post_caption, name="edit_post_caption"),
     path("toggle_like/", views.toggle_like, name="toggle_like"),
     path("liked_posts/", views.liked_posts, name="liked_posts"),
     path("add_comment/", views.add_comment, name="add_comment"),
@@ -104,6 +104,11 @@ urlpatterns = [
     path("admin_update_profile/", views.admin_update_profile, name="admin_update_profile"),
     path("admin_changepassword/", views.admin_changepassword, name="admin_changepassword"),
     path("admin_save_notification_pref/", views.admin_save_notification_pref, name="admin_save_notification_pref"),
+    path("admin_update_platform/", views.admin_update_platform, name="admin_update_platform"),
+    path("admin_logout_other_sessions/", views.admin_logout_other_sessions, name="admin_logout_other_sessions"),
+    path("admin_clear_notifications/", views.admin_clear_notifications, name="admin_clear_notifications"),
+    path("admin_export_users/", views.admin_export_users, name="admin_export_users"),
+    path("admin_export_reports/", views.admin_export_reports, name="admin_export_reports"),
 
     # =====================================================
     # ADMIN - notification bell

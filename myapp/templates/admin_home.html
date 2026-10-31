@@ -1,108 +1,474 @@
 {% extends 'admin_base.html' %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard | VoxHub{% endblock %}
 
-{% block page_heading %}
-  <h1>Welcome, Admin 👋</h1>
-  <p>Here's what's happening on VoxHub today.</p>
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================
+   VOXHUB ADMIN DASHBOARD
+========================================= */
+.ah {
+    --ah-panel: #121925;
+    --ah-panel2: #182131;
+    --ah-panel3: #0d1420;
+    --ah-line: #293449;
+    --ah-text: #e8edf7;
+    --ah-muted: #91a0b7;
+    --ah-purple: #a78bfa;
+    --ah-cyan: #22d3ee;
+    --ah-red: #fb7185;
+    --ah-green: #34d399;
+    --ah-yellow: #fbbf24;
+    --ah-blue: #60a5fa;
+    color: var(--ah-text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+}
+.ah *, .ah *::before, .ah *::after { box-sizing: border-box; }
+.ah a { color: inherit; text-decoration: none; }
+.ah :focus-visible { outline: 2px solid var(--ah-cyan); outline-offset: 3px; }
+
+/* ---------- welcome banner ---------- */
+.ah-hero {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px;
+    margin-bottom: 20px; padding: 24px 26px; overflow: hidden; position: relative;
+    border: 1px solid var(--ah-line); border-radius: 18px;
+    background: linear-gradient(120deg, rgba(124,108,255,.28), rgba(34,211,238,.12) 55%, var(--ah-panel) 100%);
+}
+.ah-hero h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.ah-hero p { margin: 6px 0 0; max-width: 520px; color: #b9c4d8; font-size: 13px; line-height: 1.7; }
+.ah-hero-date { color: #b9c4d8; font-size: 12px; font-weight: 700; }
+.ah-hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.ah-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.07);
+    color: var(--ah-text); font-size: 12px; font-weight: 800; white-space: nowrap; transition: background .15s;
+}
+.ah-btn:hover { background: rgba(255,255,255,.14); }
+.ah-btn.solid { border-color: transparent; background: #fff; color: #1a1f36; }
+.ah-btn.solid:hover { background: #e9ecf7; }
+
+/* ---------- layout ---------- */
+.ah-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.ah-main, .ah-side { display: grid; gap: 20px; min-width: 0; }
+
+.ah-panel { overflow: hidden; border: 1px solid var(--ah-line); border-radius: 16px; background: var(--ah-panel); }
+.ah-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--ah-line); }
+.ah-panel-head h3 { margin: 0; font-size: 14px; font-weight: 800; }
+.ah-panel-head p { margin: 4px 0 0; color: var(--ah-muted); font-size: 11px; }
+.ah-link { color: var(--ah-purple); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ah-link:hover { text-decoration: underline; }
+.ah-body { padding: 18px 20px; }
+
+/* ---------- KPI tiles ---------- */
+.ah-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.ah-kpi { padding: 18px; border: 1px solid var(--ah-line); border-radius: 16px; background: var(--ah-panel); transition: border-color .2s, transform .2s; }
+.ah-kpi:hover { border-color: #46536c; transform: translateY(-2px); }
+.ah-kpi-top { display: flex; align-items: center; justify-content: space-between; color: var(--ah-muted); font-size: 12px; font-weight: 700; }
+.ah-kpi-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent); }
+.ah-kpi-num { margin-top: 14px; font-size: 32px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.ah-kpi-note { margin-top: 8px; color: var(--ah-muted); font-size: 11px; }
+.ah-kpi-note b { color: var(--c); }
+.ah-kpi.users { --c: var(--ah-purple); }
+.ah-kpi.active { --c: var(--ah-green); }
+.ah-kpi.banned { --c: var(--ah-red); }
+.ah-kpi.posts { --c: var(--ah-cyan); }
+
+/* ---------- 7-day charts ---------- */
+.ah-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ah-chart-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.ah-chart-title strong { font-size: 24px; letter-spacing: -.03em; }
+.ah-chart-title span { color: var(--ah-muted); font-size: 12px; }
+.ah-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 130px; }
+.ah-bar { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.ah-bar i {
+    display: block; min-height: 4px; border-radius: 6px 6px 3px 3px;
+    background: linear-gradient(180deg, var(--bar), color-mix(in srgb, var(--bar) 45%, transparent));
+    transition: filter .15s;
+}
+.ah-bar:hover i { filter: brightness(1.25); }
+.ah-bar em {
+    position: absolute; left: 50%; bottom: calc(var(--h) + 6px); transform: translateX(-50%);
+    color: var(--ah-muted); font-size: 10px; font-style: normal; font-weight: 700;
+}
+.ah-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px; color: var(--ah-muted); font-size: 10px; text-align: center; font-weight: 700; }
+.ah-days .today { color: var(--ah-text); }
+
+/* ---------- recent signups ---------- */
+.ah-list { margin: 0; padding: 0; list-style: none; }
+.ah-list li { display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-top: 1px solid var(--ah-line); }
+.ah-list li:first-child { border-top: 0; }
+.ah-list li:hover { background: rgba(255,255,255,.025); }
+.ah-av {
+    display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; overflow: hidden;
+    border-radius: 50%; background: linear-gradient(135deg, #7c6cff, #22d3ee); color: #fff; font-size: 12px; font-weight: 800;
+}
+.ah-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ah-who { flex: 1; min-width: 0; line-height: 1.3; }
+.ah-who a { display: block; overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.ah-who a:hover { color: var(--ah-purple); }
+.ah-who span { color: var(--ah-muted); font-size: 11px; }
+.ah-when { color: var(--ah-muted); font-size: 11px; white-space: nowrap; }
+.ah-pill { padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.ah-pill.ok { background: rgba(52,211,153,.1); color: var(--ah-green); }
+.ah-pill.bad { background: rgba(251,113,133,.12); color: var(--ah-red); }
+.ah-empty { padding: 28px 20px; color: var(--ah-muted); text-align: center; line-height: 1.7; }
+
+/* ---------- right column ---------- */
+.ah-attn { display: grid; gap: 10px; padding: 16px; }
+.ah-attn a {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px;
+    border: 1px solid var(--ah-line); border-radius: 12px; background: var(--ah-panel2); transition: border-color .15s;
+}
+.ah-attn a:hover { border-color: var(--ah-purple); }
+.ah-attn strong { display: block; font-size: 13px; }
+.ah-attn small { display: block; margin-top: 2px; color: var(--ah-muted); font-size: 11px; }
+.ah-count { min-width: 34px; padding: 5px 10px; border-radius: 10px; background: rgba(255,255,255,.07); font-size: 15px; font-weight: 800; text-align: center; }
+.ah-count.hot { background: rgba(251,191,36,.16); color: var(--ah-yellow); }
+.ah-count.zero { color: var(--ah-green); background: rgba(52,211,153,.1); }
+
+.ah-risk { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ah-line); }
+.ah-risk li { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--ah-line); }
+.ah-risk li:first-child { border-top: 0; }
+.ah-risk .ah-av { width: 34px; height: 34px; }
+.ah-risk-n { color: var(--ah-red); font-size: 12px; font-weight: 800; text-align: right; white-space: nowrap; }
+.ah-risk-n small { display: block; color: var(--ah-muted); font-size: 10px; font-weight: 600; }
+.ah-sub { margin: 0; padding: 12px 20px 4px; color: var(--ah-muted); font-size: 11px; font-weight: 700; }
+
+.ah-feed { margin: 0; padding: 6px 0; list-style: none; }
+.ah-feed li { display: flex; gap: 12px; padding: 12px 20px; }
+.ah-feed-ico {
+    display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px;
+    background: var(--c, var(--ah-panel2)); font-size: 14px;
+}
+.ah-feed li.new_user  { --c: rgba(52,211,153,.14); }
+.ah-feed li.report    { --c: rgba(251,113,133,.14); }
+.ah-feed li.security  { --c: rgba(251,191,36,.14); }
+.ah-feed p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.ah-feed time { display: block; margin-top: 2px; color: var(--ah-muted); font-size: 10px; }
+.ah-feed li.unread p { font-weight: 700; }
+
+.ah-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+.ah-quick a {
+    display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px;
+    border: 1px solid var(--ah-line); border-radius: 12px; background: var(--ah-panel2);
+    font-size: 12px; font-weight: 700; text-align: center; transition: border-color .15s, background .15s;
+}
+.ah-quick a:hover { border-color: var(--ah-purple); background: rgba(139,92,246,.1); }
+
+.ah-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ah-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+.ah-tile { padding: 14px; border: 1px solid var(--ah-line); border-radius: 12px; background: var(--ah-panel2); }
+.ah-tile strong { display: block; font-size: 22px; letter-spacing: -.02em; }
+.ah-tile span { color: var(--ah-muted); font-size: 11px; }
+.ah-tile.hot strong { color: var(--ah-yellow); }
+
+.ah-stat { padding: 16px 20px; display: grid; gap: 13px; }
+.ah-stat-row { display: grid; grid-template-columns: 78px 1fr 30px; align-items: center; gap: 10px; font-size: 12px; }
+.ah-stat-row span { color: var(--ah-muted); }
+.ah-stat-row b { text-align: right; }
+.ah-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--ah-panel3); }
+.ah-track i { display: block; height: 100%; min-width: 0; border-radius: 999px; background: var(--c); }
+
+.ah-pill.pending   { background: rgba(251,191,36,.12); color: var(--ah-yellow); }
+.ah-pill.inreview  { background: rgba(96,165,250,.12); color: var(--ah-blue); }
+.ah-pill.resolved  { background: rgba(52,211,153,.1); color: var(--ah-green); }
+.ah-pill.dismissed { background: rgba(140,152,173,.13); color: #aab5c8; }
+.ah-reason { margin: 3px 0 0; color: var(--ah-muted); font-size: 11px; overflow-wrap: anywhere; }
+.ah-arrow { color: var(--ah-muted); }
+
+@media (max-width: 1150px) { .ah-layout { grid-template-columns: 1fr; } .ah-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 700px) {
+    .ah-two { grid-template-columns: 1fr; }
+    .ah-charts { grid-template-columns: 1fr; }
+    .ah-hero { padding: 20px 18px; }
+    .ah-hero h2 { font-size: 20px; }
+    .ah-kpi-num { font-size: 26px; }
+}
+</style>
 {% endblock %}
 
+
+{% block page_heading %}
+<h1>Dashboard</h1>
+<p>Overview of VoxHub activity and moderation.</p>
+{% endblock %}
+
+
 {% block content %}
+<div class="ah">
 
-  <!-- Notification bell (fixed at the top right of the page) -->
-  {% include 'admin_bell.html' %}
+    <!-- Notification bell (fixed at the top right of the page) -->
+    {% include 'admin_bell.html' %}
 
-  <!-- Top stat cards -->
-  <section class="stats">
-    <div class="card stat">
-      <div class="label">Total Users</div>
-      <div class="count">{{ total_users|default:0 }}</div>
-      <a class="link" href="{% url 'admin_users' %}">View all users →</a>
-    </div>
-    <div class="card stat">
-      <div class="label">Banned Users</div>
-      <div class="count">{{ banned_users|default:0 }}</div>
-      <a class="link" href="{% url 'admin_banned_users' %}">Manage bans →</a>
-    </div>
-    <div class="card stat">
-      <div class="label">Pending Reports</div>
-      <div class="count">{{ pending_reports|default:0 }}</div>
-      <a class="link" href="{% url 'admin_reports' %}">View reports →</a>
-    </div>
-  </section>
-
-  <div class="dash-grid">
-
-    <!-- Left column -->
-    <div class="stack">
-      <section class="card">
-        <div class="card-head">
-          <h2>Recent Users</h2>
-          <a class="link" href="{% url 'admin_users' %}">View all →</a>
-        </div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>#</th><th>Username</th><th>Name</th><th>Status</th><th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for user in recent_users %}
-            <tr>
-              <td>{{ forloop.counter }}</td>
-              <td>{{ user.username }}</td>
-              <td>{{ user.name }}</td>
-              <td>
-                {% if user.is_banned %}
-                  <span class="pill pill-banned">Banned</span>
+    <!-- Welcome -->
+    <section class="ah-hero">
+        <div>
+            <div class="ah-hero-date">{{ today|date:"l, d F Y" }}</div>
+            <h2>Welcome back, {{ request.user.username }}</h2>
+            <p>
+                {% if open_reports or open_complaints %}
+                    {{ open_reports }} open report{{ open_reports|pluralize }} and
+                    {{ open_complaints }} open complaint{{ open_complaints|pluralize }} need your attention.
                 {% else %}
-                  <span class="pill pill-active">Active</span>
+                    Nothing is waiting for review. The community is quiet right now.
                 {% endif %}
-              </td>
-              <td><a class="link" href="{% url 'admin_banned_users' %}">Manage</a></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% if not recent_users %}
-          <p class="empty">No users found.</p>
-        {% endif %}
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2>Latest Reports</h2>
-          <a class="link" href="{% url 'admin_reports' %}">View all →</a>
+            </p>
         </div>
-        {% for report in latest_reports %}
-          <p>{{ report }}</p>
-        {% empty %}
-          <p class="empty">No reports available.</p>
-        {% endfor %}
-      </section>
-    </div>
-
-    <!-- Right column -->
-    <div class="stack">
-      <section class="card">
-        <div class="card-head"><h2>Quick Actions</h2></div>
-        <div class="actions">
-          <a class="btn btn-blue" href="{% url 'admin_users' %}">👥 View All Users →</a>
-          <a class="btn btn-red" href="{% url 'admin_banned_users' %}">🚫 Ban / Unban User →</a>
-          <a class="btn btn-purple" href="{% url 'admin_reports' %}">🚩 Review Reports →</a>
+        <div class="ah-hero-actions">
+            <a class="ah-btn solid" href="{% url 'admin_reports' %}">Review reports</a>
+            <a class="ah-btn" href="{% url 'admin_complaints' %}">Complaints</a>
         </div>
-      </section>
+    </section>
 
-      <section class="card overview">
-        <h2>Platform Overview</h2>
-        <ul>
-          <li>Total registered users <strong>{{ total_users|default:0 }}</strong></li>
-          <li>Active users <strong>{{ active|default:0 }}</strong></li>
-          <li>Total posts <strong>{{ total_posts|default:0 }}</strong></li>
-          <li>Pending reports <strong>{{ pending_reports|default:0 }}</strong></li>
-        </ul>
-      </section>
+    <div class="ah-layout">
+
+        <!-- ================= MAIN ================= -->
+        <div class="ah-main">
+
+            <section class="ah-kpis" aria-label="Key numbers">
+                <a class="ah-kpi users" href="{% url 'admin_users' %}">
+                    <div class="ah-kpi-top">Total users <span class="ah-kpi-dot"></span></div>
+                    <div class="ah-kpi-num">{{ total_users }}</div>
+                    <div class="ah-kpi-note"><b>+{{ new_users_week }}</b> in the last 7 days</div>
+                </a>
+                <a class="ah-kpi active" href="{% url 'admin_users' %}">
+                    <div class="ah-kpi-top">Active users <span class="ah-kpi-dot"></span></div>
+                    <div class="ah-kpi-num">{{ active }}</div>
+                    <div class="ah-kpi-note">Can log in right now</div>
+                </a>
+                <a class="ah-kpi banned" href="{% url 'admin_banned_users' %}">
+                    <div class="ah-kpi-top">Banned users <span class="ah-kpi-dot"></span></div>
+                    <div class="ah-kpi-num">{{ banned_users }}</div>
+                    <div class="ah-kpi-note">View banned accounts</div>
+                </a>
+                <div class="ah-kpi posts">
+                    <div class="ah-kpi-top">Total posts <span class="ah-kpi-dot"></span></div>
+                    <div class="ah-kpi-num">{{ total_posts }}</div>
+                    <div class="ah-kpi-note"><b>+{{ posts_week }}</b> this week · {{ photos }} photo{{ photos|pluralize }}, {{ videos }} video{{ videos|pluralize }}</div>
+                </div>
+            </section>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head">
+                    <div>
+                        <h3>Last 7 days</h3>
+                        <p>New signups and new posts, day by day.</p>
+                    </div>
+                </div>
+                <div class="ah-body">
+                    <div class="ah-charts">
+                        <div>
+                            <div class="ah-chart-title"><strong>{{ new_users_week }}</strong><span>new users</span></div>
+                            <div class="ah-bars" style="--bar:#a78bfa">
+                                {% for d in week %}
+                                    <div class="ah-bar" title="{{ d.label }}: {{ d.users }} new user{{ d.users|pluralize }}" style="--h:{{ d.users_pct }}%">
+                                        <i style="height:{{ d.users_pct }}%"></i>
+                                        {% if d.users %}<em>{{ d.users }}</em>{% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="ah-days">{% for d in week %}<span {% if forloop.last %}class="today"{% endif %}>{{ d.short }}</span>{% endfor %}</div>
+                        </div>
+
+                        <div>
+                            <div class="ah-chart-title"><strong>{{ posts_week }}</strong><span>new posts</span></div>
+                            <div class="ah-bars" style="--bar:#22d3ee">
+                                {% for d in week %}
+                                    <div class="ah-bar" title="{{ d.label }}: {{ d.posts }} new post{{ d.posts|pluralize }}" style="--h:{{ d.posts_pct }}%">
+                                        <i style="height:{{ d.posts_pct }}%"></i>
+                                        {% if d.posts %}<em>{{ d.posts }}</em>{% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="ah-days">{% for d in week %}<span {% if forloop.last %}class="today"{% endif %}>{{ d.short }}</span>{% endfor %}</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="ah-two">
+                <section class="ah-panel">
+                    <div class="ah-panel-head">
+                        <div><h3>This week on VoxHub</h3><p>Last 7 days, plus all-time likes.</p></div>
+                    </div>
+                    <div class="ah-tiles">
+                        <div class="ah-tile"><strong>{{ comments_week }}</strong><span>Comments</span></div>
+                        <div class="ah-tile"><strong>{{ messages_week }}</strong><span>Chat messages</span></div>
+                        <div class="ah-tile"><strong>{{ total_likes }}</strong><span>Likes (all time)</span></div>
+                        <div class="ah-tile {% if pending_faces %}hot{% endif %}"><strong>{{ pending_faces }}</strong><span>Face requests waiting</span></div>
+                    </div>
+                </section>
+
+                <section class="ah-panel">
+                    <div class="ah-panel-head">
+                        <div><h3>Reports by status</h3><p>Every user report so far.</p></div>
+                        <a class="ah-link" href="{% url 'admin_reports' %}">Open →</a>
+                    </div>
+                    <div class="ah-stat">
+                        {% for r in report_breakdown %}
+                        <div class="ah-stat-row" style="--c: {% if r.key == 'pending' %}#fbbf24{% elif r.key == 'inreview' %}#60a5fa{% elif r.key == 'resolved' %}#34d399{% else %}#8c98ad{% endif %}">
+                            <span>{{ r.label }}</span>
+                            <div class="ah-track"><i style="width:{{ r.pct }}%"></i></div>
+                            <b>{{ r.n }}</b>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head">
+                    <div>
+                        <h3>Recent signups</h3>
+                        <p>The newest members of the community.</p>
+                    </div>
+                    <a class="ah-link" href="{% url 'admin_users' %}">All users →</a>
+                </div>
+
+                {% if recent_users %}
+                <ul class="ah-list">
+                    {% for u in recent_users %}
+                    <li>
+                        <div class="ah-av">
+                            {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="" loading="lazy">{% else %}{{ u.username|slice:":2"|upper }}{% endif %}
+                        </div>
+                        <div class="ah-who">
+                            <a href="{% url 'view_userprofile' u.LOGIN_id %}">{{ u.name }}</a>
+                            <span>@{{ u.username }}</span>
+                        </div>
+                        <span class="ah-when">{{ u.created_at|date:"d M Y" }}</span>
+                        {% if u.LOGIN.is_active %}<span class="ah-pill ok">Active</span>{% else %}<span class="ah-pill bad">Banned</span>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="ah-empty">No users have registered yet.</div>
+                {% endif %}
+            </section>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head">
+                    <div><h3>Latest user reports</h3><p>The five most recent.</p></div>
+                    <a class="ah-link" href="{% url 'admin_reports' %}">All reports →</a>
+                </div>
+                {% if latest_reports %}
+                <ul class="ah-list">
+                    {% for r in latest_reports %}
+                    <li>
+                        <div class="ah-who">
+                            <a href="{% url 'review_report' r.id %}">@{{ r.USER.username }} <span class="ah-arrow">→</span> @{{ r.VICTIM.username }}</a>
+                            <p class="ah-reason">{{ r.reports|truncatechars:70 }}</p>
+                        </div>
+                        <span class="ah-when">{{ r.date|timesince }} ago</span>
+                        <span class="ah-pill {{ r.status }}">{{ r.get_status_display }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="ah-empty">No reports yet.</div>
+                {% endif %}
+            </section>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head">
+                    <div><h3>Latest complaints</h3><p>General problems sent by users.</p></div>
+                    <a class="ah-link" href="{% url 'admin_complaints' %}">All complaints →</a>
+                </div>
+                {% if latest_complaints %}
+                <ul class="ah-list">
+                    {% for c in latest_complaints %}
+                    <li>
+                        <div class="ah-who">
+                            <a href="{% url 'review_complaints' c.id %}">{{ c.reports|truncatechars:60 }}</a>
+                            <p class="ah-reason">from @{{ c.USER.username }}</p>
+                        </div>
+                        <span class="ah-when">{{ c.date|timesince }} ago</span>
+                        <span class="ah-pill {{ c.status }}">{{ c.get_status_display }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="ah-empty">No complaints yet.</div>
+                {% endif %}
+            </section>
+
+        </div>
+
+        <!-- ================= RIGHT COLUMN ================= -->
+        <aside class="ah-side">
+
+            <section class="ah-panel">
+                <div class="ah-panel-head"><h3>Needs your attention</h3></div>
+                <div class="ah-attn">
+                    <a href="{% url 'admin_reports' %}">
+                        <span><strong>Open user reports</strong><small>Pending or in review</small></span>
+                        <span class="ah-count {% if open_reports %}hot{% else %}zero{% endif %}">{{ open_reports }}</span>
+                    </a>
+                    <a href="{% url 'admin_complaints' %}">
+                        <span><strong>Open complaints</strong><small>{{ new_complaints }} not opened yet</small></span>
+                        <span class="ah-count {% if open_complaints %}hot{% else %}zero{% endif %}">{{ open_complaints }}</span>
+                    </a>
+                </div>
+
+                {% if top_reported %}
+                    <p class="ah-sub">Most reported accounts</p>
+                    <ul class="ah-risk">
+                        {% for u in top_reported %}
+                        <li>
+                            <div class="ah-av">
+                                {% if u.profile_image %}<img src="{{ u.profile_image.url }}" alt="" loading="lazy">{% else %}{{ u.username|slice:":2"|upper }}{% endif %}
+                            </div>
+                            <div class="ah-who">
+                                <a href="{% url 'view_userprofile' u.LOGIN_id %}">{{ u.name }}</a>
+                                <span>@{{ u.username }}</span>
+                            </div>
+                            <div class="ah-risk-n">{{ u.open_count }} open<small>{{ u.unique_reporters }} reporter{{ u.unique_reporters|pluralize }}</small></div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head">
+                    <div>
+                        <h3>Recent activity</h3>
+                        <p>{% if unread_notifications %}{{ unread_notifications }} unread{% else %}All caught up{% endif %}</p>
+                    </div>
+                </div>
+
+                {% if activity %}
+                <ul class="ah-feed">
+                    {% for n in activity %}
+                    <li class="{{ n.kind }} {% if not n.is_read %}unread{% endif %}">
+                        <span class="ah-feed-ico">{% if n.kind == 'new_user' %}👤{% elif n.kind == 'report' %}🚩{% else %}🔒{% endif %}</span>
+                        <div>
+                            <p>{{ n.message }}</p>
+                            <time>{{ n.created_at|timesince }} ago</time>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="ah-empty">No activity yet.</div>
+                {% endif %}
+            </section>
+
+            <section class="ah-panel">
+                <div class="ah-panel-head"><h3>Quick actions</h3></div>
+                <div class="ah-quick">
+                    <a href="{% url 'admin_users' %}">Manage users</a>
+                    <a href="{% url 'admin_banned_users' %}">Banned users</a>
+                    <a href="{% url 'admin_reports' %}">User reports</a>
+                    <a href="{% url 'admin_settings' %}">Settings</a>
+                </div>
+            </section>
+
+        </aside>
     </div>
-
-  </div>
+</div>
 {% endblock %}

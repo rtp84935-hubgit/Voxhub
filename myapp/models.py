@@ -346,3 +346,40 @@ class ChatSettings(models.Model):
  
     def __str__(self):
         return f"Chat settings of {self.USER.username}"
+
+
+# Add these two models to models.py, then run:
+#     python manage.py makemigrations && python manage.py migrate
+
+class PlatformSettings(models.Model):
+    """One row (pk=1) with the platform rules an admin can change in Settings."""
+    registration_open = models.BooleanField(default=True)          # allow new sign-ups
+    comment_moderation = models.BooleanField(default=True)         # AI check on comments
+    toxicity_threshold = models.FloatField(default=0.5)            # lower = stricter
+    reports_per_day = models.PositiveSmallIntegerField(default=10) # per user
+    complaints_per_day = models.PositiveSmallIntegerField(default=5)
+    high_risk_reporters = models.PositiveSmallIntegerField(default=10)
+    medium_risk_reporters = models.PositiveSmallIntegerField(default=5)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Platform settings"
+
+
+class AdminAction(models.Model):
+    """Audit log: who did what in the admin panel."""
+    admin = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="admin_actions")
+    action = models.CharField(max_length=60)
+    target = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.action} {self.target}"

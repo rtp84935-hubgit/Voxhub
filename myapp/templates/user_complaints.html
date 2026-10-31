@@ -85,7 +85,7 @@
     <label for="reason">What happened?</label>
     <textarea id="reason" maxlength="1000"
               placeholder="Describe the problem: what you did, what you expected and what happened instead."></textarea>
-    <p class="cm-hint">Be specific, at least 10 characters. You can send up to 5 complaints a day.</p>
+    <p class="cm-hint">Be specific, at least 10 characters. You can send up to {{ complaint_limit }} complaint{{ complaint_limit|pluralize }} a day.</p>
     <div class="cm-foot">
       <span class="cm-count" id="cmCount"><span id="cnt">0</span>/1000</span>
       <button type="button" class="cm-send" id="send" disabled>Submit complaint</button>

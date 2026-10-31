@@ -18,6 +18,7 @@ VoxHub views, organised in this order:
 # =========================================================
 
 # ---- standard library ----
+import csv
 import logging
 import math
 import os
@@ -51,10 +52,12 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import TruncDate
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.timesince import timesince
 from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
@@ -453,6 +456,20 @@ def admin_required(view_func):
     return wrapper
 
 
+def admin_json_required(view_func):
+    """Like admin_required, but answers with JSON (401/403) instead of a
+    redirect, so fetch() calls (the notification bell) can show a clear message."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return JsonResponse({"error": "Please log in again."}, status=401)
+        if not (user.is_active and user.groups.filter(name="admin").exists()):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 def notify_admin(kind, message):
     """Create an admin notification. Never raises, so it can't break
     registration or login. Identical messages within 1 minute are skipped
@@ -469,6 +486,18 @@ def notify_admin(kind, message):
         logger.exception("Could not create admin notification")
 
 
+def log_admin_action(request, action, target=""):
+    """Write one line to the admin audit log. Never raises."""
+    try:
+        AdminAction.objects.create(
+            admin=request.user if request.user.is_authenticated else None,
+            action=action[:60],
+            target=str(target)[:200],
+        )
+    except Exception:
+        logger.exception("Could not write admin audit log")
+
+
 def _get_prefs(user):
     prefs, _ = AdminNotificationPreference.objects.get_or_create(admin=user)
     return prefs
@@ -478,13 +507,14 @@ def _get_prefs(user):
 # Report moderation helpers
 # ---------------------------------------------------------
 
-def _risk_level(unique_reporters):
+def _risk_level(unique_reporters, cfg=None):
     """low / medium / high, based on how many DIFFERENT people have
     open reports against an account (one person spamming the report
-    button cannot raise it)."""
-    if unique_reporters >= HIGH_RISK_REPORTERS:
+    button cannot raise it). Thresholds are set in Admin Settings."""
+    cfg = cfg or PlatformSettings.get()
+    if unique_reporters >= cfg.high_risk_reporters:
         return "high"
-    if unique_reporters >= MEDIUM_RISK_REPORTERS:
+    if unique_reporters >= cfg.medium_risk_reporters:
         return "medium"
     return "low"
 
@@ -520,6 +550,9 @@ def register(request):
 
     if request.method != "POST":
         return _fail("Only POST request allowed.")
+
+    if not PlatformSettings.get().registration_open:
+        return _fail("Registration is closed at the moment. Please try again later.")
 
     # ---- basic details ----
     name = (request.POST.get("name") or "").strip()
@@ -618,6 +651,8 @@ def register(request):
         logger.exception("Registration failed for %s", username)
         return _fail("Registration failed. Please try again.")
 
+    notify_admin("new_user", f"New user registered: {name} (@{username})")
+
     # This view is called with fetch(), so return JSON (a redirect would break it)
     return JsonResponse({
         "success": True,
@@ -666,6 +701,7 @@ def login_view(request):
         # right password but is_active = 0  ->  tell them they are banned
         candidate = User.objects.filter(username=username).first()
         if candidate and not candidate.is_active and candidate.check_password(password):
+            notify_admin("security", f"Banned user @{username} tried to log in")
             return _login_error(request, "Your account has been banned.")
         return _login_error(request, "Invalid username or password.")
 
@@ -1253,32 +1289,36 @@ def add_comment(request):
     )
 
     # AI moderation must happen BEFORE saving
-    try:
-        results = detector(comment, truncation=True)[0]
+    # (an admin can switch it off or change how strict it is in Settings)
+    cfg = PlatformSettings.get()
 
-        scores = {
-            item['label'].lower(): item['score']
-            for item in results
-        }
+    if cfg.comment_moderation:
+        try:
+            results = detector(comment, truncation=True)[0]
 
-        toxic_score = scores.get('toxic', 0.0)
+            scores = {
+                item['label'].lower(): item['score']
+                for item in results
+            }
 
-        print("Comment:", comment)
-        print("Toxicity score:", toxic_score)
+            toxic_score = scores.get('toxic', 0.0)
 
-    except Exception as e:
-        print("AI moderation error:", e)
-        return JsonResponse({
-            'ok': False,
-            'error': 'AI comment analysis failed. Your comment was not posted.'
-        }, status=503)
+            print("Comment:", comment)
+            print("Toxicity score:", toxic_score)
 
-    # Reject toxic comments and immediately stop execution
-    if toxic_score >= 0.5:
-        return JsonResponse({
-            'ok': False,
-            'error': 'This comment was analyzed by AI and identified as potentially toxic. Please edit your comment and try again.'
-        }, status=400)
+        except Exception as e:
+            print("AI moderation error:", e)
+            return JsonResponse({
+                'ok': False,
+                'error': 'AI comment analysis failed. Your comment was not posted.'
+            }, status=503)
+
+        # Reject toxic comments and immediately stop execution
+        if toxic_score >= cfg.toxicity_threshold:
+            return JsonResponse({
+                'ok': False,
+                'error': 'This comment was analyzed by AI and identified as potentially toxic. Please edit your comment and try again.'
+            }, status=400)
 
     # Save only after the comment passes moderation
     new_comment = Comments.objects.create(
@@ -1611,7 +1651,7 @@ def report_user(request, user_id):
 
     # Daily limit per reporter, so the report button cannot be spammed
     since = timezone.now() - timedelta(days=1)
-    if Reports.objects.filter(USER=me, date__gte=since).count() >= MAX_REPORTS_PER_DAY:
+    if Reports.objects.filter(USER=me, date__gte=since).count() >= PlatformSettings.get().reports_per_day:
         return JsonResponse(
             {"ok": False, "error": "Report limit reached for today. Please try again tomorrow."},
             status=429
@@ -1654,7 +1694,7 @@ def submit_complaint(request):
 
     # Daily limit per user, so the admin inbox cannot be flooded
     since = timezone.now() - timedelta(days=1)
-    if Complaints.objects.filter(USER=me, date__gte=since).count() >= MAX_COMPLAINTS_PER_DAY:
+    if Complaints.objects.filter(USER=me, date__gte=since).count() >= PlatformSettings.get().complaints_per_day:
         return JsonResponse(
             {"ok": False, "error": "You have reached today's complaint limit. Please try again tomorrow."},
             status=429,
@@ -1679,6 +1719,7 @@ def user_complaints(request):
     return render(request, "user_complaints.html", {
         "reports": my_reports,
         "unseen_ids": unseen_ids,
+        "complaint_limit": PlatformSettings.get().complaints_per_day,
     })
 
 # =========================================================
@@ -2251,8 +2292,10 @@ def admin_login_post(request):
                 login(request, user)
                 return redirect("admin_home")
             else:
+                notify_admin("security", f"Non-admin account @{username} tried the admin login")
                 messages.warning(request, "You are not an admin.")
         else:
+            notify_admin("security", f"Failed admin login attempt for '{(username or '')[:50]}'")
             messages.warning(request, "Wrong username or password.")
 
     return redirect("admin_login")
@@ -2319,7 +2362,41 @@ def admin_home(request):
         .order_by("-open_count", "-unique_reporters")[:4]
     )
 
+    # ---- content and engagement ----
+    videos = User_posts.objects.filter(photo__iregex=VIDEO_RE).count()
+    status_counts = dict(
+        Reports.objects.order_by().values_list("status").annotate(n=Count("id"))
+    )
+    status_total = sum(status_counts.values()) or 1
+    report_breakdown = [
+        {
+            "key": key,
+            "label": label,
+            "n": status_counts.get(key, 0),
+            "pct": round(status_counts.get(key, 0) * 100 / status_total),
+        }
+        for key, label in (
+            ("pending", "Pending"),
+            ("inreview", "In review"),
+            ("resolved", "Resolved"),
+            ("dismissed", "Dismissed"),
+        )
+    ]
+
     return render(request, "admin_home.html", {
+        "photos": total_posts - videos,
+        "videos": videos,
+        "comments_week": Comments.objects.filter(date__date__gte=start).count(),
+        "messages_week": ChatMessage.objects.filter(timestamp__date__gte=start).count(),
+        "total_likes": Likes.objects.count(),
+        "pending_faces": UserNotification.objects.filter(status="pending").count(),
+        "report_breakdown": report_breakdown,
+        "latest_reports": (
+            Reports.objects
+            .select_related("USER", "VICTIM", "VICTIM__LOGIN")
+            .order_by("-date")[:5]
+        ),
+        "latest_complaints": Complaints.objects.select_related("USER").order_by("-date")[:4],
         "today": today,
         "total_users": total_users,
         "banned_users": banned_users,
@@ -2375,6 +2452,7 @@ def admin_ban_user(request, id):
             status__in=OPEN_STATUSES,
         ).update(status="resolved")
 
+    log_admin_action(request, "Banned user", f"@{target.username}")
     messages.success(
         request,
         f"{target.username} was banned. {closed} open report(s) marked as resolved."
@@ -2389,6 +2467,7 @@ def admin_unban_user(request, id):
     target.is_active = True
     target.save(update_fields=["is_active"])
 
+    log_admin_action(request, "Unbanned user", f"@{target.username}")
     messages.success(request, f"{target.username} was unbanned.")
     return _safe_next(request, "admin_users")
 
@@ -2433,8 +2512,9 @@ def admin_reports(request):
         .order_by("-open_count", "-unique_reporters", "-last_reported")
     )
 
+    cfg = PlatformSettings.get()
     for u in users:
-        u.risk = _risk_level(u.unique_reporters) if u.open_count else "low"
+        u.risk = _risk_level(u.unique_reporters, cfg) if u.open_count else "low"
 
     high_risk_users = [
         u for u in users
@@ -2472,6 +2552,7 @@ def _close_one_report(request, id, status):
         messages.warning(request, "Report not found.")
         return redirect("admin_reports")
 
+    log_admin_action(request, f"Report marked {status}", f"report #{id}")
     messages.success(request, f"Report marked as {status}.")
     return redirect("review_report", id=id)
 
@@ -2504,6 +2585,7 @@ def admin_close_reports(request, id):
         status__in=OPEN_STATUSES,
     ).update(status=action)
 
+    log_admin_action(request, f"Closed reports as {action}", f"{count} report(s), user id {id}")
     messages.success(request, f"{count} open report(s) marked as {action}.")
     return _safe_next(request, "admin_reports")
 
@@ -2575,6 +2657,7 @@ def update_complaints(request, id):
         return redirect("admin_complaints")
 
     label = "reopened" if action == "inreview" else f"marked as {action}"
+    log_admin_action(request, f"Complaint {label}", f"complaint #{id}")
     messages.success(request, f"Complaint {label}.")
     return redirect("review_complaints", id=id)
 
@@ -2585,7 +2668,145 @@ def update_complaints(request, id):
 
 @admin_required
 def admin_settings(request):
-    return render(request, "admin_settings.html", {"prefs": _get_prefs(request.user)})
+    return render(request, "admin_settings.html", {
+        "prefs": _get_prefs(request.user),
+        "platform": PlatformSettings.get(),
+        "recent_actions": AdminAction.objects.select_related("admin")[:10],
+    })
+
+
+# Allowed range for each number setting
+PLATFORM_NUMBER_RULES = {
+    "reports_per_day": (1, 100),
+    "complaints_per_day": (1, 50),
+    "high_risk_reporters": (3, 100),
+    "medium_risk_reporters": (2, 99),
+}
+PLATFORM_BOOL_SETTINGS = ("registration_open", "comment_moderation")
+
+
+@admin_json_required
+@require_POST
+def admin_update_platform(request):
+    """Save ONE platform setting (the Settings page saves as soon as you change it)."""
+    cfg = PlatformSettings.get()
+    key = request.POST.get("key", "")
+    value = request.POST.get("value", "").strip()
+
+    if key in PLATFORM_BOOL_SETTINGS:
+        new_value = value == "true"
+
+    elif key == "toxicity_threshold":
+        try:
+            new_value = round(float(value), 2)
+        except ValueError:
+            return JsonResponse({"ok": False, "error": "Enter a number."}, status=400)
+        if not 0.3 <= new_value <= 0.9:
+            return JsonResponse({"ok": False, "error": "Choose a value between 0.30 and 0.90."}, status=400)
+
+    elif key in PLATFORM_NUMBER_RULES:
+        if not value.isdigit():
+            return JsonResponse({"ok": False, "error": "Enter a whole number."}, status=400)
+        new_value = int(value)
+        low, high = PLATFORM_NUMBER_RULES[key]
+        if not low <= new_value <= high:
+            return JsonResponse({"ok": False, "error": f"Enter a number from {low} to {high}."}, status=400)
+
+        # medium must stay below high
+        medium = new_value if key == "medium_risk_reporters" else cfg.medium_risk_reporters
+        high_v = new_value if key == "high_risk_reporters" else cfg.high_risk_reporters
+        if medium >= high_v:
+            return JsonResponse(
+                {"ok": False, "error": "The medium-risk number must be lower than the high-risk number."},
+                status=400,
+            )
+    else:
+        return JsonResponse({"ok": False, "error": "Unknown setting."}, status=400)
+
+    setattr(cfg, key, new_value)
+    cfg.save(update_fields=[key, "updated_at"])
+    log_admin_action(request, "Changed setting", f"{key} = {new_value}")
+    return JsonResponse({"ok": True, "value": new_value})
+
+
+@admin_required
+@require_POST
+def admin_logout_other_sessions(request):
+    """Sign this admin account out of every OTHER browser or device."""
+    from django.contrib.sessions.models import Session
+
+    current = request.session.session_key
+    removed = 0
+
+    for session in Session.objects.filter(expire_date__gte=timezone.now()):
+        try:
+            data = session.get_decoded()
+        except Exception:
+            continue
+        if str(data.get("_auth_user_id")) == str(request.user.pk) and session.session_key != current:
+            session.delete()
+            removed += 1
+
+    log_admin_action(request, "Signed out other devices", f"{removed} session(s)")
+    messages.success(request, f"Signed out of {removed} other session{'s' if removed != 1 else ''}.")
+    return redirect("admin_settings")
+
+
+@admin_required
+@require_POST
+def admin_clear_notifications(request):
+    """Delete notifications that were read more than 30 days ago."""
+    cutoff = timezone.now() - timedelta(days=30)
+    deleted, _ = AdminNotification.objects.filter(is_read=True, created_at__lt=cutoff).delete()
+
+    log_admin_action(request, "Cleared old notifications", f"{deleted} removed")
+    messages.success(request, f"Removed {deleted} old notification{'s' if deleted != 1 else ''}.")
+    return redirect("admin_settings")
+
+
+def _csv_safe(value):
+    """Stop spreadsheet programs from running a cell that starts with = + - @"""
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+
+@admin_required
+def admin_export_users(request):
+    today = timezone.localdate()
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="voxhub_users_{today}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(["ID", "Username", "Name", "Email", "Phone", "Joined", "Status"])
+
+    for p in UserProfile.objects.select_related("LOGIN").order_by("id").iterator():
+        writer.writerow([
+            p.id, _csv_safe(p.username), _csv_safe(p.name), _csv_safe(p.email),
+            _csv_safe(p.phone_number), p.created_at,
+            "Active" if p.LOGIN.is_active else "Banned",
+        ])
+
+    log_admin_action(request, "Exported users CSV")
+    return response
+
+
+@admin_required
+def admin_export_reports(request):
+    today = timezone.localdate()
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="voxhub_reports_{today}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(["ID", "Reported by", "Reported user", "Reason", "Status", "Date"])
+
+    for r in Reports.objects.select_related("USER", "VICTIM").order_by("-date").iterator():
+        writer.writerow([
+            r.id, _csv_safe(r.USER.username), _csv_safe(r.VICTIM.username),
+            _csv_safe(r.reports), r.get_status_display(), localtime(r.date).strftime("%Y-%m-%d %H:%M"),
+        ])
+
+    log_admin_action(request, "Exported reports CSV")
+    return response
 
 
 @admin_required
@@ -2676,6 +2897,7 @@ def admin_changepassword(request):
     # 7. Keep the admin logged in
     update_session_auth_hash(request, user)
 
+    log_admin_action(request, "Changed password")
     messages.success(request, "Password changed successfully!")
 
     return redirect("admin_settings")
@@ -2700,44 +2922,58 @@ def admin_save_notification_pref(request):
 # Admin - notification bell
 # ---------------------------------------------------------
 
-@login_required
+# Where each kind of notification leads when you click it
+BELL_LINKS = {
+    "new_user": "admin_users",
+    "report": "admin_reports",
+    "security": "admin_settings",
+}
+
+
+def _enabled_kinds(user):
+    """Kinds this admin switched on in Settings > Notifications."""
+    prefs = _get_prefs(user)
+    return [kind for kind in NOTIFY_KINDS if getattr(prefs, kind)]
+
+
+@admin_json_required
 def admin_notifications(request):
-    if not request.user.is_staff:
-        return JsonResponse({"error": "Forbidden"}, status=403)
+    """Data for the bell. ?summary=1 returns only the unread count (cheap)."""
+    visible = AdminNotification.objects.filter(kind__in=_enabled_kinds(request.user))
+    unread = visible.filter(is_read=False).count()
 
-    notifications = AdminNotification.objects.all()[:50]
+    if request.GET.get("summary"):
+        return JsonResponse({"unread": unread})
 
-    unread_count = AdminNotification.objects.filter(
-        is_read=False
-    ).count()
+    items = []
+    for n in visible[:50]:
+        when = localtime(n.created_at)
+        items.append({
+            "id": n.id,
+            "kind": n.kind,
+            "message": n.message,
+            "is_read": n.is_read,
+            "time": when.strftime("%d %b %Y, %I:%M %p"),
+            "ago": timesince(n.created_at).split(",")[0],     # "5 minutes", "2 hours"
+            "url": reverse(BELL_LINKS.get(n.kind, "admin_home")),
+        })
 
-    items = [
-        {
-            "kind": notification.kind,
-            "message": notification.message,
-            "is_read": notification.is_read,
-            "time": localtime(notification.created_at).strftime(
-                "%b %d, %Y %I:%M %p"
-            ),
-        }
-        for notification in notifications
-    ]
-
-    return JsonResponse({
-        "unread": unread_count,
-        "items": items,
-    })
+    return JsonResponse({"unread": unread, "items": items})
 
 
-@login_required
+@admin_json_required
 @require_POST
-@csrf_protect
 def admin_notifications_read(request):
-    if not request.user.is_staff:
-        return JsonResponse({"error": "Forbidden"}, status=403)
+    """Mark ONE notification (id=...) or ALL of them as read."""
+    unread = AdminNotification.objects.filter(
+        is_read=False, kind__in=_enabled_kinds(request.user)
+    )
 
-    AdminNotification.objects.filter(
-        is_read=False
-    ).update(is_read=True)
+    note_id = request.POST.get("id", "")
+    if note_id:
+        if not note_id.isdigit():
+            return JsonResponse({"success": False, "error": "Invalid id."}, status=400)
+        unread = unread.filter(id=int(note_id))
 
-    return JsonResponse({"success": True})
+    updated = unread.update(is_read=True)
+    return JsonResponse({"success": True, "updated": updated})
