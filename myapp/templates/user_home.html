@@ -210,14 +210,14 @@
           <a href="{% url 'view_profile' p.USER.id %}">{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</a>
           <a class="hv-when" href="/myapp/view_post/{{p.id}}/"><time datetime="{{ p.date|date:'c' }}" title="Open this post">{{ p.date|timesince }} ago</time></a>
         </div>
-        {% if mine == request.user.id %}
+        <!-- {% if mine == request.user.id %}
         <button class="hv-icon-btn hv-edit" type="button" aria-label="Edit caption" title="Edit caption">
           <svg><use href="#h-edit"/></svg>
         </button>
         <button class="hv-icon-btn hv-del" type="button" aria-label="Delete post" title="Delete post">
           <svg><use href="#h-trash"/></svg>
         </button>
-        {% endif %}
+        {% endif %} -->
       </div>
 
       <div class="hv-media">
@@ -510,10 +510,6 @@
     if (e.target.closest(".hv-cmts .x")) deleteComment(e.target.closest(".x"), post);
     else if (e.target.closest(".hv-like")) toggleLike(post);
     else if (e.target.closest(".hv-save")) toggleSave(post);
-    else if (e.target.closest(".hv-edit-save")) saveEdit(post);
-    else if (e.target.closest(".hv-edit-cancel")) stopEdit(post);
-    else if (e.target.closest(".hv-edit")) startEdit(post);
-    else if (e.target.closest(".hv-del")) deletePost(post);
     else if (e.target.closest(".hv-vc")) post.querySelector(".hv-cmts").hidden = !post.querySelector(".hv-cmts").hidden;
     else if (e.target.closest(".hv-cbtn")) post.querySelector(".hv-cf input").focus();
     else if (e.target.closest(".hv-share")) openShare(post.dataset.id);

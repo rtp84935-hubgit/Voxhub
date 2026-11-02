@@ -99,7 +99,7 @@
 .pf-msg { min-height: 18px; margin: 8px 0 0; font-size: 12px; font-weight: 700; }
 .pf-msg.err { color: #fb7185; }
 .pf-msg.ok { color: var(--ok); }
-.pf-mact { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.pf-mact { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 14px; }
 
 .pf-view { display: flex; flex-direction: column; max-width: 380px; max-height: 86vh; padding: 0; overflow: hidden; }
 .pf-view-media { display: grid; place-items: center; width: 100%; height: min(42vh, 320px); flex-shrink: 0; background: #000; }
@@ -109,6 +109,11 @@
 .pf-view-cap { margin: 6px 0 0; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 .pf-view .pf-btn { height: 32px; padding: 0 12px; font-size: 12px; }
 .pf-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
+
+/* owner tools (edit / delete) inside the viewer */
+.pf-owner { display: flex; gap: 8px; margin-top: 12px; }
+#pfEditBox { margin-top: 12px; }
+#pfEditBox textarea { min-height: 60px; }
 
 /* ---------- mobile ---------- */
 @media (max-width: 600px) {
@@ -198,6 +203,7 @@
             <section class="pf-grid" id="pfGrid">
                 {% for p in posts %}
                     <button type="button" class="pf-item"
+                            data-id="{{ p.id }}"
                             data-src="{{ p.display_photo.url }}"
                             data-video="{% if p.is_video %}1{% else %}0{% endif %}"
                             data-caption="{{ p.caption }}"
@@ -235,6 +241,23 @@
             <div class="pf-view-info">
                 <div class="pf-view-meta" id="pfViewMeta"></div>
                 <p class="pf-view-cap" id="pfViewCap"></p>
+
+                {% if is_own_profile %}
+                <div class="pf-owner" id="pfOwner">
+                    <button type="button" class="pf-btn" id="pfEdit">Edit caption</button>
+                    <button type="button" class="pf-btn danger" id="pfDelete">Delete post</button>
+                </div>
+                <div id="pfEditBox" hidden>
+                    <textarea id="pfEditText" rows="2" maxlength="100" placeholder="Write a caption..."></textarea>
+                    <div class="pf-mact">
+                        <span class="pf-count" id="pfEditN" style="margin-right:auto">0/100</span>
+                        <button type="button" class="pf-btn" id="pfEditCancel">Cancel</button>
+                        <button type="button" class="pf-btn primary" id="pfEditSave">Save</button>
+                    </div>
+                </div>
+                <div class="pf-msg" id="pfViewMsg" role="status"></div>
+                {% endif %}
+
                 <div class="pf-nav">
                     <button type="button" class="pf-btn" id="pfPrev">← Newer</button>
                     <button type="button" class="pf-btn" id="pfClose">Close</button>
@@ -270,6 +293,8 @@
 {% block extra_js %}
 <script>
 (function () {
+    var CSRF = "{{ csrf_token }}";
+
     // ---------- post viewer ----------
     var grid = document.getElementById('pfGrid');
     var viewer = document.getElementById('pfViewer');
@@ -280,6 +305,72 @@
         var meta = document.getElementById('pfViewMeta');
         var cap = document.getElementById('pfViewCap');
         var current = -1;
+
+        // owner tools: stay as harmless no-ops on other people's profiles
+        var stopEdit = function () {};
+
+        {% if is_own_profile %}
+        var URL_EDIT = "{% url 'edit_post_caption' %}";
+        var URL_DEL  = "{% url 'delete_post' %}";
+        var vmsg = document.getElementById('pfViewMsg');
+        var ownerBox = document.getElementById('pfOwner');
+        var editBox = document.getElementById('pfEditBox');
+        var editText = document.getElementById('pfEditText');
+        var editN = document.getElementById('pfEditN');
+        var editSave = document.getElementById('pfEditSave');
+
+        var vsay = function (t, ok) { vmsg.textContent = t; vmsg.className = 'pf-msg ' + (ok ? 'ok' : 'err'); };
+
+        var postForm = function (url, data) {
+            var fd = new FormData();
+            Object.keys(data).forEach(function (k) { fd.append(k, data[k]); });
+            return fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } })
+                .then(function (r) {
+                    return r.json().catch(function () { return {}; })
+                        .then(function (d) { return { ok: r.ok && d.ok, data: d }; });
+                })
+                .catch(function () { return { ok: false, data: { error: 'Network error. Please try again.' } }; });
+        };
+
+        stopEdit = function () {
+            editBox.hidden = true;
+            ownerBox.hidden = false;
+            vsay('', true);
+        };
+
+        document.getElementById('pfEdit').addEventListener('click', function () {
+            editText.value = items[current].dataset.caption || '';
+            editN.textContent = editText.value.length + '/100';
+            ownerBox.hidden = true;
+            editBox.hidden = false;
+            vsay('', true);
+            editText.focus();
+        });
+
+        editText.addEventListener('input', function () { editN.textContent = editText.value.length + '/100'; });
+        document.getElementById('pfEditCancel').addEventListener('click', stopEdit);
+
+        editSave.addEventListener('click', function () {
+            editSave.disabled = true;
+            postForm(URL_EDIT, { postid: items[current].dataset.id, caption: editText.value.trim() }).then(function (res) {
+                editSave.disabled = false;
+                if (!res.ok) return vsay(res.data.error || 'Could not update caption.', false);
+                items[current].dataset.caption = res.data.caption;
+                cap.textContent = res.data.caption;
+                cap.hidden = !res.data.caption;
+                stopEdit();
+                vsay('Caption updated', true);
+            });
+        });
+
+        document.getElementById('pfDelete').addEventListener('click', function () {
+            if (!confirm('Delete this post? This cannot be undone.')) return;
+            postForm(URL_DEL, { postid: items[current].dataset.id }).then(function (res) {
+                if (!res.ok) return vsay(res.data.error || 'Could not delete post.', false);
+                location.reload();   // refreshes the grid and the post count
+            });
+        });
+        {% endif %}
 
         function plural(n, w) { return n + ' ' + w + (Number(n) === 1 ? '' : 's'); }
 
@@ -298,12 +389,14 @@
             meta.textContent = plural(d.likes, 'like') + '  ·  ' + plural(d.comments, 'comment') + '  ·  ' + d.date;
             cap.textContent = d.caption;
             cap.hidden = !d.caption;
+            stopEdit();    // reset the edit box when moving to another post
             document.getElementById('pfPrev').disabled = i === 0;
             document.getElementById('pfNext').disabled = i === items.length - 1;
             viewer.hidden = false;
         }
 
         function close() {
+            stopEdit();
             viewer.hidden = true;
             media.innerHTML = '';                  // stops a playing video
             if (current >= 0) items[current].focus();
@@ -317,6 +410,10 @@
 
         document.addEventListener('keydown', function (e) {
             if (viewer.hidden) return;
+            if (e.target.tagName === 'TEXTAREA') {          // typing a caption: only Escape works
+                if (e.key === 'Escape') stopEdit();
+                return;
+            }
             if (e.key === 'Escape') close();
             else if (e.key === 'ArrowLeft') show(current - 1);
             else if (e.key === 'ArrowRight') show(current + 1);
@@ -334,7 +431,6 @@
     var sendBtn = document.getElementById('reportSend');
     var cancel = document.getElementById('reportCancel');
     var REPORT_URL = "{% url 'report_user' profile.id %}";
-    var CSRF = "{{ csrf_token }}";
 
     function say(text, ok) { msg.textContent = text; msg.className = 'pf-msg ' + (ok ? 'ok' : 'err'); }
     function openModal() { modal.hidden = false; say('', true); reason.focus(); }
