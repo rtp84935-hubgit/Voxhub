@@ -1,0 +1,176 @@
+{% extends 'user_base.html' %}
+
+{% block title %}{{ p.USER.username }} on VoxHub{% endblock %}
+
+{% block extra_head %}
+<style>
+.pd { max-width: 560px; margin: 0 auto; }
+.pd-back { display: inline-flex; margin-bottom: 14px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.pd-back:hover { color: var(--text); }
+
+.hv-av { display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; border-radius: 50%; color: #fff; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.hv-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hv-post { overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.hv-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.hv-head .hv-av { width: 40px; height: 40px; font-size: 14px; }
+.hv-who { line-height: 1.25; }
+.hv-who a { font-size: 14px; font-weight: 800; }
+.hv-who a:hover { color: var(--accent); }
+.hv-who time { display: block; color: var(--muted); font-size: 11px; }
+.hv-media { position: relative; display: grid; place-items: center; overflow: hidden; background: var(--surface-2); }
+.hv-media img, .hv-media video { display: block; width: 100%; max-height: 80vh; object-fit: contain; }
+
+.hv-actions { display: flex; align-items: center; gap: 2px; padding: 8px 8px 0; }
+.hv-icon-btn { width: 38px; height: 38px; display: grid; place-items: center; flex-shrink: 0; border-radius: 11px; color: var(--muted); transition: background .15s, color .15s; }
+.hv-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.hv-icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.hv-like.on { color: var(--pink); } .hv-like.on svg { fill: currentColor; }
+.hv-save { margin-left: auto; } .hv-save.on { color: var(--accent-2); } .hv-save.on svg { fill: currentColor; }
+
+.hv-body { padding: 4px 16px 16px; font-size: 14px; }
+.hv-likes { margin-bottom: 4px; font-weight: 800; }
+.hv-cap { line-height: 1.55; overflow-wrap: anywhere; }
+.hv-cap b { margin-right: 6px; }
+.hv-cmts { margin-top: 12px; }
+.hv-cmts h4 { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.hv-c { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 7px; line-height: 1.5; overflow-wrap: anywhere; }
+.hv-c b { flex-shrink: 0; }
+.hv-c .t { flex: 1; min-width: 0; }
+.hv-c .x { flex-shrink: 0; padding: 1px 6px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.hv-c .x:hover { color: #fb7185; background: rgba(251,113,133,.12); }
+.hv-none { color: var(--muted); font-size: 13px; }
+.hv-cf { display: flex; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.hv-cf input { flex: 1; border: 0; background: none; font-size: 14px; }
+.hv-cf input:focus { outline: none; }
+.hv-cf button { color: var(--accent); font-size: 14px; font-weight: 800; opacity: .45; }
+.hv-cf input:not(:placeholder-shown) + button { opacity: 1; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="h-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+  <symbol id="h-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+  <symbol id="h-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+</svg>
+
+<div class="pd">
+    <a class="pd-back" href="javascript:history.length > 1 ? history.back() : location.assign('{% url 'user_home' %}')">← Back</a>
+
+    <article class="hv-post" id="post" data-id="{{ p.id }}">
+        <div class="hv-head">
+            <a class="hv-av" href="{% url 'view_profile' p.USER.id %}" aria-label="{{ p.USER.username }}">
+                {% if p.USER.profile_image %}<img src="{{ p.USER.profile_image.url }}" alt="">{% else %}{{ p.USER.username|first|upper }}{% endif %}
+            </a>
+            <div class="hv-who">
+                <a href="{% url 'view_profile' p.USER.id %}">{% if p.USER.LOGIN_id == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</a>
+                <time datetime="{{ p.date|date:'c' }}" title="{{ p.date|date:'d M Y, H:i' }}">{{ p.date|timesince }} ago</time>
+            </div>
+        </div>
+
+        <div class="hv-media">
+            {% if p.is_video %}
+                <video src="{{ p.photo.url }}" controls playsinline preload="metadata"></video>
+            {% else %}
+                <img src="{{ p.display_photo.url }}" alt="Photo by {{ p.USER.username }}">
+            {% endif %}
+        </div>
+
+        <div class="hv-actions">
+            <button class="hv-icon-btn hv-like{% if p.liked %} on{% endif %}" type="button" aria-label="Like" aria-pressed="{% if p.liked %}true{% else %}false{% endif %}"><svg><use href="#h-heart"/></svg></button>
+            <button class="hv-icon-btn hv-focus" type="button" aria-label="Comment"><svg><use href="#i-chat"/></svg></button>
+            <button class="hv-icon-btn hv-share" type="button" aria-label="Share"><svg><use href="#h-send"/></svg></button>
+            <button class="hv-icon-btn hv-save{% if p.saved %} on{% endif %}" type="button" aria-label="Save" aria-pressed="{% if p.saved %}true{% else %}false{% endif %}"><svg><use href="#h-bookmark"/></svg></button>
+        </div>
+
+        <div class="hv-body">
+            <div class="hv-likes">{{ p.like_count }} like{{ p.like_count|pluralize }}</div>
+            {% if p.caption %}<div class="hv-cap"><b>{% if p.USER.LOGIN_id == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</b>{{ p.caption }}</div>{% endif %}
+
+            <div class="hv-cmts" id="cmts">
+                <h4>Comments</h4>
+                {% for c in p.comments_set.all %}
+                <div class="hv-c" data-comment-id="{{ c.id }}">
+                    <b>{% if c.USER.LOGIN_id == request.user.id %}You{% else %}{{ c.USER.username }}{% endif %}</b>
+                    <span class="t">{{ c.comment }}</span>
+                    {% if c.USER.LOGIN_id == request.user.id %}<button type="button" class="x" title="Delete comment" aria-label="Delete comment">✕</button>{% endif %}
+                </div>
+                {% empty %}
+                <p class="hv-none" id="noC">No comments yet. Be the first.</p>
+                {% endfor %}
+            </div>
+
+            <form class="hv-cf" id="cf" action="{% url 'add_comment' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="postid" value="{{ p.id }}">
+                <input type="text" name="comment" maxlength="100" placeholder="Add a comment..." autocomplete="off" aria-label="Add a comment" required>
+                <button type="submit">Post</button>
+            </form>
+        </div>
+    </article>
+</div>
+
+{% include "share_sheet.html" %}
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+    var CSRF = "{{ csrf_token }}";
+    var post = document.getElementById('post'), id = post.dataset.id;
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+    async function send(url, fd) {
+        try {
+            var r = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } });
+            var d = {}; try { d = await r.json(); } catch (_) {}
+            return { ok: r.ok && d.ok, d: d, status: r.status };
+        } catch (_) { return { ok: false, d: { error: 'Network error. Please try again.' }, status: 0 }; }
+    }
+    function form(o) { var fd = new FormData(); Object.keys(o).forEach(function (k) { fd.append(k, o[k]); }); return fd; }
+
+    post.querySelector('.hv-like').addEventListener('click', async function () {
+        var res = await send("{% url 'toggle_like' %}", form({ postid: id }));
+        if (!res.ok) return toast(res.d.error || 'Could not like');
+        this.classList.toggle('on', res.d.liked); this.setAttribute('aria-pressed', res.d.liked);
+        post.querySelector('.hv-likes').textContent = res.d.count + (res.d.count === 1 ? ' like' : ' likes');
+    });
+
+    post.querySelector('.hv-save').addEventListener('click', async function () {
+        var res = await send("{% url 'toggle_save' %}", form({ postid: id }));
+        if (!res.ok) return toast(res.d.error || 'Could not save');
+        this.classList.toggle('on', res.d.saved); this.setAttribute('aria-pressed', res.d.saved);
+        toast(res.d.saved ? 'Saved' : 'Removed from saved');
+    });
+
+    post.querySelector('.hv-share').addEventListener('click', function () { openShare(id); });
+    post.querySelector('.hv-focus').addEventListener('click', function () { document.querySelector('#cf input[name=comment]').focus(); });
+
+    document.getElementById('cf').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var f = e.target, input = f.querySelector('input[name=comment]'), btn = f.querySelector('button');
+        if (!input.value.trim()) return;
+        btn.disabled = true;
+        var res = await send(f.action, new FormData(f));
+        btn.disabled = false;
+        if (!res.ok) return toast(res.d.error || 'Comment failed (' + res.status + ')');
+        var none = document.getElementById('noC'); if (none) none.remove();
+        document.getElementById('cmts').insertAdjacentHTML('beforeend',
+            '<div class="hv-c" data-comment-id="' + res.d.id + '"><b>You</b><span class="t">' + esc(res.d.comment) + '</span>' +
+            '<button type="button" class="x" title="Delete comment" aria-label="Delete comment">✕</button></div>');
+        input.value = '';
+    });
+
+    document.getElementById('cmts').addEventListener('click', async function (e) {
+        var x = e.target.closest('.x'); if (!x) return;
+        if (!confirm('Delete this comment?')) return;
+        var item = x.closest('.hv-c'); x.disabled = true;
+        var res = await send("{% url 'delete_comment' %}", form({ comment_id: item.dataset.commentId }));
+        if (!res.ok) { x.disabled = false; return toast(res.d.error || 'Could not delete comment'); }
+        item.remove(); toast('Comment deleted');
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{# Share pop-up. Include it once in a page, then call openShare(postId). #}
+<style>
+.ss { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(5,7,15,.72); backdrop-filter: blur(4px); }
+.ss[hidden] { display: none; }
+.ss-box { display: flex; flex-direction: column; width: 100%; max-width: 420px; max-height: 86vh; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.ss-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 6px; }
+.ss-head h3 { margin: 0; font-size: 17px; }
+.ss-x { width: 34px; height: 34px; border-radius: 10px; color: var(--muted); font-size: 16px; }
+.ss-x:hover { background: var(--surface-2); color: var(--text); }
+.ss-body { padding: 8px 18px 18px; overflow-y: auto; }
+.ss-link { display: flex; gap: 8px; }
+.ss-link input { flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); font-size: 12px; }
+.ss-btn { padding: 0 16px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.ss-btn:disabled { opacity: .6; cursor: default; }
+.ss-native { display: block; width: 100%; margin-top: 8px; padding: 11px; border: 1px solid var(--line); border-radius: 11px; font-size: 13px; font-weight: 800; }
+.ss-native:hover { border-color: var(--accent); }
+.ss-sub { margin: 18px 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.ss-search { width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); font-size: 13px; }
+.ss-search:focus, .ss-link input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ss-list { margin-top: 8px; max-height: 260px; overflow-y: auto; }
+.ss-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; }
+.ss-av { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; overflow: hidden; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 14px; font-weight: 800; }
+.ss-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ss-who { flex: 1; min-width: 0; line-height: 1.3; }
+.ss-who b { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.ss-who span { color: var(--muted); font-size: 11px; }
+.ss-send { padding: 7px 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--accent); font-size: 12px; font-weight: 800; }
+.ss-send:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.ss-send.done { border-color: transparent; background: rgba(52,211,153,.14); color: var(--ok); }
+.ss-send:disabled { cursor: default; }
+.ss-empty { padding: 18px 4px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+
+<div class="ss" id="ssModal" role="dialog" aria-modal="true" aria-labelledby="ssTitle" hidden>
+    <div class="ss-box">
+        <div class="ss-head">
+            <h3 id="ssTitle">Share post</h3>
+            <button type="button" class="ss-x" id="ssClose" aria-label="Close">✕</button>
+        </div>
+        <div class="ss-body">
+            <div class="ss-link">
+                <input id="ssUrl" type="text" readonly aria-label="Link to this post">
+                <button type="button" class="ss-btn" id="ssCopy">Copy link</button>
+            </div>
+            <button type="button" class="ss-native" id="ssNative" hidden>Share with another app...</button>
+
+            <div class="ss-sub">Send in a message</div>
+            <input class="ss-search" id="ssSearch" type="search" placeholder="Search people..." autocomplete="off" aria-label="Search people">
+            <div class="ss-list" id="ssList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var POST_PATH = "{% url 'view_post' 0 %}";
+    var SEND_PATH = "{% url 'share_post' 0 %}";
+    var URL_PEOPLE = "{% url 'share_recipients' %}";
+    var CSRF = "{{ csrf_token }}";
+
+    var modal = document.getElementById('ssModal'), urlIn = document.getElementById('ssUrl');
+    var copyBtn = document.getElementById('ssCopy'), nativeBtn = document.getElementById('ssNative');
+    var search = document.getElementById('ssSearch'), list = document.getElementById('ssList');
+    var postId = null, people = null;
+
+    function say(t) { if (typeof toast === 'function') toast(t); else alert(t); }
+    function swap(path, id) { return path.replace(/\/0\/$/, '/' + id + '/'); }
+
+    function renderPeople() {
+        var q = search.value.toLowerCase().trim();
+        list.textContent = '';
+        var shown = (people || []).filter(function (p) { return (p.name + ' ' + p.username).toLowerCase().indexOf(q) !== -1; });
+
+        if (!shown.length) {
+            var e = document.createElement('div');
+            e.className = 'ss-empty';
+            e.textContent = people ? 'No one found.' : 'Loading...';
+            list.appendChild(e);
+            return;
+        }
+
+        shown.forEach(function (p) {
+            var row = document.createElement('div'); row.className = 'ss-row';
+
+            var av = document.createElement('span'); av.className = 'ss-av';
+            if (p.avatar) { var im = document.createElement('img'); im.src = p.avatar; im.alt = ''; av.appendChild(im); }
+            else av.textContent = (p.username[0] || '?').toUpperCase();
+
+            var who = document.createElement('div'); who.className = 'ss-who';
+            var b = document.createElement('b'); b.textContent = p.name;
+            var s = document.createElement('span'); s.textContent = '@' + p.username;
+            who.appendChild(b); who.appendChild(s);
+
+            var send = document.createElement('button'); send.type = 'button'; send.className = 'ss-send'; send.textContent = 'Send';
+            send.addEventListener('click', function () { sendTo(p, send); });
+
+            row.appendChild(av); row.appendChild(who); row.appendChild(send);
+            list.appendChild(row);
+        });
+    }
+
+    function sendTo(person, btn) {
+        btn.disabled = true; btn.textContent = 'Sending...';
+        var body = new URLSearchParams(); body.append('user_id', person.id);
+        fetch(swap(SEND_PATH, postId), { method: 'POST', credentials: 'same-origin', body: body, headers: { 'X-CSRFToken': CSRF } })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok && d.ok, d: d }; }); })
+            .then(function (res) {
+                if (res.ok) { btn.textContent = 'Sent ✓'; btn.classList.add('done'); }
+                else { btn.disabled = false; btn.textContent = 'Send'; say(res.d.error || 'Could not send'); }
+            })
+            .catch(function () { btn.disabled = false; btn.textContent = 'Send'; say('Network error. Please try again.'); });
+    }
+
+    function loadPeople() {
+        if (people) { renderPeople(); return; }
+        renderPeople();
+        fetch(URL_PEOPLE, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { people = d.people || []; renderPeople(); })
+            .catch(function () { list.textContent = ''; var e = document.createElement('div'); e.className = 'ss-empty'; e.textContent = 'Could not load people.'; list.appendChild(e); });
+    }
+
+    function close() { modal.hidden = true; }
+
+    window.openShare = function (id) {
+        postId = id;
+        urlIn.value = location.origin + swap(POST_PATH, id);
+        copyBtn.textContent = 'Copy link'; copyBtn.disabled = false;
+        nativeBtn.hidden = !navigator.share;
+        search.value = '';
+        modal.hidden = false;
+        loadPeople();
+        urlIn.focus(); urlIn.select();
+    };
+
+    copyBtn.addEventListener('click', function () {
+        var done = function () { copyBtn.textContent = 'Copied ✓'; say('Link copied'); };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(urlIn.value).then(done, fallback);
+        else fallback();
+        function fallback() { urlIn.focus(); urlIn.select(); try { document.execCommand('copy') ? done() : say('Press Ctrl+C to copy'); } catch (e) { say('Press Ctrl+C to copy'); } }
+    });
+
+    nativeBtn.addEventListener('click', function () {
+        navigator.share({ title: 'VoxHub post', text: 'Look at this post on VoxHub', url: urlIn.value }).catch(function () {});
+    });
+
+    search.addEventListener('input', renderPeople);
+    document.getElementById('ssClose').addEventListener('click', close);
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+})();
+</script>

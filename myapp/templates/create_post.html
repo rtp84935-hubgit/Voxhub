@@ -1,0 +1,445 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Create post · VoxHub{% endblock %}
+
+{# no right column: the editor needs the room #}
+
+{% block extra_head %}
+<style>
+.ce { max-width: 1020px; margin: 0 auto; }
+.ce [hidden] { display: none !important; }
+
+.ce-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.ce-head h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.ce-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.ce-cancel { padding: 9px 16px; border: 1px solid var(--line); border-radius: 11px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.ce-cancel:hover { border-color: var(--accent); color: var(--text); }
+
+/* ---------- step 1: choose ---------- */
+.ce-drop {
+    display: grid; place-items: center; min-height: 380px; padding: 30px; text-align: center; cursor: pointer;
+    border: 2px dashed var(--line); border-radius: 22px; background: var(--surface); color: var(--muted); transition: border-color .15s, background .15s;
+}
+.ce-drop:hover, .ce-drop.over, .ce-drop:focus-within { border-color: var(--accent); background: var(--accent-soft); }
+.ce-drop svg { display: block; width: 52px; height: 52px; margin: 0 auto 14px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ce-drop strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 18px; }
+.ce-drop span { display: block; font-size: 13px; line-height: 1.7; }
+.ce-pick { display: inline-flex; margin-top: 18px; padding: 11px 24px; border-radius: 12px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 800; }
+
+/* ---------- step 2: edit ---------- */
+.ce-work { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+
+.ce-stage {
+    position: relative; display: grid; place-items: center; min-height: 420px; padding: 22px;
+    border: 1px solid var(--line); border-radius: 22px; background: #0a0d17;
+}
+html[data-theme="light"] .ce-stage { background: #dfe3f0; }
+.ce-stage canvas { display: block; max-width: 100%; max-height: 66vh; width: auto; height: auto; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.45); cursor: grab; touch-action: none; }
+.ce-stage video { display: block; max-width: 100%; max-height: 66vh; border-radius: 8px; }
+.ce-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.55); color: #e5e7eb; font-size: 11px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+
+.ce-panel { padding: 18px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
+.ce-tabs { display: flex; padding: 3px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.ce-tabs button { flex: 1; padding: 9px 6px; border-radius: 9px; color: var(--muted); font-size: 12px; font-weight: 800; }
+.ce-tabs button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+
+.ce-label { display: block; margin: 0 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.ce-group { margin-bottom: 18px; }
+.ce-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.ce-chip { padding: 8px 13px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.ce-chip:hover { border-color: var(--accent); color: var(--text); }
+.ce-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.ce-tools { display: flex; gap: 8px; }
+.ce-tool { flex: 1; padding: 10px 6px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); font-size: 12px; font-weight: 700; }
+.ce-tool:hover { border-color: var(--accent); }
+
+.ce-slider { margin-bottom: 14px; }
+.ce-slider-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.ce-slider-top output { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ce-slider input[type=range] { width: 100%; accent-color: var(--accent); }
+
+.ce-foot { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ce-foot textarea { width: 100%; padding: 12px 14px; resize: none; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 14px; }
+.ce-foot textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ce-count { margin-top: 4px; color: var(--muted); font-size: 11px; text-align: right; }
+.ce-note { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--muted); font-size: 12px; line-height: 1.6; }
+.ce-actions { display: flex; gap: 8px; margin-top: 14px; }
+.ce-actions button { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 13px; font-weight: 800; }
+.ce-actions .ghost { flex: 1; }
+.ce-actions .share { flex: 2; border: 0; color: #fff; background: linear-gradient(135deg, var(--accent), #4f8dff 60%, var(--accent-2)); }
+.ce-actions button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 900px) {
+    .ce-work { grid-template-columns: 1fr; }
+    .ce-stage { min-height: 300px; padding: 14px; }
+    .ce-stage canvas, .ce-stage video { max-height: 52vh; }
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="ce">
+
+    <header class="ce-head">
+        <div>
+            <h1>Create post</h1>
+            <p>Choose a photo or video, adjust it, then share.</p>
+        </div>
+        <a class="ce-cancel" href="{% url 'user_home' %}">Cancel</a>
+    </header>
+
+    <!-- STEP 1: choose a file -->
+    <label class="ce-drop" id="ceDrop">
+        <span>
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <strong>Drag a photo here</strong>
+            <span>or choose one from your device. Photos up to 25 MB are resized for you, videos up to 50 MB.</span>
+            <span class="ce-pick">Choose photo or video</span>
+        </span>
+        <input type="file" id="ceFile" accept="image/*,video/*" hidden>
+    </label>
+
+    <!-- STEP 2: edit and share -->
+    <div class="ce-work" id="ceWork" hidden>
+
+        <div class="ce-stage">
+            <canvas id="ceCanvas" tabindex="0" aria-label="Photo preview. Drag to move, scroll to zoom."></canvas>
+            <video id="ceVideo" controls playsinline hidden></video>
+            <div class="ce-hint" id="ceHint">Drag to move · scroll to zoom</div>
+        </div>
+
+        <aside class="ce-panel">
+
+            <div id="ceEditor">
+                <div class="ce-tabs" role="tablist" aria-label="Edit tools">
+                    <button type="button" role="tab" data-tab="crop" aria-selected="true">Crop</button>
+                    <button type="button" role="tab" data-tab="adjust" aria-selected="false">Adjust</button>
+                    <button type="button" role="tab" data-tab="filters" aria-selected="false">Filters</button>
+                </div>
+
+                <div data-pane="crop">
+                    <div class="ce-group">
+                        <span class="ce-label">Shape</span>
+                        <div class="ce-chips" id="ceAspects">
+                            <button type="button" class="ce-chip" data-a="1" aria-pressed="true">Square</button>
+                            <button type="button" class="ce-chip" data-a="0.8" aria-pressed="false">4:5</button>
+                            <button type="button" class="ce-chip" data-a="1.7778" aria-pressed="false">16:9</button>
+                            <button type="button" class="ce-chip" data-a="orig" aria-pressed="false">Original</button>
+                        </div>
+                    </div>
+                    <div class="ce-group">
+                        <span class="ce-label">Rotate and flip</span>
+                        <div class="ce-tools">
+                            <button type="button" class="ce-tool" id="ceRotL">⟲ Left</button>
+                            <button type="button" class="ce-tool" id="ceRotR">⟳ Right</button>
+                            <button type="button" class="ce-tool" id="ceFlip">⇋ Flip</button>
+                        </div>
+                    </div>
+                    <div class="ce-slider">
+                        <div class="ce-slider-top"><label for="ceZoom">Zoom</label><output id="ceZoomOut">1.00×</output></div>
+                        <input type="range" id="ceZoom" min="1" max="3" step="0.01" value="1">
+                    </div>
+                </div>
+
+                <div data-pane="adjust" hidden>
+                    <div class="ce-slider"><div class="ce-slider-top"><label for="ceBright">Brightness</label><output id="ceBrightOut">0</output></div><input type="range" id="ceBright" data-k="bright" min="-100" max="100" step="1" value="0"></div>
+                    <div class="ce-slider"><div class="ce-slider-top"><label for="ceContrast">Contrast</label><output id="ceContrastOut">0</output></div><input type="range" id="ceContrast" data-k="contrast" min="-100" max="100" step="1" value="0"></div>
+                    <div class="ce-slider"><div class="ce-slider-top"><label for="ceSat">Colour</label><output id="ceSatOut">0</output></div><input type="range" id="ceSat" data-k="sat" min="-100" max="100" step="1" value="0"></div>
+                    <div class="ce-slider"><div class="ce-slider-top"><label for="ceWarm">Warmth</label><output id="ceWarmOut">0</output></div><input type="range" id="ceWarm" data-k="warm" min="-100" max="100" step="1" value="0"></div>
+                </div>
+
+                <div data-pane="filters" hidden>
+                    <span class="ce-label">Looks</span>
+                    <div class="ce-chips" id="cePresets">
+                        <button type="button" class="ce-chip" data-p="normal" aria-pressed="true">Normal</button>
+                        <button type="button" class="ce-chip" data-p="vivid" aria-pressed="false">Vivid</button>
+                        <button type="button" class="ce-chip" data-p="warm" aria-pressed="false">Warm</button>
+                        <button type="button" class="ce-chip" data-p="cool" aria-pressed="false">Cool</button>
+                        <button type="button" class="ce-chip" data-p="bw" aria-pressed="false">Black &amp; white</button>
+                        <button type="button" class="ce-chip" data-p="fade" aria-pressed="false">Faded</button>
+                    </div>
+                    <p class="ce-note">Looks are gentle on purpose. Heavy blur or effects can stop VoxHub from recognising people in your photo, and that is how their privacy is protected.</p>
+                </div>
+            </div>
+
+            <div class="ce-foot">
+                <span class="ce-label">Caption</span>
+                <textarea id="ceCaption" rows="3" maxlength="{{ caption_max }}" placeholder="Write a caption..."></textarea>
+                <div class="ce-count"><span id="ceCount">0</span>/{{ caption_max }}</div>
+
+                <p class="ce-note" id="ceNote">
+                    Posts show as squares in the feed. After you share, your photo is checked for faces.
+                    Anyone registered on VoxHub who appears in it gets a request, and their face stays blurred until they accept.
+                </p>
+
+                <div class="ce-actions">
+                    <button type="button" class="ghost" id="ceChange">Change</button>
+                    <button type="button" class="ghost" id="ceReset">Reset</button>
+                    <button type="button" class="share" id="ceShare">Share</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+    var CSRF = "{{ csrf_token }}";
+    var URL_CREATE = "{% url 'create_post' %}";
+    var URL_HOME = "{% url 'user_home' %}";
+
+    var MAX_OUT = 1600;                  // longest side of the posted photo
+    var PREVIEW = 560;                   // longest side of the preview
+    var MAX_INPUT = 25 * 1024 * 1024;
+    var MAX_IMG = 10 * 1024 * 1024;      // server limit for photos
+    var MAX_VID = 50 * 1024 * 1024;      // server limit for videos
+
+    var $id = function (x) { return document.getElementById(x); };
+    var drop = $id('ceDrop'), fileIn = $id('ceFile'), work = $id('ceWork');
+    var canvas = $id('ceCanvas'), ctx = canvas.getContext('2d'), video = $id('ceVideo');
+    var shareBtn = $id('ceShare'), capIn = $id('ceCaption');
+
+    var img = null, videoFile = null, sharing = false;
+    var base = document.createElement('canvas');          // the photo after rotate / flip
+    var DEFAULTS = { rot: 0, flip: false, aspect: '1', zoom: 1, ox: 0, oy: 0, bright: 0, contrast: 0, sat: 0, warm: 0 };
+    var S = Object.assign({}, DEFAULTS);
+
+    var PRESETS = {
+        normal: { bright: 0,  contrast: 0,   sat: 0,    warm: 0 },
+        vivid:  { bright: 5,  contrast: 15,  sat: 30,   warm: 0 },
+        warm:   { bright: 3,  contrast: 5,   sat: 10,   warm: 30 },
+        cool:   { bright: 0,  contrast: 5,   sat: 5,    warm: -30 },
+        bw:     { bright: 0,  contrast: 10,  sat: -100, warm: 0 },
+        fade:   { bright: 12, contrast: -18, sat: -10,  warm: 5 }
+    };
+
+    function say(t) { if (typeof toast === 'function') toast(t); else alert(t); }
+    var clamp = function (v, lo, hi) { return Math.min(hi, Math.max(lo, v)); };
+
+    /* ================= choosing a file ================= */
+    function handleFile(file) {
+        if (!file) return;
+
+        if (file.type.indexOf('video/') === 0) {
+            if (file.size > MAX_VID) return say('Video must be 50 MB or smaller');
+            showVideo(file);
+            return;
+        }
+        if (file.type.indexOf('image/') !== 0) return say('Please choose a photo or a video');
+        if (file.size > MAX_INPUT) return say('Photo must be 25 MB or smaller');
+
+        var url = URL.createObjectURL(file);
+        var im = new Image();
+        im.onload = function () {
+            img = im; videoFile = null;
+            Object.assign(S, DEFAULTS);
+            syncControls();
+            video.hidden = true; canvas.hidden = false;
+            $id('ceEditor').hidden = false; $id('ceHint').hidden = false;
+            $id('ceNote').hidden = false;
+            buildBase();
+            drop.hidden = true; work.hidden = false;
+            render();
+        };
+        im.onerror = function () { URL.revokeObjectURL(url); say('This photo could not be opened. Try a JPG or PNG.'); };
+        im.src = url;
+    }
+
+    function showVideo(file) {
+        img = null; videoFile = file;
+        canvas.hidden = true; video.hidden = false;
+        video.src = URL.createObjectURL(file);
+        $id('ceEditor').hidden = true; $id('ceHint').hidden = true;     // videos are posted as they are
+        drop.hidden = true; work.hidden = false;
+    }
+
+    fileIn.addEventListener('change', function () { handleFile(fileIn.files[0]); fileIn.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { handleFile(e.dataTransfer.files[0]); });
+
+    $id('ceChange').addEventListener('click', function () { fileIn.click(); });
+
+    /* ================= drawing ================= */
+    function buildBase() {
+        var iw = img.naturalWidth, ih = img.naturalHeight;
+        var k = Math.min(1, 2400 / Math.max(iw, ih));
+        var w = Math.round(iw * k), h = Math.round(ih * k);
+        var odd = S.rot % 2 === 1;
+        base.width = odd ? h : w;
+        base.height = odd ? w : h;
+        var c = base.getContext('2d');
+        c.save();
+        c.translate(base.width / 2, base.height / 2);
+        c.rotate(S.rot * Math.PI / 2);
+        if (S.flip) c.scale(-1, 1);
+        c.drawImage(img, -w / 2, -h / 2, w, h);
+        c.restore();
+    }
+
+    function frameSize(longSide) {
+        var a = S.aspect === 'orig' ? clamp(base.width / base.height, 0.5, 2) : parseFloat(S.aspect);
+        return a >= 1 ? { w: longSide, h: Math.round(longSide / a) } : { w: Math.round(longSide * a), h: longSide };
+    }
+
+    // Draw the cropped, adjusted photo into any canvas context of size w x h
+    function draw(c, w, h) {
+        var cover = Math.max(w / base.width, h / base.height);
+        var sc = cover * S.zoom, dw = base.width * sc, dh = base.height * sc;
+        var maxX = Math.max(0, (dw - w) / 2), maxY = Math.max(0, (dh - h) / 2);
+        var px = clamp(S.ox * w, -maxX, maxX), py = clamp(S.oy * h, -maxY, maxY);
+        S.ox = px / w; S.oy = py / h;                                   // keep the photo covering the frame
+
+        c.fillStyle = '#000';
+        c.fillRect(0, 0, w, h);
+        c.drawImage(base, (w - dw) / 2 + px, (h - dh) / 2 + py, dw, dh);
+
+        if (S.bright || S.contrast || S.sat || S.warm) adjust(c, w, h);
+    }
+
+    // Pixel maths (works in every browser, unlike canvas filters)
+    function adjust(c, w, h) {
+        var data = c.getImageData(0, 0, w, h), p = data.data;
+        var add = S.bright * 2.55, f = 1 + S.contrast / 100, s = 1 + S.sat / 100, wm = S.warm * 0.3;
+        for (var i = 0; i < p.length; i += 4) {
+            var r = (p[i] - 128) * f + 128 + add;
+            var g = (p[i + 1] - 128) * f + 128 + add;
+            var b = (p[i + 2] - 128) * f + 128 + add;
+            var gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            r = gray + (r - gray) * s + wm;
+            g = gray + (g - gray) * s;
+            b = gray + (b - gray) * s - wm;
+            p[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+            p[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+            p[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+        }
+        c.putImageData(data, 0, 0);
+    }
+
+    var queued = false;
+    function render() {
+        if (queued || !img) return;
+        queued = true;
+        requestAnimationFrame(function () {
+            queued = false;
+            var f = frameSize(PREVIEW);
+            if (canvas.width !== f.w || canvas.height !== f.h) { canvas.width = f.w; canvas.height = f.h; }
+            draw(ctx, f.w, f.h);
+        });
+    }
+
+    /* ================= controls ================= */
+    function syncControls() {
+        $id('ceZoom').value = S.zoom; $id('ceZoomOut').textContent = S.zoom.toFixed(2) + '×';
+        [['ceBright', 'bright'], ['ceContrast', 'contrast'], ['ceSat', 'sat'], ['ceWarm', 'warm']].forEach(function (x) {
+            $id(x[0]).value = S[x[1]]; $id(x[0] + 'Out').textContent = S[x[1]];
+        });
+        document.querySelectorAll('#ceAspects .ce-chip').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.a === S.aspect ? 'true' : 'false'); });
+        var match = Object.keys(PRESETS).filter(function (k) {
+            var q = PRESETS[k]; return q.bright === S.bright && q.contrast === S.contrast && q.sat === S.sat && q.warm === S.warm;
+        })[0];
+        document.querySelectorAll('#cePresets .ce-chip').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.p === match ? 'true' : 'false'); });
+    }
+
+    document.querySelectorAll('.ce-tabs button').forEach(function (t) {
+        t.addEventListener('click', function () {
+            document.querySelectorAll('.ce-tabs button').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+            document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.dataset.pane !== t.dataset.tab; });
+        });
+    });
+
+    document.querySelectorAll('#ceAspects .ce-chip').forEach(function (b) {
+        b.addEventListener('click', function () { S.aspect = b.dataset.a; S.ox = 0; S.oy = 0; syncControls(); render(); });
+    });
+    function turn(d) { S.rot = (S.rot + d + 4) % 4; S.ox = 0; S.oy = 0; buildBase(); render(); }
+    $id('ceRotL').addEventListener('click', function () { turn(-1); });
+    $id('ceRotR').addEventListener('click', function () { turn(1); });
+    $id('ceFlip').addEventListener('click', function () { S.flip = !S.flip; buildBase(); render(); });
+
+    $id('ceZoom').addEventListener('input', function (e) { S.zoom = parseFloat(e.target.value); $id('ceZoomOut').textContent = S.zoom.toFixed(2) + '×'; render(); });
+    document.querySelectorAll('[data-k]').forEach(function (r) {
+        r.addEventListener('input', function () { S[r.dataset.k] = parseInt(r.value, 10); $id(r.id + 'Out').textContent = r.value; syncControls(); render(); });
+    });
+    document.querySelectorAll('#cePresets .ce-chip').forEach(function (b) {
+        b.addEventListener('click', function () { Object.assign(S, PRESETS[b.dataset.p]); syncControls(); render(); });
+    });
+    $id('ceReset').addEventListener('click', function () {
+        if (!img) return;
+        Object.assign(S, DEFAULTS); syncControls(); buildBase(); render();
+    });
+
+    /* move the photo inside the frame: drag, arrow keys, mouse wheel */
+    var drag = null;
+    canvas.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
+    canvas.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        var r = canvas.getBoundingClientRect();
+        S.ox += (e.clientX - drag.x) / r.width; S.oy += (e.clientY - drag.y) / r.height;
+        drag = { x: e.clientX, y: e.clientY };
+        render();
+    });
+    function endDrag() { drag = null; canvas.style.cursor = 'grab'; }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+    canvas.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        S.zoom = clamp(S.zoom - e.deltaY * 0.002, 1, 3); syncControls(); render();
+    }, { passive: false });
+    canvas.addEventListener('keydown', function (e) {
+        var step = 0.02, moved = true;
+        if (e.key === 'ArrowLeft') S.ox -= step; else if (e.key === 'ArrowRight') S.ox += step;
+        else if (e.key === 'ArrowUp') S.oy -= step; else if (e.key === 'ArrowDown') S.oy += step; else moved = false;
+        if (moved) { e.preventDefault(); render(); }
+    });
+
+    capIn.addEventListener('input', function () { $id('ceCount').textContent = capIn.value.length; });
+
+    /* ================= share ================= */
+    function exportBlob() {
+        return new Promise(function (resolve) {
+            var f = frameSize(MAX_OUT);
+            var c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+            draw(c.getContext('2d'), f.w, f.h);
+            var q = 0.92;
+            (function attempt() {
+                c.toBlob(function (b) {
+                    if (b && b.size > MAX_IMG * 0.95 && q > 0.5) { q -= 0.1; attempt(); } else resolve(b);
+                }, 'image/jpeg', q);
+            })();
+        });
+    }
+
+    shareBtn.addEventListener('click', async function () {
+        if (sharing || (!img && !videoFile)) return;
+        sharing = true; shareBtn.disabled = true;
+        shareBtn.textContent = videoFile ? 'Uploading...' : 'Checking faces...';
+
+        var fd = new FormData();
+        fd.append('caption', capIn.value.trim());
+        if (videoFile) fd.append('photo', videoFile);
+        else {
+            var blob = await exportBlob();
+            if (!blob) { say('Could not prepare the photo'); sharing = false; shareBtn.disabled = false; shareBtn.textContent = 'Share'; return; }
+            fd.append('photo', blob, 'edited.jpg');
+        }
+
+        try {
+            var r = await fetch(URL_CREATE, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } });
+            var d = {}; try { d = await r.json(); } catch (_) {}
+            if (r.ok && d.ok) { window.removeEventListener('beforeunload', warn); location.href = URL_HOME; return; }
+            say(d.error || ('Upload failed (' + r.status + ')'));
+        } catch (_) { say('Network error. Please try again.'); }
+
+        sharing = false; shareBtn.disabled = false; shareBtn.textContent = 'Share';
+    });
+
+    /* warn before leaving with an unshared photo */
+    function warn(e) { if (!sharing && (img || videoFile)) { e.preventDefault(); e.returnValue = ''; } }
+    window.addEventListener('beforeunload', warn);
+})();
+</script>
+{% endblock %}

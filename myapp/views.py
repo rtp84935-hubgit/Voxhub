@@ -52,7 +52,7 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import TruncDate
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -450,8 +450,7 @@ def admin_required(view_func):
         if not user.is_authenticated:
             return redirect("admin_login")
         if not (user.is_active and user.groups.filter(name="admin").exists()):
-            messages.warning(request, "You are not an admin.")
-            return redirect("admin_login")
+            return redirect(f"{reverse('admin_login')}?reason=not_admin")
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -790,6 +789,14 @@ def user_home(request):
 # ---------------------------------------------------------
 # Create / delete posts
 # ---------------------------------------------------------
+
+@login_required(login_url="login")
+def create_post_page(request):
+    """The page where a photo is edited (crop, rotate, adjust, filters) before it is
+    shared. The edited photo is sent to create_post, which does the face check."""
+    get_object_or_404(UserProfile, LOGIN=request.user)
+    return render(request, "create_post.html", {"caption_max": 100})
+
 
 @login_required
 @require_POST
@@ -1228,6 +1235,82 @@ def edit_post_caption(request):
 # ---------------------------------------------------------
 # Likes
 # ---------------------------------------------------------
+
+# ---------------------------------------------------------
+# Sharing a post
+# ---------------------------------------------------------
+
+def _visible_post_or_404(post_id):
+    """A post that can be opened or shared (its author must not be banned)."""
+    post = get_object_or_404(User_posts.objects.select_related("USER", "USER__LOGIN"), id=post_id)
+    if not post.USER.LOGIN.is_active:
+        raise Http404("Post not available")
+    return post
+
+
+@login_required(login_url="login")
+def view_post(request, post_id):
+    """One post on its own page. This is the link people copy or send."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    _visible_post_or_404(post_id)
+
+    post = (
+        User_posts.objects
+        .select_related("USER")
+        .prefetch_related(
+            Prefetch(
+                "comments_set",
+                queryset=Comments.objects.select_related("USER").order_by("date", "id"),
+            )
+        )
+        .annotate(
+            like_count=Count("likes", distinct=True),
+            liked=Exists(Likes.objects.filter(POST=OuterRef("pk"), USER=me)),
+            saved=Exists(Saved_Posts.objects.filter(Post=OuterRef("pk"), USER=me)),
+        )
+        .get(id=post_id)
+    )
+    return render(request, "post_detail.html", {"p": post})
+
+
+@login_required(login_url="login")
+def share_recipients(request):
+    """People the share pop-up can send to: your conversations first, then everyone else."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    ctx = _chat_list_context(me)
+
+    people = [
+        {
+            "id": p.id,
+            "name": p.name or p.username,
+            "username": p.username,
+            "avatar": p.profile_image.url if p.profile_image else "",
+        }
+        for p in (ctx["conversations"] + ctx["others"])[:60]
+    ]
+    return JsonResponse({"ok": True, "people": people})
+
+
+@login_required(login_url="login")
+@require_POST
+def share_post(request, post_id):
+    """Send a post's link to someone as a chat message."""
+    me = get_object_or_404(UserProfile, LOGIN=request.user)
+    post = _visible_post_or_404(post_id)
+
+    target_id = request.POST.get("user_id", "")
+    if not target_id.isdigit():
+        return JsonResponse({"ok": False, "error": "Choose who to send it to."}, status=400)
+
+    receiver = UserProfile.objects.select_related("LOGIN").filter(id=int(target_id)).first()
+    if receiver is None or receiver.id == me.id or not receiver.LOGIN.is_active:
+        return JsonResponse({"ok": False, "error": "You can't send it to this account."}, status=400)
+
+    link = request.build_absolute_uri(reverse("view_post", args=[post.id]))
+    ChatMessage.objects.create(sender=me, receiver=receiver, message=f"Shared a post: {link}")
+
+    return JsonResponse({"ok": True})
+
 
 @login_required
 @require_POST
@@ -2267,38 +2350,45 @@ def change_password(request):
 # Admin authentication
 # ---------------------------------------------------------
 
+ADMIN_LOGIN_REASONS = {
+    "not_admin": "You are not an admin.",
+}
+
+
 def admin_login(request):
-    return render(request, "admin_login.html")
+    # Throw away any message left over from an earlier request, so nothing queued
+    # by another page can ever surface here (or later on another page).
+    list(messages.get_messages(request))
+
+    return render(request, "admin_login.html", {
+        "error": ADMIN_LOGIN_REASONS.get(request.GET.get("reason", "")),
+    })
 
 
 def admin_login_post(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+    """Check the admin login. Errors are shown directly on the login page
+    (not as Django messages), so they can never appear on another page."""
+    if request.method != "POST":
+        return redirect("admin_login")
 
-        user = authenticate(
-            request,
-            username=username,
-            password=password
-        )
+    username = (request.POST.get("username") or "").strip()
+    password = request.POST.get("password") or ""
 
-        print("Username:", username)
-        print("Authentication result:", user)
+    def fail(text):
+        return render(request, "admin_login.html", {"error": text, "username": username})
 
-        if user is not None:
-            print("Admin group:", user.groups.filter(name="admin").exists())
+    user = authenticate(request, username=username, password=password)
 
-            if user.groups.filter(name="admin").exists():
-                login(request, user)
-                return redirect("admin_home")
-            else:
-                notify_admin("security", f"Non-admin account @{username} tried the admin login")
-                messages.warning(request, "You are not an admin.")
-        else:
-            notify_admin("security", f"Failed admin login attempt for '{(username or '')[:50]}'")
-            messages.warning(request, "Wrong username or password.")
+    if user is None:
+        notify_admin("security", f"Failed admin login attempt for '{username[:50]}'")
+        return fail("Wrong username or password.")
 
-    return redirect("admin_login")
+    if not user.groups.filter(name="admin").exists():
+        notify_admin("security", f"Non-admin account @{username} tried the admin login")
+        return fail("You are not an admin.")
+
+    login(request, user)
+    return redirect("admin_home")
 
 
 # ---------------------------------------------------------

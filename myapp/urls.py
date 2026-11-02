@@ -23,9 +23,13 @@ urlpatterns = [
     # USER - feed, posts, likes, comments, saved
     # =====================================================
     path("user_home/", views.user_home, name="user_home"),
+    path("create/", views.create_post_page, name="create_post_page"),
     path("create_post/", views.create_post, name="create_post"),
     path("delete_post/", views.delete_post, name="delete_post"),
     path("edit_post_caption/", views.edit_post_caption, name="edit_post_caption"),
+    path("post/<int:post_id>/", views.view_post, name="view_post"),
+    path("share/recipients/", views.share_recipients, name="share_recipients"),
+    path("share/post/<int:post_id>/", views.share_post, name="share_post"),
     path("toggle_like/", views.toggle_like, name="toggle_like"),
     path("liked_posts/", views.liked_posts, name="liked_posts"),
     path("add_comment/", views.add_comment, name="add_comment"),

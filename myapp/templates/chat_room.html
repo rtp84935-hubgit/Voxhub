@@ -102,7 +102,7 @@
 
                 <div class="ch-msg {% if msg.sender_id == me.id %}mine{% else %}theirs{% endif %}"
                      data-id="{{ msg.id }}" data-day="{{ msg.timestamp|date:'Y-m-d' }}">
-                    <div class="ch-text">{{ msg.message }}</div>
+                    <div class="ch-text">{{ msg.message|urlize }}</div>
                     <div class="ch-meta">
                         <span class="ch-time">{{ msg.timestamp|date:"H:i" }}</span>
                         <button type="button" class="ch-del" aria-label="Delete message for me">Delete</button>
@@ -185,6 +185,19 @@
         }
     }
 
+    // Turn http(s) links in a message into clickable links (built with the DOM, so HTML in a message never runs)
+    function fillText(el, text) {
+        var re = /https?:\/\/[^\s]+/g, last = 0, m;
+        while ((m = re.exec(text)) !== null) {
+            if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+            var a = document.createElement('a');
+            a.href = m[0]; a.textContent = m[0]; a.rel = 'noopener';
+            el.appendChild(a);
+            last = m.index + m[0].length;
+        }
+        if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+    }
+
     function addMessage(m) {
         if (box.querySelector('.ch-msg[data-id="' + m.id + '"]')) return;
         const empty = $("chatEmpty"); if (empty) empty.remove();
@@ -201,7 +214,7 @@
         el.dataset.id = m.id; el.dataset.day = m.day;
 
         const text = document.createElement("div");
-        text.className = "ch-text"; text.textContent = m.message;
+        text.className = "ch-text"; fillText(text, m.message);
 
         const meta = document.createElement("div");
         meta.className = "ch-meta";

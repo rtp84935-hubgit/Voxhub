@@ -37,6 +37,8 @@
 .hv-who a { font-size: 14px; font-weight: 800; }
 .hv-who a:hover { color: var(--accent); }
 .hv-who time { display: block; color: var(--muted); font-size: 11px; }
+.hv-who a.hv-when { font-size: 11px; font-weight: 500; color: var(--muted); }
+.hv-who a.hv-when:hover time { color: var(--accent); text-decoration: underline; }
 
 .hv-icon-btn {
     width: 38px; height: 38px; display: grid; place-items: center; flex-shrink: 0;
@@ -206,7 +208,7 @@
         </a>
         <div class="hv-who">
           <a href="{% url 'view_profile' p.USER.id %}">{% if mine == request.user.id %}You{% else %}{{ p.USER.username }}{% endif %}</a>
-          <time datetime="{{ p.date|date:'c' }}">{{ p.date|timesince }} ago</time>
+          <a class="hv-when" href="/myapp/view_post/{{p.id}}/"><time datetime="{{ p.date|date:'c' }}" title="Open this post">{{ p.date|timesince }} ago</time></a>
         </div>
         {% if mine == request.user.id %}
         <button class="hv-icon-btn hv-edit" type="button" aria-label="Edit caption" title="Edit caption">
@@ -232,7 +234,7 @@
           <svg><use href="#h-heart"/></svg>
         </button>
         <button class="hv-icon-btn hv-cbtn" type="button" aria-label="Comment"><svg><use href="#i-chat"/></svg></button>
-        <button class="hv-icon-btn hv-share" type="button" aria-label="Copy link"><svg><use href="#h-send"/></svg></button>
+        <button class="hv-icon-btn hv-share" type="button" aria-label="Share"><svg><use href="#h-send"/></svg></button>
         <button class="hv-icon-btn hv-save{% if p.saved %} on{% endif %}" type="button" aria-label="Save" aria-pressed="{% if p.saved %}true{% else %}false{% endif %}">
           <svg><use href="#h-bookmark"/></svg>
         </button>
@@ -270,7 +272,7 @@
     <div class="hv-empty" id="hvEmpty">
       <strong>No posts yet</strong>
       Share the first photo or video.
-      <br><button type="button" class="hv-btn-primary js-create">Create a post</button>
+      <br><a class="hv-btn-primary" style="display:inline-block" href="{% url 'create_post_page' %}">Create a post</a>
     </div>
     {% endfor %}
 
@@ -280,6 +282,8 @@
 
   </div>
 </section>
+
+{% include "share_sheet.html" %}
 
 <!-- Create post -->
 <div class="hv-modal" id="hvModal" role="dialog" aria-modal="true" aria-labelledby="hvModalTitle" hidden>
@@ -512,11 +516,7 @@
     else if (e.target.closest(".hv-del")) deletePost(post);
     else if (e.target.closest(".hv-vc")) post.querySelector(".hv-cmts").hidden = !post.querySelector(".hv-cmts").hidden;
     else if (e.target.closest(".hv-cbtn")) post.querySelector(".hv-cf input").focus();
-    else if (e.target.closest(".hv-share")) {
-      const link = location.origin + location.pathname + "#" + post.id;
-      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
-        .then(() => toast("Link copied"), () => toast("Link: " + link));
-    }
+    else if (e.target.closest(".hv-share")) openShare(post.dataset.id);
   });
 
   // double-tap a photo to like
