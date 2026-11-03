@@ -209,6 +209,72 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
+        /* ================= PERMISSIONS ================= */
+
+        .perm-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .perm-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            transition: border-color .2s ease, background .2s ease;
+        }
+
+        .perm-card.granted { border-color: rgba(52, 211, 153, 0.6); background: linear-gradient(180deg, rgba(52, 211, 153, 0.10), var(--surface-2)); }
+        .perm-card.denied  { border-color: rgba(248, 113, 113, 0.6); background: linear-gradient(180deg, rgba(248, 113, 113, 0.10), var(--surface-2)); }
+
+        .perm-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .perm-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--warn);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+        }
+
+        .perm-card.granted .perm-badge { background: rgba(52, 211, 153, 0.15); color: var(--ok);  border-color: rgba(52, 211, 153, 0.45); }
+        .perm-card.denied  .perm-badge { background: rgba(248, 113, 113, 0.15); color: var(--bad); border-color: rgba(248, 113, 113, 0.45); }
+
+        .perm-note {
+            font-size: 0.82rem;
+            color: var(--muted);
+            min-height: 2.4em;
+        }
+
+        .perm-card button { margin-top: 4px; }
+        .perm-card.granted button { display: none; }
+
+        #allowAllBtn { width: 100%; margin-top: 14px; }
+
+        .perm-help {
+            display: none;
+            margin-top: 14px;
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            color: #fecaca;
+            background: rgba(248, 113, 113, 0.10);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            border-radius: 10px;
+        }
+
+        .perm-help.show { display: block; }
+
         /* ================= CAMERA + FACE GUIDE ================= */
 
         .camera-container {
@@ -474,11 +540,29 @@
             .container { padding: 24px 18px; border-radius: 18px; }
             h1 { font-size: 1.6rem; }
             .face-status { font-size: 12px; padding: 6px 12px; }
+            .perm-grid { grid-template-columns: 1fr; }
         }
 
         @media (prefers-reduced-motion: reduce) {
             * { transition: none !important; }
         }
+
+        /* ================= FIELD VALIDATION ================= */
+
+        .error-msg {
+            display: none;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--bad);
+        }
+        .field.invalid .error-msg { display: block; }
+        .field.invalid input      { border-color: var(--bad); }
+        .field.valid input        { border-color: var(--ok); }
+
+        .pw-strength { height: 6px; margin-top: 8px; background: #0d1122; border-radius: 6px; overflow: hidden; }
+        .pw-strength-fill { height: 100%; width: 0; transition: width .2s ease, background .2s ease; }
+        .pw-hint { margin-top: 6px; font-size: 0.78rem; color: var(--muted); }
     </style>
 </head>
 
@@ -488,42 +572,79 @@
 
     <h1>VoxHub Registration</h1>
 
-    <form id="registerForm" enctype="multipart/form-data">
+    <!-- novalidate: our own messages are shown instead of the browser's popups -->
+    <form id="registerForm" enctype="multipart/form-data" novalidate>
 
         {% csrf_token %}
+
+        <!-- ================= PERMISSIONS ================= -->
+
+        <h2>Permissions</h2>
+
+        <p>VoxHub needs your camera (face verification) and microphone (voice samples).</p>
+
+        <div class="perm-grid">
+            <div class="perm-card" id="permCard_camera">
+                <div class="perm-top"><span>&#128247; Camera</span><span class="perm-badge" id="permBadge_camera">Not asked</span></div>
+                <div class="perm-note" id="permNote_camera">Used to capture and verify your face.</div>
+                <button type="button" id="permBtn_camera" onclick="requestPermission('camera')">Allow Camera</button>
+            </div>
+
+            <div class="perm-card" id="permCard_microphone">
+                <div class="perm-top"><span>&#127908; Microphone</span><span class="perm-badge" id="permBadge_microphone">Not asked</span></div>
+                <div class="perm-note" id="permNote_microphone">Used to record your 10 voice samples.</div>
+                <button type="button" id="permBtn_microphone" onclick="requestPermission('microphone')">Allow Microphone</button>
+            </div>
+        </div>
+
+        <button type="button" id="allowAllBtn" onclick="requestAllPermissions()">Allow Camera &amp; Microphone</button>
+
+        <div class="perm-help" id="permHelp">
+            Access is blocked. Click the <strong>lock / tune icon</strong> in the address bar, set
+            <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow</strong>, then reload this page.
+        </div>
+
 
         <!-- ================= BASIC INFORMATION ================= -->
 
         <h2>Basic Information</h2>
 
-        <div class="field">
-            <label>Full Name</label>
-            <input type="text" name="name" required>
+        <div class="field" data-field="name">
+            <label for="name">Full Name</label>
+            <input type="text" name="name" id="name" maxlength="50" autocomplete="name" required>
+            <small class="error-msg"></small>
         </div>
 
-        <div class="field">
-            <label>Email</label>
-            <input type="email" name="email" required>
+        <div class="field" data-field="email">
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" maxlength="254" autocapitalize="none" spellcheck="false" autocomplete="email" required>
+            <small class="error-msg"></small>
         </div>
 
-        <div class="field">
-            <label>Phone</label>
-            <input type="tel" name="phone" required>
+        <div class="field" data-field="phone">
+            <label for="phone">Phone</label>
+            <input type="tel" name="phone" id="phone" maxlength="17" placeholder="10-digit mobile number" autocomplete="tel" required>
+            <small class="error-msg"></small>
         </div>
 
-        <div class="field">
-            <label>Username</label>
-            <input type="text" name="username" required>
+        <div class="field" data-field="username">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username" maxlength="20" autocapitalize="none" spellcheck="false" autocomplete="username" required>
+            <small class="error-msg"></small>
         </div>
 
-        <div class="field">
-            <label>Password</label>
-            <input type="password" name="password" id="password" required>
+        <div class="field" data-field="password">
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" maxlength="64" autocomplete="new-password" required>
+            <div class="pw-strength"><div id="pwFill" class="pw-strength-fill"></div></div>
+            <div class="pw-hint">Min 8 characters with uppercase, lowercase, number and special character.</div>
+            <small class="error-msg"></small>
         </div>
 
-        <div class="field">
-            <label>Confirm Password</label>
-            <input type="password" id="confirmPassword" required>
+        <div class="field" data-field="confirmPassword">
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" id="confirmPassword" maxlength="64" autocomplete="new-password" required>
+            <small class="error-msg"></small>
         </div>
 
 
@@ -531,20 +652,11 @@
 
         <h2>Profile Picture</h2>
 
-        <div class="field">
-
-            <label>Upload Profile Picture</label>
-
-            <input
-                type="file"
-                name="profile_picture"
-                id="profilePicture"
-                accept="image/*"
-                required
-            >
-
+        <div class="field" data-field="profilePicture">
+            <label for="profilePicture">Upload Profile Picture</label>
+            <input type="file" name="profile_picture" id="profilePicture" accept="image/jpeg,image/png,image/webp" required>
+            <small class="error-msg"></small>
             <img id="profilePreview" alt="Profile Preview">
-
         </div>
 
 
@@ -666,6 +778,7 @@ const CONFIG = {
 
 const REGISTER_URL    = "/myapp/register/";       // <-- change to your register URL
 const DETECT_FACE_URL = "/myapp/detect-face/";
+const LOGIN_URL       = "{% url 'login' %}";      // where to go after a successful registration
 
 
 // =====================================================
@@ -731,6 +844,104 @@ function getCookie(name) {
 
 
 // =====================================================
+// CAMERA + MICROPHONE PERMISSIONS
+// =====================================================
+
+const permState = { camera: "prompt", microphone: "prompt" };
+
+function setPerm(kind, state, note) {
+    permState[kind] = state;
+
+    const card   = $("permCard_" + kind);
+    const badge  = $("permBadge_" + kind);
+    const noteEl = $("permNote_" + kind);
+
+    card.classList.toggle("granted", state === "granted");
+    card.classList.toggle("denied",  state === "denied");
+
+    badge.textContent =
+        state === "granted" ? "Allowed" :
+        state === "denied"  ? "Blocked" : "Not asked";
+
+    if (note) noteEl.textContent = note;
+    else if (state === "granted") noteEl.textContent = "Access granted.";
+
+    const anyDenied = permState.camera === "denied" || permState.microphone === "denied";
+    $("permHelp").classList.toggle("show", anyDenied);
+
+    const bothOk = permState.camera === "granted" && permState.microphone === "granted";
+    $("allowAllBtn").style.display = bothOk ? "none" : "block";
+}
+
+function permErrorMessage(e) {
+    switch (e && e.name) {
+        case "NotAllowedError":
+        case "SecurityError":
+            return { state: "denied", note: "Blocked. Allow it from the address bar, then reload." };
+        case "NotFoundError":
+        case "OverconstrainedError":
+            return { state: "prompt", note: "No device found. Connect one and try again." };
+        case "NotReadableError":
+        case "AbortError":
+            return { state: "prompt", note: "Device is in use by another app. Close it and retry." };
+        default:
+            return { state: "prompt", note: "Could not access the device." };
+    }
+}
+
+async function requestPermission(kind) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setPerm(kind, "denied", "Not supported here. Open the site over HTTPS or localhost.");
+        return false;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(
+            kind === "camera" ? { video: true } : { audio: true }
+        );
+        stream.getTracks().forEach(t => t.stop());      // we only wanted the permission
+        setPerm(kind, "granted");
+        return true;
+    }
+    catch (e) {
+        console.error(kind + " permission error:", e);
+        const r = permErrorMessage(e);
+        setPerm(kind, r.state, r.note);
+        return false;
+    }
+}
+
+async function requestAllPermissions() {
+    const btn = $("allowAllBtn");
+    btn.disabled = true;
+
+    await requestPermission("camera");
+    await requestPermission("microphone");
+
+    btn.disabled = false;
+}
+
+// keep the cards in sync with the browser's real permission state
+async function watchPermission(kind) {
+    if (!navigator.permissions || !navigator.permissions.query) return;
+
+    try {
+        const status = await navigator.permissions.query({ name: kind });   // "camera" / "microphone"
+        const apply = () => setPerm(kind, status.state,
+            status.state === "denied" ? "Blocked. Allow it from the address bar, then reload." : null);
+
+        apply();
+        status.onchange = apply;
+    } catch (_) {
+        // Firefox / older Safari can't query camera or microphone; the buttons still work
+    }
+}
+
+watchPermission("camera");
+watchPermission("microphone");
+
+
+// =====================================================
 // START / STOP CAMERA
 // =====================================================
 
@@ -747,6 +958,8 @@ async function startCamera() {
             audio: false
         });
 
+        setPerm("camera", "granted");
+
         video.srcObject = cameraStream;
         await video.play();
 
@@ -762,7 +975,10 @@ async function startCamera() {
     }
     catch (error) {
         console.error("Camera error:", error);
-        alert("Unable to access camera. Please allow camera permission (HTTPS or localhost is required).");
+        const r = permErrorMessage(error);
+        setPerm("camera", r.state, r.note);
+        $("faceStatus").textContent = r.note;
+        $("permCard_camera").scrollIntoView({ behavior: "smooth", block: "center" });
     }
 }
 
@@ -1170,9 +1386,12 @@ async function startRecording(n) {
 
     try {
         recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setPerm("microphone", "granted");
     } catch (e) {
         console.error(e);
-        alert("Unable to access microphone. Please allow microphone permission.");
+        const r = permErrorMessage(e);
+        setPerm("microphone", r.state, r.note);
+        $("permCard_microphone").scrollIntoView({ behavior: "smooth", block: "center" });
         return;
     }
 
@@ -1234,6 +1453,173 @@ function stopRecording() {
 
 
 // =====================================================
+// FORM VALIDATION  (same rules as validate_registration_fields in views.py)
+// =====================================================
+
+const MAX_IMAGE_MB = 5;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const RESERVED_USERNAMES = ["admin", "administrator", "root", "support", "voxhub", "moderator"];
+
+const cleanName  = (v) => v.trim().replace(/\s+/g, " ");
+const cleanEmail = (v) => v.trim().toLowerCase();
+const cleanPhone = (v) => v.replace(/[\s-]/g, "").replace(/^(\+91|91|0)(?=\d{10}$)/, "");
+
+const VALIDATORS = {
+    name(v) {
+        v = cleanName(v);
+        if (!v) return "Full name is required.";
+        if (v.length < 2) return "Name must be at least 2 characters.";
+        if (v.length > 50) return "Name can be at most 50 characters.";
+        // \p{L} = any letter, \p{M} = combining marks (needed for Malayalam and accented names)
+        if (!/^\p{L}[\p{L}\p{M}\s.'-]*$/u.test(v)) return "Use only letters, spaces, . ' and -";
+        return "";
+    },
+    email(v) {
+        v = cleanEmail(v);
+        if (!v) return "Email is required.";
+        if (v.length > 254) return "Email is too long.";
+        if (!/^[a-z0-9._%+-]+@([a-z0-9-]+\.)+[a-z]{2,}$/.test(v)) return "Enter a valid email address.";
+        const local = v.split("@")[0];
+        if (v.includes("..") || local.startsWith(".") || local.endsWith(".")) return "Enter a valid email address.";
+        return "";
+    },
+    phone(v) {
+        v = v.trim();
+        if (!v) return "Phone number is required.";
+        if (!/^\+?[\d\s-]+$/.test(v)) return "Phone can contain digits only.";
+        const d = cleanPhone(v);
+        if (d.length !== 10) return "Phone number must be 10 digits.";
+        if (!/^[6-9]/.test(d)) return "Phone number must start with 6, 7, 8 or 9.";
+        if (/^(\d)\1{9}$/.test(d)) return "Enter a real phone number.";
+        return "";
+    },
+    username(v) {
+        if (!v) return "Username is required.";
+        if (/\s/.test(v)) return "Username cannot contain spaces.";
+        if (v.length < 4) return "Username must be at least 4 characters.";
+        if (v.length > 20) return "Username can be at most 20 characters.";
+        if (!/^[A-Za-z]/.test(v)) return "Username must start with a letter.";
+        if (!/^[A-Za-z0-9_]+$/.test(v)) return "Only letters, numbers and underscore allowed.";
+        if (RESERVED_USERNAMES.includes(v.toLowerCase())) return "This username is not available.";
+        return "";
+    },
+    password(v) {
+        if (!v) return "Password is required.";
+        if (v.length < 8) return "Password must be at least 8 characters.";
+        if (v.length > 64) return "Password can be at most 64 characters.";
+        if (/\s/.test(v)) return "Password cannot contain spaces.";
+        if (!/[a-z]/.test(v)) return "Add at least one lowercase letter.";
+        if (!/[A-Z]/.test(v)) return "Add at least one uppercase letter.";
+        if (!/\d/.test(v)) return "Add at least one number.";
+        if (!/[^A-Za-z0-9]/.test(v)) return "Add at least one special character.";
+        const u = $("username").value.trim().toLowerCase();
+        if (u.length >= 4 && v.toLowerCase().includes(u)) return "Password must not contain your username.";
+        return "";
+    },
+    confirmPassword(v) {
+        if (!v) return "Please confirm your password.";
+        if (v !== $("password").value) return "Passwords do not match.";
+        return "";
+    },
+    profilePicture() {
+        const f = $("profilePicture").files[0];
+        if (!f) return "Please upload a profile picture.";
+        if (!ALLOWED_IMAGE_TYPES.includes(f.type)) return "Use a JPG, PNG or WebP image.";
+        if (f.size === 0) return "This file is empty.";
+        if (f.size > MAX_IMAGE_MB * 1024 * 1024) return "Image must be under " + MAX_IMAGE_MB + " MB.";
+        return "";
+    }
+};
+
+const FIELD_INPUT = {
+    name: "name", email: "email", phone: "phone", username: "username",
+    password: "password", confirmPassword: "confirmPassword", profilePicture: "profilePicture"
+};
+
+function showFieldState(key, error) {
+    const wrap = document.querySelector('[data-field="' + key + '"]');
+    if (!wrap) return;
+    wrap.classList.toggle("invalid", !!error);
+    wrap.classList.toggle("valid", !error);
+    wrap.querySelector(".error-msg").textContent = error;
+}
+
+function validateField(key) {
+    const value = key === "profilePicture" ? "" : $(FIELD_INPUT[key]).value;
+    const error = VALIDATORS[key](value);
+    showFieldState(key, error);
+    return !error;
+}
+
+// used for errors that only the server can know (e.g. "Username is already taken")
+function setFieldError(key, message) {
+    if (!FIELD_INPUT[key]) return false;
+    showFieldState(key, message);
+    $(FIELD_INPUT[key]).focus();
+    return true;
+}
+
+function validateAll() {
+    let firstBad = null;
+    Object.keys(FIELD_INPUT).forEach(key => {
+        if (!validateField(key) && !firstBad) firstBad = $(FIELD_INPUT[key]);
+    });
+    if (firstBad) firstBad.focus();
+    return !firstBad;
+}
+
+function updatePasswordStrength() {
+    const v = $("password").value;
+    let s = 0;
+    if (v.length >= 8) s++;
+    if (/[a-z]/.test(v) && /[A-Z]/.test(v)) s++;
+    if (/\d/.test(v)) s++;
+    if (/[^A-Za-z0-9]/.test(v)) s++;
+    if (v.length >= 12) s++;
+
+    const colors = ["#f87171", "#f87171", "#fbbf24", "#a3e635", "#34d399", "#34d399"];
+    $("pwFill").style.width = (v ? s * 20 : 0) + "%";
+    $("pwFill").style.background = colors[s];
+}
+
+// live validation: on leaving a field, then on every keystroke once touched
+Object.keys(FIELD_INPUT).forEach(key => {
+    const input = $(FIELD_INPUT[key]);
+    let touched = false;
+
+    input.addEventListener("blur", () => {
+        touched = true;
+        // tidy the value the user sees (no extra spaces, lowercase email, 10-digit phone)
+        if (key === "name")  input.value = cleanName(input.value);
+        if (key === "email") input.value = cleanEmail(input.value);
+        if (key === "phone" && !VALIDATORS.phone(input.value)) input.value = cleanPhone(input.value);
+        validateField(key);
+    });
+
+    input.addEventListener(key === "profilePicture" ? "change" : "input", () => {
+        if (touched || key === "profilePicture") validateField(key);
+
+        if (key === "password") {
+            updatePasswordStrength();
+            if ($("confirmPassword").value) validateField("confirmPassword");
+        }
+        // the password rule "must not contain username" depends on the username
+        if (key === "username" && $("password").value) validateField("password");
+    });
+});
+
+// phone: digits, +, space and - only
+$("phone").addEventListener("input", function () {
+    this.value = this.value.replace(/[^\d+\s-]/g, "");
+});
+
+// username: no spaces at all
+$("username").addEventListener("input", function () {
+    this.value = this.value.replace(/\s/g, "");
+});
+
+
+// =====================================================
 // SUBMIT
 // =====================================================
 
@@ -1241,10 +1627,12 @@ $("registerForm").addEventListener("submit", async function (e) {
     e.preventDefault();
 
     const msg = $("submitMessage");
+    const btn = this.querySelector(".submit-btn");
     msg.style.color = "red";
+    msg.textContent = "";
 
-    if ($("password").value !== $("confirmPassword").value) {
-        msg.textContent = "Passwords do not match.";
+    if (!validateAll()) {
+        msg.textContent = "Please fix the highlighted fields.";
         return;
     }
 
@@ -1258,8 +1646,12 @@ $("registerForm").addEventListener("submit", async function (e) {
         return;
     }
 
-    // form fields + profile_picture (+ csrf token)
+    // form fields + profile_picture (+ csrf token), then send the cleaned values
     const formData = new FormData(this);
+    formData.set("name", cleanName($("name").value));
+    formData.set("email", cleanEmail($("email").value));
+    formData.set("phone", cleanPhone($("phone").value));      // always 10 digits
+    formData.set("username", $("username").value.trim());
 
     formData.append("original_image", originalImageBlob, "original_image.jpg");
 
@@ -1267,6 +1659,7 @@ $("registerForm").addEventListener("submit", async function (e) {
         formData.append("voice" + n, voiceBlobs[n], "voice" + n + ".webm");
     }
 
+    btn.disabled = true;                                      // stops double submit
     msg.style.color = "black";
     msg.textContent = "Submitting...";
 
@@ -1277,15 +1670,26 @@ $("registerForm").addEventListener("submit", async function (e) {
             headers: { "X-CSRFToken": getCookie("csrftoken") }
         });
 
-        const data = await response.json();
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
 
-        msg.style.color = data.success ? "green" : "red";
-        msg.textContent = data.message || (data.success ? "Registered." : "Registration failed.");
+        if (data.success) {
+            msg.style.color = "green";
+            msg.textContent = data.message || "Registered successfully.";
+            setTimeout(() => { window.location.href = "/myapp/login/"; }, 1200);
+            return;                                           // keep the button disabled
+        }
+
+        msg.style.color = "red";
+        msg.textContent = data.message || "Registration failed.";
+        if (data.field) setFieldError(data.field, data.message);
+        btn.disabled = false;
     }
     catch (err) {
         console.error(err);
         msg.style.color = "red";
         msg.textContent = "Error sending data to server.";
+        btn.disabled = false;
     }
 });
 

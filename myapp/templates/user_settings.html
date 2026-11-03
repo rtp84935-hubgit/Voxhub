@@ -1092,22 +1092,38 @@ html[data-theme="light"] .mtop {
 <p>Social connections, powered by thoughtful AI.</p>
 
             <!-- Log out -->
-            <section class="settings-section">
+           <!-- Log out and Delete Account -->
+<section class="settings-section">
 
-                <div class="settings-card danger-card">
-                    <a href="/myapp/logout_view/" class="setting-row">
-                        <div class="setting-row-icon">⎋</div>
+    <div class="settings-card danger-card">
 
-                        <div class="setting-row-info">
-                            <h3 class="danger-text">Log out</h3>
-                            <p>Sign out of your VoxHub account on this device.</p>
-                        </div>
+        <!-- Log out -->
+        <a href="/myapp/logout_view/" class="setting-row">
 
-                        <span class="setting-arrow">›</span>
-                    </a>
-                </div>
+            <div class="setting-row-icon">⎋</div>
 
-            </section>
+            <div class="setting-row-info">
+                <h3 class="danger-text">Log out</h3>
+                <p>Sign out of your VoxHub account on this device.</p>
+            </div>
+
+            <span class="setting-arrow">›</span>
+
+        </a>
+
+        <!-- Delete Account -->
+       <!-- Delete Account -->
+<a href="{% url 'delete_account_confirm' %}" class="setting-row">
+    <div class="setting-row-icon">🗑️</div>
+
+    <div class="setting-row-info">
+        <h3 class="danger-text">Delete Account</h3>
+        <p>Permanently delete your account, posts, messages and associated data.</p>
+    </div>
+
+    <span class="setting-arrow">›</span>
+</a>
+</section>
 
             <p style="text-align:center;color:var(--muted);font-size:10px;margin:28px 0 0;">
                 VOXHUB · YOUR SPACE, YOUR SETTINGS

@@ -11,6 +11,7 @@ urlpatterns = [
     path("detect-face/", views.detect_face, name="detect_face"),
     path("login/", views.login_view, name="login"),
     path("logout_view/", views.logout_view, name="logout"),
+    path("delete_account/", views.delete_account_confirm, name="delete_account_confirm"),    
     path("community_guidelines/", views.community_guidelines, name="community_guidelines"),
     path("about_us/", views.about_us, name="about_us"),
     path("submit_complaint/", views.submit_complaint, name="submit_complaint"),

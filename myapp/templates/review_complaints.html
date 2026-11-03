@@ -1,10 +1,15 @@
+```html
 {% extends 'admin_base.html' %}
 
 {% block title %}Review Complaints{% endblock %}
 
 {% block page_heading %}
   <h1>Report #{{ report.id }}</h1>
-  <p><a class="link" href="{% url 'admin_complaints' %}">← Back to Common Reports</a></p>
+  <p>
+    <a class="link" href="{% url 'admin_complaints' %}">
+      ← Back to Common Reports
+    </a>
+  </p>
 {% endblock %}
 
 {% block content %}
@@ -14,35 +19,126 @@
 {% endfor %}
 
 <div class="card" style="max-width:760px">
+
   <div class="card-head">
     <h2>Report details</h2>
-    <span class="pill pill-{{ report.status }}">{{ report.get_status_display }}</span>
+    <span class="pill pill-{{ report.status }}">
+      {{ report.get_status_display }}
+    </span>
   </div>
 
   <ul class="overview" style="padding:0">
-    <li><span>Reported by</span><strong>{{ report.USER.username }} ({{ report.USER.name }})</strong></li>
-    <li><span>Email</span><strong>{{ report.USER.email }}</strong></li>
-    <li><span>Submitted</span><strong>{{ report.date|date:"d M Y, H:i" }}</strong></li>
+
+    <li>
+      <span>Reported by</span>
+      <strong>{{ report.USER.username }} ({{ report.USER.name }})</strong>
+    </li>
+
+    <li>
+      <span>Complainant Email</span>
+      <strong>{{ report.USER.email }}</strong>
+    </li>
+
+    {% if report.VICTIM %}
+    <li>
+      <span>Reported User</span>
+      <strong>{{ report.VICTIM.username }} ({{ report.VICTIM.name }})</strong>
+    </li>
+
+    <li>
+      <span>Reported User Email</span>
+      <strong>{{ report.VICTIM.email }}</strong>
+    </li>
+    {% endif %}
+
+    <li>
+      <span>Submitted</span>
+      <strong>{{ report.date|date:"d M Y, H:i" }}</strong>
+    </li>
+
   </ul>
 
-  <div style="margin:22px 0;padding:16px 18px;background:var(--bg);border:1px solid var(--border);border-radius:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">{{ report.reports }}</div>
+  <div style="
+    margin:22px 0;
+    padding:16px 18px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:12px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+  ">{{ report.reports }}</div>
 
-  {% if report.status == "resolved" or report.status == "dismissed" %}
-    <p class="empty" style="padding-top:0">This report has been {{ report.status }}.</p>
-  {% else %}
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <form method="post" action="{% url 'update_complaints' report.id %}" style="margin:0">
+
+  {% if report.status == "pending" or report.status == "inreview" %}
+
+    <div style="
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    ">
+
+      <!-- Mark as Resolved -->
+      <form
+        method="post"
+        action="{% url 'update_complaints' report.id %}"
+        style="margin:0"
+      >
         {% csrf_token %}
         <input type="hidden" name="action" value="resolved">
-        <button type="submit" class="btn btn-blue" style="border:0;cursor:pointer;font-size:1rem">✔ Mark as resolved</button>
+
+        <button
+          type="submit"
+          class="btn btn-blue"
+          style="border:0;cursor:pointer;font-size:1rem"
+        >
+          ✔ Mark as Resolved
+        </button>
       </form>
-      <form method="post" action="{% url 'update_complaints' report.id %}" style="margin:0">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="dismissed">
-        <button type="submit" class="btn btn-red" style="border:0;cursor:pointer;font-size:1rem">✖ Dismiss</button>
-      </form>
+
+
+      <!-- Redirect to Gmail -->
+      {% if report.USER and report.USER.email %}
+
+        <a
+          href="https://mail.google.com/mail/?view=cm&fs=1&to={{ report.USER.email|urlencode }}&su=VoxHub%20-%20Complaint%20Notification%20(Report%20%23{{ report.id }})&body=Hello%20{{ report.USER.username|urlencode }}%2C%0A%0AWe%20are%20contacting%20you%20regarding%20a%20complaint%20received%20about%20your%20VoxHub%20account.%0A%0AOur%20administration%20team%20would%20like%20to%20discuss%20this%20matter%20with%20you.%0A%0APlease%20contact%20the%20VoxHub%20administration%20team%20for%20further%20details.%0A%0ARegards%2C%0AVoxHub%20Administration"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn"
+          style="
+            background:#d94646;
+            color:white;
+            text-decoration:none;
+            border:0;
+            cursor:pointer;
+            font-size:1rem;
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+          "
+        >
+          ✉ Send Mail
+        </a>
+
+      {% else %}
+
+        <span style="color:#f59e0b;font-size:0.9rem">
+          ⚠ Reported user's email is unavailable.
+        </span>
+
+      {% endif %}
+
     </div>
+
+  {% else %}
+
+    <p class="empty" style="padding-top:0">
+      This report has been {{ report.get_status_display }}.
+    </p>
+
   {% endif %}
+
 </div>
 
 {% endblock %}

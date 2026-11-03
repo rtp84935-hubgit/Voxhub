@@ -22,7 +22,9 @@ import csv
 import logging
 import math
 import os
+import re
 import traceback
+import unicodedata
 import uuid
 from datetime import timedelta
 from functools import wraps
@@ -89,6 +91,9 @@ BRIGHT_MIN, BRIGHT_MAX = 60, 200      # mean face brightness (0-255)
 MIN_SHARPNESS = 35                    # Laplacian variance on a 200x200 face crop
 MIN_EYES = 1                          # set to 2 for a stricter check
 
+# ---- registration fields ----
+RESERVED_USERNAMES = {"admin", "administrator", "root", "support", "voxhub", "moderator"}
+
 # ---- post uploads ----
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 VIDEO_EXTENSIONS = (".mp4", ".mov", ".webm", ".m4v")
@@ -135,8 +140,11 @@ detector = pipeline(
 # 3. COMMON - SHARED HELPERS
 # =========================================================
 
-def _fail(message):
-    return JsonResponse({"success": False, "message": message})
+def _fail(message, field=None):
+    data = {"success": False, "message": message}
+    if field:
+        data["field"] = field          # the registration page shows the error under that field
+    return JsonResponse(data)
 
 
 def _login_error(request, message):
@@ -147,6 +155,78 @@ def community_guidelines(request):
 
 def about_us(request):
     return render(request,"about_us.html")
+
+
+# ---------------------------------------------------------
+# Registration field validation (same rules as registration.html)
+# ---------------------------------------------------------
+
+def clean_phone(raw):
+    """'+91 98765-43210' -> '9876543210'. Saved this way so duplicates are always caught."""
+    digits = re.sub(r"[\s-]", "", raw or "")
+    return re.sub(r"^(\+91|91|0)(?=\d{10}$)", "", digits)
+
+
+def validate_registration_fields(name, email, phone, username, password):
+    """Returns (message, field_name) for the first problem, or (None, None) if all is fine."""
+
+    # ---- name ----
+    if not name:
+        return "Full name is required.", "name"
+    if not 2 <= len(name) <= 50:
+        return "Name must be 2 to 50 characters.", "name"
+    if not name[0].isalpha() or not all(
+        c.isalpha() or c.isspace() or c in ".'-" or unicodedata.category(c).startswith("M")
+        for c in name
+    ):
+        return "Name can contain only letters, spaces, . ' and -", "name"
+
+    # ---- email ----
+    if not email:
+        return "Email is required.", "email"
+    if len(email) > 254:
+        return "Email is too long.", "email"
+    try:
+        validate_email(email)
+    except ValidationError:
+        return "Please enter a valid email address.", "email"
+
+    # ---- phone (already normalised by clean_phone) ----
+    if not re.fullmatch(r"[6-9]\d{9}", phone):
+        return "Enter a valid 10-digit mobile number.", "phone"
+    if len(set(phone)) == 1:
+        return "Enter a real phone number.", "phone"
+
+    # ---- username ----
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,19}", username):
+        return (
+            "Username must be 4-20 characters, start with a letter, "
+            "and use only letters, numbers and _.",
+            "username",
+        )
+    if username.lower() in RESERVED_USERNAMES:
+        return "This username is not available.", "username"
+
+    # ---- password ----
+    if not 8 <= len(password) <= 64:
+        return "Password must be 8 to 64 characters.", "password"
+    if re.search(r"\s", password):
+        return "Password cannot contain spaces.", "password"
+    if not (
+        re.search(r"[a-z]", password)
+        and re.search(r"[A-Z]", password)
+        and re.search(r"\d", password)
+        and re.search(r"[^A-Za-z0-9]", password)
+    ):
+        return "Password needs uppercase, lowercase, a number and a special character.", "password"
+    if len(username) >= 4 and username.lower() in password.lower():
+        return "Password must not contain your username.", "password"
+    try:
+        validate_password(password, user=User(username=username, email=email))
+    except ValidationError as err:
+        return err.messages[0], "password"
+
+    return None, None
 
 
 # ---------------------------------------------------------
@@ -553,10 +633,10 @@ def register(request):
     if not PlatformSettings.get().registration_open:
         return _fail("Registration is closed at the moment. Please try again later.")
 
-    # ---- basic details ----
-    name = (request.POST.get("name") or "").strip()
-    email = (request.POST.get("email") or "").strip()
-    phone = (request.POST.get("phone") or "").strip()
+    # ---- basic details (cleaned the same way as the page) ----
+    name = " ".join((request.POST.get("name") or "").split())
+    email = (request.POST.get("email") or "").strip().lower()
+    phone = clean_phone(request.POST.get("phone") or "")
     username = (request.POST.get("username") or "").strip()
     password = request.POST.get("password") or ""
 
@@ -565,24 +645,24 @@ def register(request):
     original_image = request.FILES.get("original_image")
     voices = [request.FILES.get(f"voice{i}") for i in range(1, 11)]
 
-    # ---- validation ----
-    if not (name and email and phone and username and password):
-        return _fail("Please fill all required fields.")
+    # ---- field validation ----
+    error, field = validate_registration_fields(name, email, phone, username, password)
+    if error:
+        return _fail(error, field)
 
-    if len(name) > 100 or len(username) > 50 or len(phone) > 15:
-        return _fail("Name, username or phone number is too long.")
-
-    try:
-        validate_email(email)
-    except ValidationError:
-        return _fail("Please enter a valid email address.")
-
-    if len(password) < 8:
-        return _fail("Password must be at least 8 characters.")
-
+    # ---- profile picture ----
     if not profile_picture:
-        return _fail("Please upload a profile picture.")
+        return _fail("Please upload a profile picture.", "profilePicture")
 
+    if profile_picture.size > MAX_IMAGE_BYTES:
+        return _fail("Profile picture must be under 5 MB.", "profilePicture")
+
+    # make sure it really is an image, not just a renamed file
+    if cv2.imdecode(np.frombuffer(profile_picture.read(), np.uint8), cv2.IMREAD_COLOR) is None:
+        return _fail("Profile picture is not a valid image.", "profilePicture")
+    profile_picture.seek(0)
+
+    # ---- captured face ----
     if not original_image:
         return _fail("Please capture your original image.")
 
@@ -590,12 +670,13 @@ def register(request):
         return _fail("Captured image is too large.")
 
     # Re-check the face on the server so the browser check can't be bypassed
-    ok, error = validate_face_image(original_image.read())
+    ok, face_error = validate_face_image(original_image.read())
     original_image.seek(0)          # rewind so the file can still be saved
 
     if not ok:
-        return _fail(error)
+        return _fail(face_error)
 
+    # ---- voice samples ----
     if any(voice is None for voice in voices):
         return _fail("Please record all 10 voice samples.")
 
@@ -603,13 +684,13 @@ def register(request):
     # auth User is checked too, because create_user() would fail on it
     if (User.objects.filter(username__iexact=username).exists()
             or UserProfile.objects.filter(username__iexact=username).exists()):
-        return _fail("Username is already taken.")
+        return _fail("Username is already taken.", "username")
 
     if UserProfile.objects.filter(email__iexact=email).exists():
-        return _fail("Email is already registered.")
+        return _fail("Email is already registered.", "email")
 
     if UserProfile.objects.filter(phone_number=phone).exists():
-        return _fail("Phone number is already registered.")
+        return _fail("Phone number is already registered.", "phone")
 
     # ---- voice profile ----
     try:
@@ -1694,7 +1775,99 @@ def suggestions(request):
     return render(request, "suggestions.html", {
         "suggested_users": suggested_users
     })
+DELETE_REASONS = [
+    ("privacy", "I have privacy concerns"),
+    ("not_useful", "I don't find VoxHub useful"),
+    ("too_much_time", "I'm spending too much time on it"),
+    ("other_account", "I have another account"),
+    ("moderation", "Problems with moderation / AI comment checks"),
+    ("bugs", "Technical issues or bugs"),
+    ("other", "Other"),
+]
 
+
+def _media_refs(profile):
+    """(storage, file name) for every uploaded file owned by this profile."""
+    refs = []
+
+    def add(f):
+        if f and f.name:
+            refs.append((f.storage, f.name))
+
+    add(profile.profile_image)
+    add(profile.original_user)          # registration face photo
+
+    for post in User_posts.objects.filter(USER=profile):
+        add(post.photo)
+        add(post.masked_photo)
+        add(post.original_photo)        # private original
+
+    return refs
+
+
+@login_required(login_url="login")
+def delete_account_confirm(request):
+    # Real User row (request.user is a lazy wrapper that logout() replaces)
+    user = User.objects.get(pk=request.user.pk)
+    profile = get_object_or_404(UserProfile, LOGIN=user)
+
+    needs_password = user.has_usable_password()
+    errors = []
+    form = {"reason": "", "details": ""}
+
+    if request.method == "POST":
+        reason = request.POST.get("reason", "")
+        details = request.POST.get("details", "").strip()
+        password = request.POST.get("password", "")
+        confirm_text = request.POST.get("confirm_text", "").strip()
+        agreed = request.POST.get("agree") == "on"
+        form = {"reason": reason, "details": details}
+
+        if reason not in dict(DELETE_REASONS):
+            errors.append("Please select a reason for leaving.")
+        if reason == "other" and len(details) < 5:
+            errors.append("Please tell us a little more about your reason.")
+        if needs_password and not user.check_password(password):
+            errors.append("The password you entered is incorrect.")
+        if confirm_text != "DELETE":
+            errors.append('Please type "DELETE" exactly to confirm.')
+        if not agreed:
+            errors.append("You must acknowledge that this action is permanent.")
+
+        if not errors:
+            media = _media_refs(profile)       # collect BEFORE the rows are gone
+            username = user.username
+
+            def remove_files():
+                for storage, name in media:
+                    try:
+                        storage.delete(name)
+                    except Exception:
+                        logger.exception("Could not delete file %s", name)
+
+            with transaction.atomic():
+                AccountDeletionFeedback.objects.create(
+                    user_id_snapshot=user.id,
+                    username=username,
+                    reason=reason,
+                    details=details[:1000],
+                )
+                # Cascades to the profile, posts, comments, likes, messages...
+                user.delete()
+                # Files are removed only if the database delete was committed
+                transaction.on_commit(remove_files)
+
+            logout(request)                    # clear the session
+            notify_admin("security", f"User @{username} deleted their account")
+            messages.success(request, "Your account has been deleted successfully.")
+            return redirect("login")           # back to the login page
+
+    return render(request, "delete_account.html", {
+        "reasons": DELETE_REASONS,
+        "errors": errors,
+        "form": form,
+        "needs_password": needs_password,
+    })
 
 # ---------------------------------------------------------
 # Reporting a user

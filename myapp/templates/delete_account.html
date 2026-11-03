@@ -1,0 +1,163 @@
+{% extends 'user_base.html' %}
+
+{% block title %}Delete account | VoxHub{% endblock %}
+{% block app_class %}no-right{% endblock %}
+
+{% block extra_head %}
+<style>
+.delete-page { max-width: 640px; margin: 0 auto; padding: 10px 0 60px; color: var(--text); }
+.delete-page h1 { font-size: 30px; font-weight: 800; margin: 0 0 8px; letter-spacing: -1px; }
+.delete-page .sub { color: var(--muted); font-size: 14px; line-height: 1.8; margin-bottom: 22px; }
+
+.warn-box {
+    padding: 16px; border-radius: 14px; margin-bottom: 22px;
+    border: 1px solid rgba(244,114,182,.3); background: rgba(244,114,182,.06);
+    font-size: 13px; line-height: 1.8;
+}
+.warn-box ul { margin: 8px 0 0 18px; padding: 0; color: var(--muted); }
+
+.error-box {
+    padding: 14px 16px; border-radius: 12px; margin-bottom: 18px;
+    border: 1px solid rgba(244,63,94,.4); background: rgba(244,63,94,.08);
+    font-size: 13px;
+}
+.error-box ul { margin: 6px 0 0 18px; padding: 0; }
+
+.del-card {
+    border: 1px solid var(--line); background: var(--surface);
+    border-radius: 17px; padding: 20px; margin-bottom: 18px;
+}
+.del-card h2 { font-size: 15px; margin: 0 0 12px; font-weight: 800; }
+
+.reason-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 12px; margin-bottom: 7px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 11px;
+    background: var(--surface-2); font-size: 13px;
+}
+.reason-option:hover { border-color: var(--accent); }
+.reason-option input { accent-color: var(--accent); }
+
+.del-input, .del-textarea {
+    width: 100%; padding: 11px 13px; border-radius: 11px;
+    border: 1px solid var(--line); background: var(--surface-2);
+    color: var(--text); font: inherit; font-size: 13px; box-sizing: border-box;
+}
+.del-textarea { min-height: 90px; resize: vertical; margin-top: 10px; }
+.del-label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; }
+
+.agree-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.7; margin-top: 14px; }
+.agree-row input { margin-top: 4px; accent-color: var(--pink); }
+
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-cancel, .btn-delete {
+    padding: 12px 20px; border-radius: 11px; font-size: 13px; font-weight: 800;
+    border: 1px solid var(--line); cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-cancel { background: var(--surface-2); color: var(--text); flex: 1; }
+.btn-delete { background: #e11d48; color: #fff; border: none; flex: 1; }
+.btn-delete:disabled { opacity: .4; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-page">
+    <h1>Delete account</h1>
+    <p class="sub">We're sorry to see you go. Please tell us why and confirm your decision.</p>
+
+    <div class="warn-box">
+        <strong>⚠️ This action is permanent and cannot be undone.</strong>
+        <ul>
+            <li>Your profile, posts, comments and messages will be deleted.</li>
+            <li>Your saved and liked posts will be removed.</li>
+            <li>You will not be able to recover this account.</li>
+        </ul>
+    </div>
+
+    {% if errors %}
+    <div class="error-box">
+        <strong>Please fix the following:</strong>
+        <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <form method="POST" id="deleteForm" autocomplete="off">
+        {% csrf_token %}
+
+        <!-- Step 1: reason -->
+        <div class="del-card">
+            <h2>1. Why are you leaving?</h2>
+            {% for value, label in reasons %}
+            <label class="reason-option">
+                <input type="radio" name="reason" value="{{ value }}"
+                       {% if form.reason == value %}checked{% endif %}>
+                {{ label }}
+            </label>
+            {% endfor %}
+
+            <textarea name="details" class="del-textarea" maxlength="1000"
+                      placeholder="Anything else you'd like to share? (required if you chose 'Other')">{{ form.details }}</textarea>
+        </div>
+
+        <!-- Step 2: confirm identity -->
+        <div class="del-card">
+            <h2>2. Confirm it's you</h2>
+
+            {% if needs_password %}
+            <label class="del-label" for="password">Enter your password</label>
+            <input type="password" id="password" name="password" class="del-input"
+                   autocomplete="current-password">
+            {% endif %}
+
+            <label class="del-label" for="confirm_text">
+                Type <strong>DELETE</strong> to confirm
+            </label>
+            <input type="text" id="confirm_text" name="confirm_text" class="del-input"
+                   placeholder="DELETE">
+
+            <label class="agree-row">
+                <input type="checkbox" name="agree" id="agree">
+                <span>I understand that my account and all associated data will be permanently deleted.</span>
+            </label>
+        </div>
+
+        <div class="btn-row">
+            <a href="/myapp/user_home/" class="btn-cancel">Keep my account</a>
+            <button type="submit" id="deleteBtn" class="btn-delete" disabled>Delete my account</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const form = document.getElementById("deleteForm");
+    const btn = document.getElementById("deleteBtn");
+    const confirmText = document.getElementById("confirm_text");
+    const agree = document.getElementById("agree");
+    const password = document.getElementById("password");
+
+    function check() {
+        const reasonChosen = form.querySelector('input[name="reason"]:checked');
+        const ok =
+            reasonChosen &&
+            confirmText.value.trim() === "DELETE" &&
+            agree.checked &&
+            (!password || password.value.length > 0);
+        btn.disabled = !ok;
+    }
+
+    form.addEventListener("input", check);
+    form.addEventListener("change", check);
+    check();
+
+    form.addEventListener("submit", function (e) {
+        if (!confirm("Final warning: your VoxHub account will be permanently deleted. Continue?")) {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+{% endblock %}

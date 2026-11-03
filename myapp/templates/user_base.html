@@ -470,6 +470,25 @@ if (window.matchMedia) {
         colorPreference.addListener(handleSystemThemeChange);
     }
 }
+
+</script>
+<script>
+document.addEventListener("contextmenu", function(e) {
+    e.preventDefault();
+});
+
+document.addEventListener("keydown", function(e) {
+    if (e.key === "PrintScreen") {
+        alert("Screenshots are not permitted on VoxHub.");
+    }
+
+    if (
+        (e.ctrlKey && e.key.toLowerCase() === "s") ||
+        (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s")
+    ) {
+        e.preventDefault();
+    }
+});
 </script>
 
 {% block extra_js %}{% endblock %}
