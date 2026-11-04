@@ -198,11 +198,13 @@
 </svg>
 
 <section id="homeView">
-  <div class="hv-feed" id="hvFeed">
+    <div class="hv-feed" id="hvFeed">
 
     {% for message in messages %}
       <div class="hv-flash {{ message.tags }}" role="status">{{ message }}</div>
     {% endfor %}
+
+    {% include "stories.html" %}
 
     {% for p in posts %}
     {% with mine=p.USER.LOGIN_id %}

@@ -11,6 +11,7 @@ VoxHub views, organised in this order:
     8. USER    - notifications
     9. USER    - account settings
    10. ADMIN   - auth, dashboard, users, reports, settings, notifications
+   11. USER    - stories (24-hour photos / videos)
 """
 
 # =========================================================
@@ -62,7 +63,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.timesince import timesince
 from django.utils.timezone import localtime
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 # ---- local ----
 from myapp.models import *
@@ -102,6 +103,12 @@ MAX_VIDEO_SIZE = 50 * 1024 * 1024   # 50 MB
 
 # Used by explore() to filter photos / videos
 VIDEO_RE = r'\.(mp4|webm|mov|ogg)$'
+
+# ---- stories ----
+STORY_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+STORY_VIDEO_TYPES = {"video/mp4", "video/webm", "video/quicktime"}
+STORY_MAX_IMAGE_MB = 8
+STORY_MAX_VIDEO_MB = 30
 
 # ---- admin notifications ----
 NOTIFY_KINDS = ("new_user", "report", "security")
@@ -1802,6 +1809,10 @@ def _media_refs(profile):
         add(post.masked_photo)
         add(post.original_photo)        # private original
 
+    # story files too (they are deleted with the account)
+    for story in Story.objects.filter(USER=profile):
+        add(story.media)
+
     return refs
 
 
@@ -2513,7 +2524,6 @@ def change_password(request):
                 return redirect("change_password")
 
     return render(request, "change_password.html")
-
 
 # =========================================================
 # 10. ADMIN
@@ -3240,3 +3250,180 @@ def admin_notifications_read(request):
 
     updated = unread.update(is_read=True)
     return JsonResponse({"success": True, "updated": updated})
+
+
+# =========================================================
+# 11. USER - STORIES (photos / videos that disappear after 24 hours)
+# =========================================================
+
+def _my_profile(request):
+    return get_object_or_404(UserProfile, LOGIN=request.user)
+
+
+def visible_story_users(me):
+    """Me + people I follow (request accepted), excluding banned accounts."""
+    following = Follow.objects.filter(
+        FOLLOWER=me, status="accepted"
+    ).values_list("FOLLOWING_id", flat=True)
+
+    return UserProfile.objects.filter(
+        Q(id__in=following) | Q(id=me.id),
+        LOGIN__is_active=True,
+    )
+
+
+@login_required(login_url="login")
+@require_GET
+def story_feed(request):
+    """The row of story circles (one query for all stories, grouped here)."""
+    me = _my_profile(request)
+    seen = StoryView.objects.filter(story=OuterRef("pk"), viewer=me)
+
+    rows = (
+        Story.objects
+        .filter(expires_at__gt=timezone.now(), USER__in=visible_story_users(me))
+        .select_related("USER")
+        .annotate(seen=Exists(seen))
+        .order_by("created_at")
+    )
+
+    grouped = {}
+    for s in rows:
+        g = grouped.setdefault(s.USER_id, {
+            "id": s.USER_id,
+            "username": s.USER.username,
+            "avatar": s.USER.profile_image.url if s.USER.profile_image else "",
+            "is_me": s.USER_id == me.id,
+            "all_seen": True,
+            "latest": 0,
+        })
+        # my own stories never create a "view", so they count as seen
+        g["all_seen"] = g["all_seen"] and (s.seen or g["is_me"])
+        g["latest"] = max(g["latest"], s.created_at.timestamp())
+
+    # me first, then unseen, then seen (newest first)
+    users = sorted(
+        grouped.values(),
+        key=lambda x: (not x["is_me"], x["all_seen"], -x["latest"]),
+    )
+    return JsonResponse({
+        "users": users,
+        # my own details are always sent, so "Your story" can show my photo
+        # even when I have no story yet
+        "me": {
+            "id": me.id,
+            "username": me.username,
+            "avatar": me.profile_image.url if me.profile_image else "",
+        },
+    })
+
+
+@login_required(login_url="login")
+@require_GET
+def user_stories(request, user_id):
+    me = _my_profile(request)
+    owner = get_object_or_404(visible_story_users(me), id=user_id)
+
+    stories = list(
+        Story.objects
+        .filter(USER=owner, expires_at__gt=timezone.now())
+        .order_by("created_at")
+    )
+    seen_ids = set(
+        StoryView.objects.filter(viewer=me, story__in=stories)
+        .values_list("story_id", flat=True)
+    )
+    is_owner = owner.id == me.id
+
+    return JsonResponse({"stories": [{
+        "id": s.id,
+        "url": s.media.url,
+        "type": s.media_type,
+        "caption": s.caption,
+        "time": s.created_at.isoformat(),
+        "seen": s.id in seen_ids,
+        "views": s.views.count() if is_owner else None,
+    } for s in stories]})
+
+
+@login_required(login_url="login")
+@require_POST
+def story_upload(request):
+    me = _my_profile(request)
+    f = request.FILES.get("media")
+    caption = request.POST.get("caption", "").strip()[:100]
+
+    if not f:
+        return JsonResponse({"success": False, "message": "No file selected."})
+
+    ext = os.path.splitext(f.name)[1].lower()
+    content_type = (f.content_type or "").lower()
+
+    if content_type in STORY_IMAGE_TYPES and ext in IMAGE_EXTENSIONS:
+        kind, limit = "image", STORY_MAX_IMAGE_MB
+    elif content_type in STORY_VIDEO_TYPES and ext in VIDEO_EXTENSIONS:
+        kind, limit = "video", STORY_MAX_VIDEO_MB
+    else:
+        return JsonResponse({
+            "success": False,
+            "message": "Only JPG, PNG, WEBP, MP4 or WEBM files are allowed.",
+        })
+
+    if f.size > limit * 1024 * 1024:
+        return JsonResponse({
+            "success": False,
+            "message": f"File is too large (max {limit} MB).",
+        })
+
+    # make sure an "image" really is an image, not a renamed file
+    if kind == "image":
+        data = f.read()
+        f.seek(0)
+        if cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) is None:
+            return JsonResponse({"success": False, "message": "This is not a valid image."})
+
+    f.name = f"story_{uuid.uuid4().hex}{ext}"        # never keep the user's file name
+
+    Story.objects.create(USER=me, media=f, media_type=kind, caption=caption)
+    return JsonResponse({"success": True})
+
+
+@login_required(login_url="login")
+@require_POST
+def story_view(request, story_id):
+    """Called when someone opens a story, so the owner can see who viewed it."""
+    me = _my_profile(request)
+    story = get_object_or_404(
+        Story, id=story_id, expires_at__gt=timezone.now(),
+        USER__in=visible_story_users(me),               # can't view stories you can't see
+    )
+    if story.USER_id != me.id:
+        StoryView.objects.get_or_create(story=story, viewer=me)
+    return JsonResponse({"success": True})
+
+
+@login_required(login_url="login")
+@require_GET
+def story_viewers(request, story_id):
+    me = _my_profile(request)
+    story = get_object_or_404(Story, id=story_id, USER=me)          # owner only
+
+    return JsonResponse({"viewers": [{
+        "username": v.viewer.username,
+        "avatar": v.viewer.profile_image.url if v.viewer.profile_image else "",
+        "time": v.viewed_at.isoformat(),
+    } for v in story.views.select_related("viewer").order_by("-viewed_at")]})
+
+
+@login_required(login_url="login")
+@require_POST
+def story_delete(request, story_id):
+    me = _my_profile(request)
+    story = get_object_or_404(Story, id=story_id, USER=me)
+
+    storage, name = story.media.storage, story.media.name
+    with transaction.atomic():
+        story.delete()
+        transaction.on_commit(lambda: storage.delete(name) if name else None)
+
+    return JsonResponse({"success": True})

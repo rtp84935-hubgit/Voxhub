@@ -27,6 +27,7 @@ from django.contrib.auth.models import User
 from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.utils import timezone
+from datetime import datetime, timedelta
 
 
 # =========================================================
@@ -421,3 +422,33 @@ class AccountDeletionFeedback(models.Model):
 
     def __str__(self):
         return f"{self.username} - {self.reason}"
+
+
+def story_expiry():
+    return timezone.now() + timedelta(hours=24)
+
+class Story(models.Model):
+    MEDIA_CHOICES = (("image", "Image"), ("video", "Video"))
+
+    USER = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="stories")
+    media = models.FileField(upload_to="stories/")
+    media_type = models.CharField(max_length=5, choices=MEDIA_CHOICES)
+    caption = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=story_expiry, db_index=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    @property
+    def is_active(self):
+        return self.expires_at > timezone.now()
+
+
+class StoryView(models.Model):
+    story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="views")
+    viewer = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="story_views")
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("story", "viewer")

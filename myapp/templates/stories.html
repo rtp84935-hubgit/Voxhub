@@ -1,0 +1,1367 @@
+{# templates/stories.html - included from user_home.html #}
+
+<style>
+    /* =====================================================
+       STORY BAR
+       ===================================================== */
+    .story-bar {
+        display: flex; gap: 16px; overflow-x: auto;
+        padding: 14px 4px; margin-bottom: 18px;
+        scrollbar-width: none;
+    }
+    .story-bar::-webkit-scrollbar { display: none; }
+
+    .story-item { flex: 0 0 auto; width: 72px; text-align: center; cursor: pointer; }
+
+    .story-ring {
+        width: 68px; height: 68px; border-radius: 50%; padding: 3px; margin: auto;
+        background: linear-gradient(45deg, #fbbf24, #f43f5e, #7c6cff);
+        position: relative;
+    }
+    .story-ring.seen { background: var(--line, #3a4266); }
+    .story-ring.add  { background: var(--line, #272e49); }
+
+    .story-ring img {
+        width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+        border: 3px solid var(--bg, #0b0e1a); background: var(--surface-2, #1a2036); display: block;
+    }
+    .story-plus {
+        position: absolute; right: -2px; bottom: -2px;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: var(--accent, #7c6cff); color: #fff; font-weight: 800;
+        line-height: 18px; font-size: 16px; text-align: center; padding: 0; margin: 0;
+        border: 2px solid var(--bg, #0b0e1a); cursor: pointer; box-shadow: none;
+    }
+    .story-plus:hover { filter: brightness(1.15); transform: scale(1.1); }
+    .story-name {
+        font-size: 12px; margin-top: 6px; color: var(--muted, #c5cae6);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* =====================================================
+       FULLSCREEN VIEWER
+       ===================================================== */
+    #storyViewer {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, .94);
+        display: none; align-items: center; justify-content: center;
+    }
+    #storyViewer.open { display: flex; }
+
+    .sv-card {
+        position: relative; width: min(420px, 100vw); height: min(780px, 100vh);
+        background: #000; border-radius: 16px; overflow: hidden; user-select: none;
+    }
+    @media (max-width: 500px) { .sv-card { border-radius: 0; height: 100vh; } }
+
+    .sv-media { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+
+    .sv-bars { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
+    .sv-bar { flex: 1; height: 3px; background: rgba(255, 255, 255, .35); border-radius: 3px; overflow: hidden; }
+    .sv-bar > i { display: block; height: 100%; width: 0; background: #fff; }
+
+    .sv-head {
+        position: absolute; top: 22px; left: 12px; right: 12px; z-index: 4;
+        display: flex; align-items: center; gap: 10px;
+        color: #fff; font-weight: 700; font-size: 14px;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+    }
+    .sv-head img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+    .sv-head a { color: #fff; text-decoration: none; display: flex; align-items: center; }
+    #svUser:hover { text-decoration: underline; }
+    .sv-head small { font-weight: 500; opacity: .8; }
+    .sv-spacer { flex: 1; }
+    .sv-head button {
+        background: none; border: none; color: #fff; font-size: 22px; cursor: pointer;
+        margin: 0; padding: 4px 8px; box-shadow: none;
+    }
+
+    .sv-caption {
+        position: absolute; left: 0; right: 0; bottom: 64px; z-index: 3;
+        text-align: center; color: #fff; padding: 0 16px; font-weight: 600;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, .9);
+    }
+    .sv-foot { position: absolute; left: 0; right: 0; bottom: 12px; z-index: 3; text-align: center; }
+    .sv-foot button {
+        background: rgba(255, 255, 255, .16); color: #fff; border: none; box-shadow: none;
+        padding: 8px 16px; border-radius: 20px; font-size: 13px; margin: 0; cursor: pointer;
+    }
+
+    .sv-tap { position: absolute; top: 70px; bottom: 70px; width: 35%; z-index: 2; cursor: pointer; }
+    .sv-tap.left { left: 0; }
+    .sv-tap.right { right: 0; }
+
+    #svViewers {
+        position: absolute; left: 0; right: 0; bottom: 0; max-height: 55%; overflow: auto; z-index: 6;
+        background: #131829; border-radius: 16px 16px 0 0; padding: 14px; display: none; color: #e8eaf6;
+    }
+    #svViewers.open { display: block; }
+    .sv-viewer { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+    .sv-viewer img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+
+    /* =====================================================
+       VIDEO UPLOAD DIALOG (videos are uploaded as they are)
+       ===================================================== */
+    #storyUploadModal {
+        position: fixed; inset: 0; z-index: 9998; background: rgba(0, 0, 0, .7);
+        display: none; align-items: center; justify-content: center;
+    }
+    #storyUploadModal.open { display: flex; }
+    .su-box {
+        background: #131829; border: 1px solid #272e49; border-radius: 16px;
+        padding: 22px; width: min(380px, 92vw); color: #e8eaf6;
+    }
+    .su-box input[type=text] {
+        width: 100%; margin-top: 10px; padding: 10px; border-radius: 10px;
+        background: #1a2036; border: 1px solid #272e49; color: #e8eaf6;
+    }
+    #suPreviewVideo {
+        width: 100%; max-height: 260px; object-fit: contain; margin-top: 12px;
+        border-radius: 10px; background: #000; display: block;
+    }
+    #suMsg { margin-top: 10px; font-weight: 600; font-size: 14px; }
+    .su-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+    .su-actions button { margin: 0; }
+    #suCancel { background: #1a2036; border: 1px solid #272e49; box-shadow: none; color: #e8eaf6; }
+
+    /* =====================================================
+       STORY EDITOR (photos)
+       ===================================================== */
+    #storyEditor {
+        position: fixed; inset: 0; z-index: 9998; background: #000;
+        display: none; align-items: center; justify-content: center;
+        color: #fff; touch-action: none;
+    }
+    #storyEditor.open { display: flex; }
+
+    .ed-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+    .ed-stage {
+        position: relative; overflow: hidden; background: #000; border-radius: 16px;
+        width: min(100vw, calc((100vh - 84px) * 0.5625), 461px);
+        aspect-ratio: 9 / 16;
+    }
+    #edCanvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+    #edCanvas.draw { cursor: crosshair; }
+
+    .ed-top {
+        position: absolute; top: 10px; left: 10px; right: 10px; z-index: 5;
+        display: flex; align-items: center; gap: 8px; pointer-events: none;
+    }
+    .ed-top > * { pointer-events: auto; }
+    .ed-spacer { flex: 1; }
+
+    .ed-btn {
+        width: 42px; height: 42px; border-radius: 50%; border: none; padding: 0; margin: 0;
+        background: rgba(0, 0, 0, .5); color: #fff; font-size: 18px; font-weight: 800;
+        cursor: pointer; backdrop-filter: blur(6px); box-shadow: none;
+        display: grid; place-items: center;
+    }
+    .ed-btn:hover { background: rgba(255, 255, 255, .22); }
+    .ed-btn.active { background: #fff; color: #000; }
+
+    .ed-trash {
+        position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+        width: 56px; height: 56px; border-radius: 50%; z-index: 5;
+        background: rgba(0, 0, 0, .6); display: none; place-items: center; font-size: 24px;
+        border: 2px solid rgba(255, 255, 255, .5);
+    }
+    .ed-trash.show { display: grid; }
+    .ed-trash.hot { background: #ef4444; transform: translateX(-50%) scale(1.2); }
+
+    .ed-panel {
+        position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: none;
+        padding: 12px 12px 14px; background: rgba(10, 12, 24, .82); backdrop-filter: blur(10px);
+    }
+    .ed-panel.show { display: block; }
+
+    .ed-filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+    .ed-filters::-webkit-scrollbar { display: none; }
+    .ed-filter { flex: 0 0 auto; width: 58px; text-align: center; cursor: pointer; font-size: 11px; color: #c5cae6; }
+    .ed-filter canvas { width: 58px; height: 80px; border-radius: 10px; display: block; border: 2px solid transparent; background: #1a2036; }
+    .ed-filter.active canvas { border-color: #fff; }
+    .ed-filter.active { color: #fff; font-weight: 700; }
+
+    .ed-slider { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 12px; color: #c5cae6; }
+    .ed-slider span { width: 74px; }
+    .ed-slider input[type=range] { flex: 1; accent-color: #fff; margin: 0; }
+
+    .ed-emoji { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; max-height: 190px; overflow-y: auto; }
+    .ed-emoji button {
+        font-size: 28px; padding: 6px 0; border: none; border-radius: 10px; margin: 0;
+        background: transparent; cursor: pointer; box-shadow: none; line-height: 1.2;
+    }
+    .ed-emoji button:hover { background: rgba(255, 255, 255, .14); }
+
+    .ed-colors { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .ed-color {
+        width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .6);
+        padding: 0; margin: 0; cursor: pointer; box-shadow: none;
+    }
+    .ed-color.active { border-color: #fff; transform: scale(1.2); box-shadow: 0 0 0 2px rgba(255, 255, 255, .35); }
+    .ed-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .ed-row .ed-slider { flex: 1; margin: 0; }
+    .ed-pill {
+        padding: 8px 14px; border-radius: 18px; border: none; margin: 0; cursor: pointer;
+        background: rgba(255, 255, 255, .16); color: #fff; font-size: 13px; font-weight: 700; box-shadow: none;
+    }
+    .ed-pill:disabled { opacity: .4; cursor: default; }
+    .ed-pill.primary { background: #fff; color: #000; }
+
+    .ed-text {
+        position: absolute; inset: 0; z-index: 8; display: none; flex-direction: column;
+        background: rgba(0, 0, 0, .78); padding: 14px;
+    }
+    .ed-text.show { display: flex; }
+    .ed-text-top { display: flex; align-items: center; gap: 8px; }
+    #edTextArea {
+        flex: 1; width: 100%; margin: 12px 0; padding: 10px; resize: none; border: none; outline: none;
+        background: transparent; color: #fff; text-align: center; font-size: 30px; line-height: 1.3;
+        display: block;
+    }
+
+    .ed-bottom {
+        display: flex; gap: 8px; align-items: center; width: min(100vw, 461px); padding: 0 10px 10px;
+    }
+    .ed-bottom input {
+        flex: 1; min-width: 0; padding: 11px 14px; border-radius: 22px; border: 1px solid rgba(255, 255, 255, .25);
+        background: rgba(255, 255, 255, .1); color: #fff; font-size: 14px;
+    }
+    .ed-bottom input::placeholder { color: rgba(255, 255, 255, .6); }
+    .ed-bottom button { margin: 0; white-space: nowrap; }
+    #edMsg { position: absolute; left: 0; right: 0; bottom: 74px; z-index: 7; text-align: center; font-size: 13px; font-weight: 700; padding: 0 14px; }
+
+    @media (max-width: 500px) { .ed-stage { border-radius: 0; } }
+    @media (prefers-reduced-motion: reduce) { .sv-bar > i { transition: none; } }
+</style>
+
+<div style="display:none">{% csrf_token %}</div>
+
+<!-- story circles -->
+<div class="story-bar" id="storyBar" aria-label="Stories"></div>
+
+<input type="file" id="storyFile" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" hidden>
+
+<!-- ===================== STORY EDITOR (photos) ===================== -->
+<div id="storyEditor" role="dialog" aria-modal="true" aria-label="Edit your story">
+    <div class="ed-wrap">
+
+        <div class="ed-stage" id="edStage">
+            <canvas id="edCanvas" width="1080" height="1920"></canvas>
+
+            <div class="ed-top">
+                <button type="button" class="ed-btn" id="edClose" title="Close">&times;</button>
+                <span class="ed-spacer"></span>
+                <button type="button" class="ed-btn" id="edFit" title="Fill / fit the photo">&#10530;</button>
+                <button type="button" class="ed-btn" data-tool="text" title="Add text">Aa</button>
+                <button type="button" class="ed-btn" data-tool="sticker" title="Add sticker">&#9786;</button>
+                <button type="button" class="ed-btn" data-tool="draw" title="Draw">&#9998;</button>
+                <button type="button" class="ed-btn" data-tool="filter" title="Filters">&#10022;</button>
+            </div>
+
+            <div class="ed-trash" id="edTrash">&#128465;</div>
+
+            <!-- filters + adjustments -->
+            <div class="ed-panel" id="pnlFilter">
+                <div class="ed-filters" id="edFilters"></div>
+                <div class="ed-slider"><span>Brightness</span><input type="range" id="adjB" min="60" max="140" value="100"></div>
+                <div class="ed-slider"><span>Contrast</span><input type="range" id="adjC" min="60" max="140" value="100"></div>
+                <div class="ed-slider"><span>Saturation</span><input type="range" id="adjS" min="0" max="200" value="100"></div>
+            </div>
+
+            <!-- stickers -->
+            <div class="ed-panel" id="pnlSticker">
+                <div class="ed-emoji" id="edEmoji"></div>
+            </div>
+
+            <!-- drawing -->
+            <div class="ed-panel" id="pnlDraw">
+                <div class="ed-colors" id="edPenColors"></div>
+                <div class="ed-row">
+                    <div class="ed-slider"><span>Brush size</span><input type="range" id="penSize" min="4" max="48" value="14"></div>
+                    <button type="button" class="ed-pill" id="edUndo" disabled>Undo</button>
+                    <button type="button" class="ed-pill primary" id="edDrawDone">Done</button>
+                </div>
+            </div>
+
+            <!-- text editor -->
+            <div class="ed-text" id="edText">
+                <div class="ed-text-top">
+                    <button type="button" class="ed-pill" id="edTextBg">Highlight</button>
+                    <button type="button" class="ed-pill" id="edTextFont">Font</button>
+                    <span class="ed-spacer"></span>
+                    <button type="button" class="ed-pill primary" id="edTextDone">Done</button>
+                </div>
+                <textarea id="edTextArea" maxlength="120" rows="3" placeholder="Type something..."></textarea>
+                <div class="ed-colors" id="edTextColors"></div>
+            </div>
+
+            <div id="edMsg"></div>
+        </div>
+
+        <div class="ed-bottom">
+            <input type="text" id="edCaption" maxlength="100" placeholder="Add a caption (optional)">
+            <button type="button" class="ed-pill primary" id="edShare">Share to story</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===================== VIDEO UPLOAD DIALOG ===================== -->
+<div id="storyUploadModal" role="dialog" aria-modal="true" aria-label="Add a video to your story">
+    <div class="su-box">
+        <strong>Add a video to your story</strong>
+        <video id="suPreviewVideo" muted controls playsinline></video>
+        <input type="text" id="suCaption" maxlength="100" placeholder="Add a caption (optional)">
+        <div id="suMsg"></div>
+        <div class="su-actions">
+            <button type="button" id="suCancel">Cancel</button>
+            <button type="button" id="suPost">Share</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== FULLSCREEN VIEWER ===================== -->
+<div id="storyViewer" role="dialog" aria-modal="true" aria-label="Story viewer">
+    <div class="sv-card" id="svCard">
+        <div class="sv-bars" id="svBars"></div>
+
+        <div class="sv-head">
+            <a id="svAvatarLink" href="#" title="View profile"><img id="svAvatar" alt=""></a>
+            <a id="svUser" href="#" title="View profile"></a>
+            <small id="svTime"></small>
+            <span class="sv-spacer"></span>
+            <button type="button" id="svDelete" title="Delete story" style="display:none;">&#128465;</button>
+            <button type="button" id="svClose" title="Close">&times;</button>
+        </div>
+
+        <div id="svMediaWrap" style="width:100%;height:100%;"></div>
+
+        <div class="sv-tap left" id="svPrev"></div>
+        <div class="sv-tap right" id="svNext"></div>
+
+        <div class="sv-caption" id="svCaption"></div>
+        <div class="sv-foot">
+            <button type="button" id="svViewersBtn" style="display:none;"></button>
+        </div>
+
+        <div id="svViewers"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+
+    const $s = (id) => document.getElementById(id);
+
+    // URLs come from Django, so they always match your urls.py.
+    // The 0 is a placeholder that is replaced with the real id.
+    const URLS = {
+        feed:    "{% url 'story_feed' %}",
+        upload:  "{% url 'story_upload' %}",
+        user:    (id) => "{% url 'user_stories' 0 %}".replace(/0\/$/, id + "/"),
+        view:    (id) => "{% url 'story_view' 0 %}".replace(/0\/(view\/)?$/, id + "/view/"),
+        viewers: (id) => "{% url 'story_viewers' 0 %}".replace(/0\/(viewers\/)?$/, id + "/viewers/"),
+        profile: (id) => "{% url 'view_profile' 0 %}".replace(/0(\/?)$/, id + "$1"),
+        del:     (id) => "{% url 'story_delete' 0 %}".replace(/0\/(delete\/)?$/, id + "/delete/")
+    };
+
+    const IMAGE_MS = 5000;
+    const MAX_VIDEO_SECONDS = 30;
+    const MAX_IMAGE_MB = 8;
+    const MAX_VIDEO_MB = 30;
+
+    const FALLBACK = "data:image/svg+xml;utf8," + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#272e49"/></svg>');
+
+    // ---------- helpers ----------
+    function csrf() {
+        const input = document.querySelector("input[name=csrfmiddlewaretoken]");
+        if (input && input.value) return input.value;
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : "";
+    }
+
+    async function post(url, body) {
+        const r = await fetch(url, { method: "POST", body: body || null, headers: { "X-CSRFToken": csrf() } });
+        return r.json();
+    }
+
+    function esc(t) {
+        const d = document.createElement("div");
+        d.textContent = t == null ? "" : t;
+        return d.innerHTML;
+    }
+
+    function ago(iso) {
+        const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+        if (m < 1) return "now";
+        if (m < 60) return m + "m";
+        return Math.floor(m / 60) + "h";
+    }
+
+    // =====================================================
+    // STORY BAR
+    // =====================================================
+
+    let feedUsers = [];
+
+    async function loadFeed() {
+        let data;
+        try {
+            data = await (await fetch(URLS.feed)).json();
+        } catch (e) {
+            console.error("Could not load stories", e);
+            return;
+        }
+
+        feedUsers = data.users || [];
+        const bar = $s("storyBar");
+        bar.innerHTML = "";
+
+        const me = feedUsers.find(u => u.is_me);          // set only when I have a story
+        const meInfo = data.me || {};                      // always set (my photo)
+        const myAvatar = (me && me.avatar) || meInfo.avatar || "";
+
+        // ONE "Your story" circle:
+        //   - my photo is always shown
+        //   - the + badge always adds a new story
+        //   - tapping the circle opens my story (or the picker if I have none)
+        const mine = document.createElement("div");
+        mine.className = "story-item";
+        mine.innerHTML =
+            '<div class="story-ring ' + (me ? (me.all_seen ? "seen" : "") : "add") + '">' +
+                '<img src="' + esc(myAvatar || FALLBACK) + '" alt="">' +
+                '<button type="button" class="story-plus" title="Add to your story" aria-label="Add to your story">+</button>' +
+            '</div><div class="story-name">Your story</div>';
+
+        mine.onclick = () => me ? openViewer(feedUsers.indexOf(me)) : $s("storyFile").click();
+        mine.querySelector(".story-plus").onclick = (e) => {
+            e.stopPropagation();                           // do not open the story
+            $s("storyFile").click();
+        };
+        bar.appendChild(mine);
+
+        feedUsers.forEach((u, i) => {
+            if (u.is_me) return;
+            const el = document.createElement("div");
+            el.className = "story-item";
+            el.innerHTML =
+                '<div class="story-ring ' + (u.all_seen ? "seen" : "") + '">' +
+                    '<img src="' + esc(u.avatar || FALLBACK) + '" alt=""></div>' +
+                '<div class="story-name">' + esc(u.username) + '</div>';
+            el.onclick = () => openViewer(i);
+            bar.appendChild(el);
+        });
+    }
+
+    // =====================================================
+    // PICKING A FILE  ->  photo = editor, video = simple dialog
+    // =====================================================
+
+    $s("storyFile").addEventListener("change", function () {
+        const f = this.files[0];
+        this.value = "";
+        if (!f) return;
+
+        const isVideo = f.type.startsWith("video/");
+        const isImage = f.type.startsWith("image/");
+
+        if (!isVideo && !isImage) return alert("Please choose an image or a video.");
+
+        const limit = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
+        if (f.size > limit * 1024 * 1024) return alert("File is too large (max " + limit + " MB).");
+
+        if (isImage) openEditor(f);
+        else openVideoDialog(f);
+    });
+
+    // ---------- video dialog (videos are uploaded as they are) ----------
+    let pickedVideo = null;
+
+    function openVideoDialog(f) {
+        const vid = $s("suPreviewVideo");
+        vid.src = URL.createObjectURL(f);
+        vid.onloadedmetadata = () => {
+            if (vid.duration > MAX_VIDEO_SECONDS + 0.5) {
+                alert("Video must be " + MAX_VIDEO_SECONDS + " seconds or shorter.");
+                return;
+            }
+            pickedVideo = f;
+            $s("suMsg").textContent = "";
+            $s("suCaption").value = "";
+            $s("storyUploadModal").classList.add("open");
+        };
+    }
+
+    function closeVideoDialog() {
+        $s("storyUploadModal").classList.remove("open");
+        $s("suPreviewVideo").pause();
+        pickedVideo = null;
+    }
+    $s("suCancel").onclick = closeVideoDialog;
+
+    $s("suPost").onclick = async function () {
+        if (!pickedVideo) return;
+
+        const btn = this, msg = $s("suMsg");
+        btn.disabled = true;
+        msg.style.color = "#e8eaf6";
+        msg.textContent = "Uploading...";
+
+        const fd = new FormData();
+        fd.append("media", pickedVideo);
+        fd.append("caption", $s("suCaption").value);
+
+        try {
+            const data = await post(URLS.upload, fd);
+            if (data.success) { closeVideoDialog(); loadFeed(); }
+            else { msg.style.color = "#f87171"; msg.textContent = data.message || "Upload failed."; }
+        } catch (e) {
+            msg.style.color = "#f87171";
+            msg.textContent = "Upload failed. Please try again.";
+        }
+        btn.disabled = false;
+    };
+
+    // =====================================================
+    // STORY EDITOR  (zoom / pan, filters, text, stickers, drawing)
+    // =====================================================
+
+    const W = 1080, H = 1920;                     // the story is always 9:16
+    const cv = $s("edCanvas");
+    const cx = cv.getContext("2d");
+
+    const FONTS = [
+        'system-ui, "Segoe UI", Arial, sans-serif',
+        'Georgia, "Times New Roman", serif',
+        '"Courier New", monospace',
+        '"Brush Script MT", "Segoe Script", cursive'
+    ];
+    const FONT_NAMES = ["Classic", "Serif", "Mono", "Script"];
+    const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    const COLORS = ["#ffffff", "#000000", "#f43f5e", "#fbbf24", "#34d399", "#22d3ee", "#7c6cff", "#f472b6", "#fb923c"];
+    const EMOJIS = ["😀","😍","😂","😎","🥳","😭","😡","🤔","👍","👏","🙏","💪",
+                    "🔥","✨","💯","❤️","💜","🎉","🎂","🌈","☀️","🌙","⭐","🍕",
+                    "☕","🎵","📍","🐶","🐱","🌸","🚀","💡","🎮","⚽","🏖️","📷"];
+
+    // each filter: brightness, contrast, saturate, sepia, grayscale
+    const FILTERS = [
+        { name: "Normal",   b: 1,    c: 1,    s: 1,   sep: 0,   g: 0 },
+        { name: "Vivid",    b: 1.03, c: 1.12, s: 1.45, sep: 0,  g: 0 },
+        { name: "Warm",     b: 1.05, c: 1.02, s: 1.2, sep: 0.28, g: 0 },
+        { name: "Fade",     b: 1.1,  c: 0.85, s: 0.8, sep: 0,   g: 0 },
+        { name: "Drama",    b: 0.92, c: 1.3,  s: 1.1, sep: 0,   g: 0 },
+        { name: "Mono",     b: 1,    c: 1.05, s: 1,   sep: 0,   g: 1 },
+        { name: "Noir",     b: 0.9,  c: 1.4,  s: 1,   sep: 0,   g: 1 },
+        { name: "Vintage",  b: 1.05, c: 0.92, s: 0.9, sep: 0.55, g: 0 }
+    ];
+
+    // Safari (older) has no ctx.filter, so we fall back to changing the pixels ourselves
+    const SUPPORTS_FILTER = (function () {
+        const t = document.createElement("canvas").getContext("2d");
+        return "filter" in t && t.filter === "none";
+    })();
+
+    const ED = {
+        open: false, img: null, cache: null,
+        bg: { scale: 1, x: 0, y: 0, mode: "cover" },
+        filter: 0, adj: { b: 1, c: 1, s: 1 },
+        items: [], strokes: [], cur: null, sel: null,
+        tool: null, pen: { color: "#ffffff", size: 14 },
+        editing: null, tstyle: { color: "#ffffff", bg: false, font: 0 },
+        busy: false, dirty: false
+    };
+
+    // ---------- filters ----------
+    function currentFilter(i, adj) {
+        const f = FILTERS[i];
+        return { b: f.b * adj.b, c: f.c * adj.c, s: f.s * adj.s, sep: f.sep, g: f.g };
+    }
+
+    function applyPixels(ctx, w, h, f) {
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        const sat = f.s, sm = 1 - f.sep, gm = 1 - f.g;
+
+        for (let i = 0; i < d.length; i += 4) {
+            let r = d[i] * f.b, g = d[i + 1] * f.b, b = d[i + 2] * f.b;
+
+            if (f.c !== 1) {
+                r = (r - 128) * f.c + 128; g = (g - 128) * f.c + 128; b = (b - 128) * f.c + 128;
+            }
+            if (sat !== 1) {
+                const nr = (0.213 + 0.787 * sat) * r + (0.715 - 0.715 * sat) * g + (0.072 - 0.072 * sat) * b;
+                const ng = (0.213 - 0.213 * sat) * r + (0.715 + 0.285 * sat) * g + (0.072 - 0.072 * sat) * b;
+                const nb = (0.213 - 0.213 * sat) * r + (0.715 - 0.715 * sat) * g + (0.072 + 0.928 * sat) * b;
+                r = nr; g = ng; b = nb;
+            }
+            if (f.sep > 0) {
+                const nr = (0.393 + 0.607 * sm) * r + (0.769 - 0.769 * sm) * g + (0.189 - 0.189 * sm) * b;
+                const ng = (0.349 - 0.349 * sm) * r + (0.686 + 0.314 * sm) * g + (0.168 - 0.168 * sm) * b;
+                const nb = (0.272 - 0.272 * sm) * r + (0.534 - 0.534 * sm) * g + (0.131 + 0.869 * sm) * b;
+                r = nr; g = ng; b = nb;
+            }
+            if (f.g > 0) {
+                const nr = (0.2126 + 0.7874 * gm) * r + (0.7152 - 0.7152 * gm) * g + (0.0722 - 0.0722 * gm) * b;
+                const ng = (0.2126 - 0.2126 * gm) * r + (0.7152 + 0.2848 * gm) * g + (0.0722 - 0.0722 * gm) * b;
+                const nb = (0.2126 - 0.2126 * gm) * r + (0.7152 - 0.7152 * gm) * g + (0.0722 + 0.9278 * gm) * b;
+                r = nr; g = ng; b = nb;
+            }
+            d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+            d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+            d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+        }
+        ctx.putImageData(img, 0, 0);
+    }
+
+    // draws part of `src` onto `ctx` with the filter applied
+    function paintFiltered(ctx, src, sx, sy, sw, sh, dw, dh, f) {
+        if (SUPPORTS_FILTER) {
+            ctx.filter = "brightness(" + f.b + ") contrast(" + f.c + ") saturate(" + f.s +
+                         ") sepia(" + f.sep + ") grayscale(" + f.g + ")";
+            ctx.drawImage(src, sx, sy, sw, sh, 0, 0, dw, dh);
+            ctx.filter = "none";
+        } else {
+            ctx.drawImage(src, sx, sy, sw, sh, 0, 0, dw, dh);
+            applyPixels(ctx, dw, dh, f);
+        }
+    }
+
+    let cacheQueued = false;
+    function rebuildCache() {                       // called often by the sliders, so it is batched
+        if (cacheQueued) return;
+        cacheQueued = true;
+        requestAnimationFrame(() => {
+            cacheQueued = false;
+            if (!ED.img) return;
+            const k = Math.min(1, 2000 / Math.max(ED.img.naturalWidth, ED.img.naturalHeight));
+            const w = Math.round(ED.img.naturalWidth * k), h = Math.round(ED.img.naturalHeight * k);
+
+            const c = ED.cache || document.createElement("canvas");
+            c.width = w; c.height = h;
+            const x = c.getContext("2d", { willReadFrequently: true });
+            paintFiltered(x, ED.img, 0, 0, ED.img.naturalWidth, ED.img.naturalHeight, w, h,
+                          currentFilter(ED.filter, ED.adj));
+            ED.cache = c;
+            draw();
+        });
+    }
+
+    function buildThumbs() {
+        const box = $s("edFilters");
+        box.innerHTML = "";
+
+        const iw = ED.img.naturalWidth, ih = ED.img.naturalHeight;
+        const tw = 58, th = 80;
+        const k = Math.max(tw / iw, th / ih);
+        const sw = tw / k, sh = th / k;
+        const sx = (iw - sw) / 2, sy = (ih - sh) / 2;
+
+        FILTERS.forEach((f, i) => {
+            const item = document.createElement("div");
+            item.className = "ed-filter" + (i === ED.filter ? " active" : "");
+            const c = document.createElement("canvas");
+            c.width = tw; c.height = th;
+            paintFiltered(c.getContext("2d", { willReadFrequently: true }), ED.img, sx, sy, sw, sh, tw, th,
+                          currentFilter(i, { b: 1, c: 1, s: 1 }));
+            item.appendChild(c);
+            item.appendChild(document.createTextNode(f.name));
+            item.onclick = () => {
+                ED.filter = i; ED.dirty = true;
+                box.querySelectorAll(".ed-filter").forEach(n => n.classList.remove("active"));
+                item.classList.add("active");
+                rebuildCache();
+            };
+            box.appendChild(item);
+        });
+    }
+
+    // ---------- drawing the whole story ----------
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function isLight(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6;
+    }
+
+    function drawItem(ctx, it, ui) {
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        ctx.rotate(it.r);
+        ctx.scale(it.s, it.s);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        if (it.type === "emoji") {
+            ctx.font = "150px " + EMOJI_FONT;
+            ctx.fillText(it.text, 0, 0);
+            it.w = 180; it.h = 180;
+        } else {
+            const fs = 78, lh = fs * 1.28;
+            ctx.font = (it.font === 0 ? "800 " : "600 ") + fs + "px " + FONTS[it.font];
+            const lines = it.text.split("\n");
+            let w = 0;
+            lines.forEach(l => { w = Math.max(w, ctx.measureText(l).width); });
+            const h = lh * lines.length;
+
+            if (it.bg) {
+                ctx.fillStyle = it.color;
+                roundRect(ctx, -w / 2 - 28, -h / 2 - 12, w + 56, h + 24, 26);
+                ctx.fill();
+                ctx.fillStyle = isLight(it.color) ? "#111111" : "#ffffff";
+            } else {
+                ctx.fillStyle = it.color;
+                ctx.shadowColor = "rgba(0,0,0,.5)";
+                ctx.shadowBlur = 14;
+            }
+            lines.forEach((l, i) => ctx.fillText(l, 0, -h / 2 + lh * (i + 0.5)));
+            ctx.shadowBlur = 0;
+            it.w = w + 56; it.h = h + 24;
+        }
+
+        if (ui && it === ED.sel) {                     // selection box (never exported)
+            ctx.setLineDash([16, 10]);
+            ctx.strokeStyle = "rgba(255,255,255,.95)";
+            ctx.lineWidth = 3 / it.s;
+            ctx.strokeRect(-it.w / 2, -it.h / 2, it.w, it.h);
+        }
+        ctx.restore();
+    }
+
+    function render(ctx, ui) {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, W, H);
+
+        if (ED.cache) {
+            const iw = ED.cache.width, ih = ED.cache.height;
+            const base = ED.bg.mode === "cover" ? Math.max(W / iw, H / ih) : Math.min(W / iw, H / ih);
+            const s = base * ED.bg.scale;
+            ctx.save();
+            ctx.translate(W / 2 + ED.bg.x, H / 2 + ED.bg.y);
+            ctx.scale(s, s);
+            ctx.drawImage(ED.cache, -iw / 2, -ih / 2);
+            ctx.restore();
+        }
+
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ED.strokes.forEach(st => {
+            ctx.strokeStyle = st.color;
+            ctx.fillStyle = st.color;
+            ctx.lineWidth = st.size;
+            if (st.pts.length === 1) {
+                ctx.beginPath();
+                ctx.arc(st.pts[0].x, st.pts[0].y, st.size / 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(st.pts[0].x, st.pts[0].y);
+                for (let i = 1; i < st.pts.length; i++) ctx.lineTo(st.pts[i].x, st.pts[i].y);
+                ctx.stroke();
+            }
+        });
+
+        ED.items.forEach(it => drawItem(ctx, it, ui));
+    }
+
+    function draw() { if (ED.open) render(cx, true); }
+
+    // ---------- opening / closing ----------
+    function openEditor(file) {
+        const img = new Image();
+        img.onload = () => {
+            ED.img = img;
+            ED.cache = null;
+            ED.bg = { scale: 1, x: 0, y: 0, mode: "cover" };
+            ED.filter = 0; ED.adj = { b: 1, c: 1, s: 1 };
+            ED.items = []; ED.strokes = []; ED.cur = null; ED.sel = null;
+            ED.dirty = false; ED.busy = false;
+            $s("adjB").value = 100; $s("adjC").value = 100; $s("adjS").value = 100;
+            $s("edCaption").value = "";
+            $s("edMsg").textContent = "";
+            setTool(null);
+            ED.open = true;
+            $s("storyEditor").classList.add("open");
+            document.body.style.overflow = "hidden";
+            buildThumbs();
+            rebuildCache();
+        };
+        img.onerror = () => alert("Could not open this image.");
+        img.src = URL.createObjectURL(file);
+    }
+
+    function closeEditor(force) {
+        if (ED.busy) return;
+        if (!force && (ED.dirty || ED.items.length || ED.strokes.length) &&
+            !confirm("Discard your story?")) return;
+        ED.open = false;
+        $s("storyEditor").classList.remove("open");
+        document.body.style.overflow = "";
+        ED.img = null; ED.cache = null;
+    }
+    $s("edClose").onclick = () => closeEditor(false);
+
+    // ---------- tool buttons ----------
+    function setTool(name) {
+        ED.tool = name === "draw" ? "draw" : null;
+        ["filter", "sticker", "draw"].forEach(n => {
+            $s("pnl" + n[0].toUpperCase() + n.slice(1)).classList.toggle("show", n === name);
+        });
+        document.querySelectorAll("#storyEditor [data-tool]").forEach(b =>
+            b.classList.toggle("active", b.dataset.tool === name));
+        cv.classList.toggle("draw", name === "draw");
+        if (name === "draw") ED.sel = null;
+        draw();
+    }
+
+    document.querySelectorAll("#storyEditor [data-tool]").forEach(b => {
+        b.addEventListener("click", () => {
+            const t = b.dataset.tool;
+            if (t === "text") { setTool(null); openText(null); return; }
+            setTool(b.classList.contains("active") ? null : t);
+        });
+    });
+
+    $s("edDrawDone").onclick = () => setTool(null);
+
+    $s("edFit").onclick = () => {
+        ED.bg = { scale: 1, x: 0, y: 0, mode: ED.bg.mode === "cover" ? "fit" : "cover" };
+        ED.dirty = true;
+        draw();
+    };
+
+    // ---------- adjustments ----------
+    [["adjB", "b"], ["adjC", "c"], ["adjS", "s"]].forEach(pair => {
+        $s(pair[0]).addEventListener("input", function () {
+            ED.adj[pair[1]] = this.value / 100;
+            ED.dirty = true;
+            rebuildCache();
+        });
+    });
+
+    // ---------- stickers ----------
+    (function () {
+        const box = $s("edEmoji");
+        EMOJIS.forEach(e => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = e;
+            b.onclick = () => {
+                const it = { type: "emoji", text: e, x: W / 2, y: H / 2, s: 1.4, r: 0, w: 180, h: 180 };
+                ED.items.push(it);
+                ED.sel = it;
+                ED.dirty = true;
+                setTool(null);
+            };
+            box.appendChild(b);
+        });
+    })();
+
+    // ---------- drawing colours ----------
+    function buildColors(boxId, getColor, onPick) {
+        const box = $s(boxId);
+        box.innerHTML = "";
+        COLORS.forEach(c => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "ed-color" + (c === getColor() ? " active" : "");
+            b.style.background = c;
+            b.onclick = () => {
+                onPick(c);
+                box.querySelectorAll(".ed-color").forEach(n => n.classList.remove("active"));
+                b.classList.add("active");
+            };
+            box.appendChild(b);
+        });
+    }
+    buildColors("edPenColors", () => ED.pen.color, c => { ED.pen.color = c; });
+    $s("penSize").addEventListener("input", function () { ED.pen.size = +this.value; });
+
+    function updateUndo() { $s("edUndo").disabled = ED.strokes.length === 0; }
+    $s("edUndo").onclick = () => { ED.strokes.pop(); updateUndo(); draw(); };
+
+    // ---------- text editor ----------
+    function syncTextUI() {
+        const ta = $s("edTextArea");
+        ta.style.color = ED.tstyle.color;
+        ta.style.fontFamily = FONTS[ED.tstyle.font];
+        ta.style.fontWeight = ED.tstyle.font === 0 ? "800" : "600";
+        $s("edTextBg").style.background = ED.tstyle.bg ? "#fff" : "";
+        $s("edTextBg").style.color = ED.tstyle.bg ? "#000" : "";
+        $s("edTextFont").textContent = FONT_NAMES[ED.tstyle.font];
+        buildColors("edTextColors", () => ED.tstyle.color, c => { ED.tstyle.color = c; syncTextUI(); });
+    }
+
+    function openText(it) {
+        ED.editing = it;
+        ED.tstyle = it ? { color: it.color, bg: it.bg, font: it.font } : { color: "#ffffff", bg: false, font: 0 };
+        $s("edTextArea").value = it ? it.text : "";
+        syncTextUI();
+        $s("edText").classList.add("show");
+        $s("edTextArea").focus();
+    }
+
+    function closeText() {
+        const v = $s("edTextArea").value.trim();
+        const t = ED.tstyle;
+
+        if (ED.editing) {
+            if (!v) ED.items.splice(ED.items.indexOf(ED.editing), 1);
+            else Object.assign(ED.editing, { text: v, color: t.color, bg: t.bg, font: t.font });
+        } else if (v) {
+            const it = { type: "text", text: v, color: t.color, bg: t.bg, font: t.font,
+                         x: W / 2, y: H / 2, s: 1, r: 0, w: 300, h: 100 };
+            ED.items.push(it);
+            ED.sel = it;
+        }
+        ED.dirty = true;
+        ED.editing = null;
+        $s("edText").classList.remove("show");
+        draw();
+    }
+
+    $s("edTextDone").onclick = closeText;
+    $s("edTextBg").onclick = () => { ED.tstyle.bg = !ED.tstyle.bg; syncTextUI(); };
+    $s("edTextFont").onclick = () => { ED.tstyle.font = (ED.tstyle.font + 1) % FONTS.length; syncTextUI(); };
+
+    // ---------- touch / mouse: move, pinch-zoom, rotate, draw ----------
+    const pointers = new Map();
+    let drag = null, pinch = null, moved = false, downPos = null;
+
+    function toLogical(e) {
+        const r = cv.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+
+    function hitItem(it, x, y) {
+        const dx = x - it.x, dy = y - it.y;
+        const c = Math.cos(-it.r), s = Math.sin(-it.r);
+        const lx = (dx * c - dy * s) / it.s, ly = (dx * s + dy * c) / it.s;
+        return Math.abs(lx) <= it.w / 2 + 24 && Math.abs(ly) <= it.h / 2 + 24;
+    }
+
+    function topHit(x, y) {
+        for (let i = ED.items.length - 1; i >= 0; i--) if (hitItem(ED.items[i], x, y)) return ED.items[i];
+        return null;
+    }
+
+    function overTrash(p) { return p.y > H - 280 && Math.abs(p.x - W / 2) < 220; }
+    function showTrash(on, hot) {
+        $s("edTrash").classList.toggle("show", on);
+        $s("edTrash").classList.toggle("hot", !!hot);
+    }
+
+    function startPinch() {
+        const pts = [...pointers.values()];
+        const target = ED.sel || ED.bg;
+        pinch = {
+            d0: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1,
+            a0: Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x),
+            s0: ED.sel ? ED.sel.s : ED.bg.scale,
+            r0: ED.sel ? ED.sel.r : 0,
+            item: !!ED.sel
+        };
+        drag = null;
+    }
+
+    function updatePinch() {
+        const pts = [...pointers.values()];
+        const d = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        const a = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
+        const s = pinch.s0 * d / pinch.d0;
+
+        if (pinch.item) {
+            ED.sel.s = Math.max(0.2, Math.min(8, s));
+            ED.sel.r = pinch.r0 + (a - pinch.a0);
+        } else {
+            ED.bg.scale = Math.max(0.3, Math.min(6, s));
+        }
+        ED.dirty = true;
+    }
+
+    cv.addEventListener("pointerdown", (e) => {
+        if (!ED.open) return;
+        cv.setPointerCapture(e.pointerId);
+        const p = toLogical(e);
+        pointers.set(e.pointerId, p);
+
+        if (pointers.size === 2 && ED.tool !== "draw") { startPinch(); return; }
+        if (pointers.size > 1) return;
+
+        moved = false;
+        downPos = p;
+
+        if (ED.tool === "draw") {
+            ED.cur = { color: ED.pen.color, size: ED.pen.size, pts: [p] };
+            ED.strokes.push(ED.cur);
+            updateUndo();
+            draw();
+            return;
+        }
+
+        const it = topHit(p.x, p.y);
+        if (it) {
+            ED.sel = it;
+            ED.items.splice(ED.items.indexOf(it), 1);      // bring to front
+            ED.items.push(it);
+            drag = { kind: "item", it, ox: p.x - it.x, oy: p.y - it.y };
+        } else {
+            ED.sel = null;
+            drag = { kind: "bg", ox: p.x - ED.bg.x, oy: p.y - ED.bg.y };
+        }
+        draw();
+    });
+
+    cv.addEventListener("pointermove", (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        const p = toLogical(e);
+        pointers.set(e.pointerId, p);
+
+        if (ED.cur) { ED.cur.pts.push(p); ED.dirty = true; draw(); return; }
+        if (pinch && pointers.size >= 2) { updatePinch(); draw(); return; }
+        if (!drag) return;
+
+        if (Math.hypot(p.x - downPos.x, p.y - downPos.y) > 12) moved = true;
+
+        if (drag.kind === "item") {
+            drag.it.x = p.x - drag.ox;
+            drag.it.y = p.y - drag.oy;
+            if (moved) showTrash(true, overTrash(p));
+        } else {
+            ED.bg.x = p.x - drag.ox;
+            ED.bg.y = p.y - drag.oy;
+        }
+        if (moved) ED.dirty = true;
+        draw();
+    });
+
+    function endPointer(e) {
+        if (!pointers.has(e.pointerId)) return;
+        const p = toLogical(e);
+        pointers.delete(e.pointerId);
+
+        if (ED.cur) { ED.cur = null; return; }
+
+        if (pinch) {
+            if (pointers.size < 2) {
+                pinch = null;
+                const rest = [...pointers.values()][0];       // carry on dragging with the finger left
+                if (rest) {
+                    downPos = rest; moved = true;
+                    drag = ED.sel
+                        ? { kind: "item", it: ED.sel, ox: rest.x - ED.sel.x, oy: rest.y - ED.sel.y }
+                        : { kind: "bg", ox: rest.x - ED.bg.x, oy: rest.y - ED.bg.y };
+                } else drag = null;
+            }
+            return;
+        }
+
+        if (drag && drag.kind === "item") {
+            if (moved && overTrash(p)) {                      // dropped on the bin
+                ED.items.splice(ED.items.indexOf(drag.it), 1);
+                ED.sel = null;
+            } else if (!moved && drag.it.type === "text") {   // a tap edits the text
+                showTrash(false);
+                drag = null;
+                openText(ED.sel);
+                return;
+            }
+        }
+        showTrash(false);
+        drag = null;
+        draw();
+    }
+    cv.addEventListener("pointerup", endPointer);
+    cv.addEventListener("pointercancel", endPointer);
+
+    // mouse wheel = zoom (selected item, or the photo)
+    cv.addEventListener("wheel", (e) => {
+        if (!ED.open) return;
+        e.preventDefault();
+        const k = e.deltaY < 0 ? 1.06 : 1 / 1.06;
+        if (ED.sel) ED.sel.s = Math.max(0.2, Math.min(8, ED.sel.s * k));
+        else ED.bg.scale = Math.max(0.3, Math.min(6, ED.bg.scale * k));
+        ED.dirty = true;
+        draw();
+    }, { passive: false });
+
+    document.addEventListener("keydown", (e) => {
+        if (!ED.open) return;
+        if ($s("edText").classList.contains("show")) {
+            if (e.key === "Escape") closeText();
+            return;
+        }
+        if (e.target.tagName === "INPUT") return;
+        if (e.key === "Escape") closeEditor(false);
+        if ((e.key === "Delete" || e.key === "Backspace") && ED.sel) {
+            ED.items.splice(ED.items.indexOf(ED.sel), 1);
+            ED.sel = null;
+            draw();
+        }
+    });
+
+    // ---------- share ----------
+    $s("edShare").onclick = async function () {
+        if (ED.busy || !ED.img) return;
+
+        const btn = this, msg = $s("edMsg");
+        ED.busy = true;
+        btn.disabled = true;
+        ED.sel = null;
+        msg.style.color = "#fff";
+        msg.textContent = "Uploading...";
+
+        try {
+            const out = document.createElement("canvas");
+            out.width = W; out.height = H;
+            render(out.getContext("2d"), false);                 // no selection box in the export
+
+            const blob = await new Promise(res => out.toBlob(res, "image/jpeg", 0.9));
+            if (!blob) throw new Error("Could not create the image.");
+
+            const fd = new FormData();
+            fd.append("media", blob, "story.jpg");
+            fd.append("caption", $s("edCaption").value);
+
+            const data = await post(URLS.upload, fd);
+
+            if (data.success) {
+                ED.busy = false;
+                closeEditor(true);
+                loadFeed();
+                return;
+            }
+            msg.style.color = "#f87171";
+            msg.textContent = data.message || "Upload failed.";
+        } catch (err) {
+            console.error(err);
+            msg.style.color = "#f87171";
+            msg.textContent = "Upload failed. Please try again.";
+        }
+        ED.busy = false;
+        btn.disabled = false;
+    };
+
+    // =====================================================
+    // VIEWER
+    // =====================================================
+
+    let uIdx = 0, stories = [], sIdx = 0;
+    let raf = null, started = 0, elapsed = 0, duration = IMAGE_MS;
+    let paused = false, curVideo = null;
+
+    async function openViewer(userIndex) {
+        uIdx = userIndex;
+        const u = feedUsers[uIdx];
+        if (!u) return;
+
+        let data;
+        try {
+            data = await (await fetch(URLS.user(u.id))).json();
+        } catch (e) {
+            return;
+        }
+
+        stories = data.stories || [];
+        if (!stories.length) return closeViewer();
+
+        // start at the first story you have not seen yet
+        const firstUnseen = stories.findIndex(s => !s.seen);
+        sIdx = firstUnseen === -1 || u.is_me ? 0 : firstUnseen;
+
+        $s("storyViewer").classList.add("open");
+        document.body.style.overflow = "hidden";
+        $s("svAvatar").src = u.avatar || FALLBACK;
+        $s("svUser").textContent = u.is_me ? "Your story" : u.username;
+        $s("svUser").href = URLS.profile(u.id);              // name and photo open the profile
+        $s("svAvatarLink").href = URLS.profile(u.id);
+        $s("svDelete").style.display = u.is_me ? "inline-block" : "none";
+
+        buildBars();
+        showStory();
+    }
+
+    function closeViewer() {
+        cancelAnimationFrame(raf);
+        $s("svMediaWrap").innerHTML = "";
+        $s("svViewers").classList.remove("open");
+        $s("storyViewer").classList.remove("open");
+        document.body.style.overflow = "";
+        curVideo = null;
+        loadFeed();                        // refresh the rings
+    }
+
+    function buildBars() {
+        $s("svBars").innerHTML = stories.map(() => '<div class="sv-bar"><i></i></div>').join("");
+    }
+
+    function showStory() {
+        cancelAnimationFrame(raf);
+        $s("svViewers").classList.remove("open");
+
+        const s = stories[sIdx];
+        const u = feedUsers[uIdx];
+
+        document.querySelectorAll("#svBars .sv-bar > i").forEach((b, i) => {
+            b.style.width = i < sIdx ? "100%" : "0%";
+        });
+
+        $s("svTime").textContent = ago(s.time);
+        $s("svCaption").textContent = s.caption || "";
+
+        const wrap = $s("svMediaWrap");
+        wrap.innerHTML = "";
+        curVideo = null;
+        elapsed = 0;
+        paused = false;
+
+        if (s.type === "video") {
+            const v = document.createElement("video");
+            v.className = "sv-media";
+            v.playsInline = true;
+            v.autoplay = true;
+            v.onloadedmetadata = () => {
+                duration = Math.min(v.duration * 1000, MAX_VIDEO_SECONDS * 1000);
+                begin();
+            };
+            v.onerror = nextStory;
+            v.src = s.url;
+            wrap.appendChild(v);
+            curVideo = v;
+        } else {
+            const im = document.createElement("img");
+            im.className = "sv-media";
+            im.alt = "";
+            im.onload = () => { duration = IMAGE_MS; begin(); };
+            im.onerror = nextStory;
+            im.src = s.url;
+            wrap.appendChild(im);
+        }
+
+        const vb = $s("svViewersBtn");
+        if (u.is_me) {
+            vb.style.display = "inline-block";
+            vb.textContent = "\uD83D\uDC41 " + (s.views || 0) + " views";
+        } else {
+            vb.style.display = "none";
+            if (!s.seen) {                 // tell the server once, so the owner sees the view
+                post(URLS.view(s.id));
+                s.seen = true;
+            }
+        }
+    }
+
+    function begin() {
+        started = performance.now();
+        tick();
+    }
+
+    function tick() {
+        if (!paused) {
+            elapsed = performance.now() - started;
+            const bar = document.querySelectorAll("#svBars .sv-bar > i")[sIdx];
+            if (bar) bar.style.width = Math.min(100, (elapsed / duration) * 100) + "%";
+            if (elapsed >= duration) return nextStory();
+        }
+        raf = requestAnimationFrame(tick);
+    }
+
+    function pause() {
+        if (paused) return;
+        paused = true;
+        if (curVideo) curVideo.pause();
+    }
+
+    function resume() {
+        if (!paused) return;
+        paused = false;
+        started = performance.now() - elapsed;
+        if (curVideo) curVideo.play();
+    }
+
+    function nextStory() {
+        if (sIdx < stories.length - 1) { sIdx++; showStory(); }
+        else nextUser();
+    }
+
+    function prevStory() {
+        if (elapsed > 1500 || sIdx === 0) showStory();       // restart this one
+        else { sIdx--; showStory(); }
+    }
+
+    async function nextUser() {
+        if (uIdx < feedUsers.length - 1) await openViewer(uIdx + 1);
+        else closeViewer();
+    }
+
+    $s("svNext").onclick = nextStory;
+    $s("svPrev").onclick = prevStory;
+    $s("svClose").onclick = closeViewer;
+
+    // press and hold to pause
+    ["svNext", "svPrev"].forEach(id => {
+        const el = $s(id);
+        el.addEventListener("pointerdown", pause);
+        el.addEventListener("pointerup", resume);
+        el.addEventListener("pointerleave", resume);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (!$s("storyViewer").classList.contains("open")) return;
+        if (e.key === "Escape") closeViewer();
+        if (e.key === "ArrowRight") nextStory();
+        if (e.key === "ArrowLeft") prevStory();
+    });
+
+    // delete one of my stories
+    $s("svDelete").onclick = async function () {
+        if (!confirm("Delete this story?")) return;
+
+        const s = stories[sIdx];
+        await post(URLS.del(s.id));
+        stories.splice(sIdx, 1);
+
+        if (!stories.length) return closeViewer();
+
+        sIdx = Math.min(sIdx, stories.length - 1);
+        buildBars();
+        showStory();
+    };
+
+    // who viewed my story
+    $s("svViewersBtn").onclick = async function () {
+        pause();
+
+        const s = stories[sIdx];
+        const data = await (await fetch(URLS.viewers(s.id))).json();
+        const box = $s("svViewers");
+        const list = data.viewers || [];
+
+        box.innerHTML =
+            '<div style="display:flex;justify-content:space-between;font-weight:700;">' +
+                '<span>Viewed by ' + list.length + '</span>' +
+                '<span id="svViewersClose" style="cursor:pointer;">&times;</span></div>' +
+            (list.length
+                ? list.map(v =>
+                    '<div class="sv-viewer"><img src="' + esc(v.avatar || FALLBACK) + '" alt="">' +
+                    '<span>' + esc(v.username) + '</span>' +
+                    '<small style="margin-left:auto;opacity:.6">' + ago(v.time) + '</small></div>').join("")
+                : '<p style="color:#8e96b8">No views yet.</p>');
+
+        box.classList.add("open");
+        $s("svViewersClose").onclick = () => { box.classList.remove("open"); resume(); };
+    };
+
+    loadFeed();
+
+})();
+</script>

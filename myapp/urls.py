@@ -38,6 +38,12 @@ urlpatterns = [
     path("commented_posts/", views.commented_posts, name="commented_posts"),
     path("toggle_save/", views.toggle_save, name="toggle_save"),
     path("saved_posts/", views.saved_posts, name="saved_posts"),
+    path("stories/feed/", views.story_feed, name="story_feed"),
+    path("stories/upload/", views.story_upload, name="story_upload"),
+    path("stories/user/<int:user_id>/", views.user_stories, name="user_stories"),
+    path("stories/<int:story_id>/view/", views.story_view, name="story_view"),
+    path("stories/<int:story_id>/viewers/", views.story_viewers, name="story_viewers"),
+    path("stories/<int:story_id>/delete/", views.story_delete, name="story_delete"),
 
     # =====================================================
     # USER - explore, profiles, follow, reports
